@@ -35,6 +35,13 @@ body {
     linear-gradient(180deg, #f8f3ed 0%, #f2eadf 100%);
 }
 
+body.app-state-login {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), transparent 30%),
+    radial-gradient(circle at top right, rgba(246, 235, 221, 0.9), transparent 24%),
+    linear-gradient(180deg, #fbf7f1 0%, #f1e7da 100%);
+}
+
 button,
 input,
 select,
@@ -279,7 +286,8 @@ textarea:focus-visible {
 }
 
 .auth-shell {
-  display: flex;
+  display: grid;
+  gap: 16px;
 }
 
 .auth-card {
@@ -291,12 +299,69 @@ textarea:focus-visible {
   box-shadow: var(--shadow-soft);
 }
 
+.auth-showcase {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(247, 240, 231, 0.92)),
+    #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.auth-showcase h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+}
+
+.auth-copy,
+.auth-card-copy {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.auth-feature-list {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-feature {
+  padding: 14px 16px;
+  border: 1px solid rgba(28, 23, 18, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.auth-feature strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+
+.auth-feature span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .auth-head {
   display: flex;
   justify-content: space-between;
   align-items: start;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.auth-head h3 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.05;
 }
 
 .template-map,
@@ -741,6 +806,111 @@ button.tiny {
   display: none !important;
 }
 
+body.app-state-login .hero {
+  margin-bottom: 28px;
+  align-items: start;
+}
+
+body.app-state-login .hero h1 {
+  font-size: clamp(54px, 7vw, 92px);
+  letter-spacing: -0.045em;
+}
+
+body.app-state-login .hero-copy {
+  max-width: 620px;
+  font-size: 18px;
+}
+
+body.app-state-login .hero-badge {
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+body.app-state-login .workspace {
+  grid-template-columns: minmax(460px, 560px) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+body.app-state-login .panel {
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(250, 244, 236, 0.92)),
+    #ffffff;
+}
+
+body.app-state-login .panel-header {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+body.app-state-login .panel-header h2 {
+  font-size: 28px;
+}
+
+body.app-state-login .auth-shell {
+  gap: 18px;
+}
+
+body.app-state-login .auth-card {
+  padding: 22px;
+  border-radius: 24px;
+}
+
+body.app-state-login .auth-card .field-grid {
+  grid-template-columns: 1fr;
+}
+
+body.app-state-login .auth-card .actions {
+  margin-top: 8px;
+}
+
+body.app-state-login #loginUser {
+  width: 100%;
+  min-height: 54px;
+  font-size: 16px;
+}
+
+body.app-state-login #logoutUser {
+  display: none !important;
+}
+
+body.app-state-login .preview-panel {
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 231, 0.92)),
+    #ffffff;
+}
+
+body.app-state-login .preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  align-items: end;
+}
+
+body.app-state-login .preview-head h2 {
+  font-size: clamp(42px, 6vw, 70px);
+  letter-spacing: -0.045em;
+}
+
+body.app-state-login .preview-frame {
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(248, 237, 222, 0.6), transparent 26%),
+    linear-gradient(180deg, #fffefe, #f8f2ea);
+}
+
+body.app-state-login #collageCanvas {
+  border-radius: 30px;
+}
+
+.auth-shell.is-authenticated .auth-showcase {
+  display: none;
+}
+
+.auth-shell.is-authenticated .auth-card-copy {
+  display: none;
+}
+
 @media (max-width: 1380px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -753,6 +923,15 @@ button.tiny {
 
   .scene-shell {
     grid-template-columns: 1fr;
+  }
+
+  body.app-state-login .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  body.app-state-login .preview-head {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 }
 
@@ -780,6 +959,10 @@ button.tiny {
   }
 
   .scene-inspector .compact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.app-state-login .auth-card .field-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -868,5 +1051,18 @@ button.tiny {
   .preview-frame {
     padding: 12px;
     border-radius: 18px;
+  }
+
+  body.app-state-login .hero h1 {
+    font-size: clamp(42px, 14vw, 62px);
+  }
+
+  body.app-state-login .auth-showcase,
+  body.app-state-login .auth-card {
+    padding: 16px;
+  }
+
+  body.app-state-login .preview-frame {
+    padding: 14px;
   }
 }

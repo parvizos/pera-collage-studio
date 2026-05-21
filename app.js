@@ -334,6 +334,7 @@ const elements = {
   employeeUserPin: document.getElementById("employeeUserPin"),
   loginUser: document.getElementById("loginUser"),
   logoutUser: document.getElementById("logoutUser"),
+  employeeAuthShell: document.getElementById("employeeAuthShell"),
   employeeSessionHint: document.getElementById("employeeSessionHint"),
   employeeWorkspace: document.getElementById("employeeWorkspace"),
   employeeHistoryList: document.getElementById("employeeHistoryList"),
@@ -1017,6 +1018,17 @@ function lockAdminSession() {
   adminUnlocked = false;
 }
 
+function syncAppStateClasses() {
+  const isLoggedIn = Boolean(getCurrentEmployeeUser());
+  document.body.classList.toggle("app-state-login", currentMode === "employee" && !isLoggedIn);
+  document.body.classList.toggle("app-state-employee", currentMode === "employee" && isLoggedIn);
+  document.body.classList.toggle("app-state-admin", currentMode === "admin");
+
+  if (elements.employeeAuthShell) {
+    elements.employeeAuthShell.classList.toggle("is-authenticated", isLoggedIn);
+  }
+}
+
 function activateMode(mode) {
   currentMode = mode;
   elements.modeButtons.forEach((item) => {
@@ -1026,6 +1038,7 @@ function activateMode(mode) {
     panel.classList.toggle("is-hidden", panel.dataset.panel !== mode);
   });
   elements.overlay.classList.remove("is-hidden");
+  syncAppStateClasses();
   loadScene(mode === "admin" ? activePhotoLayout : employeeData.photoTemplateId);
   renderOverlay();
   scheduleRender();
@@ -1903,6 +1916,8 @@ function syncEmployeeAccess() {
   if (elements.employeeWorkspace) {
     elements.employeeWorkspace.classList.toggle("is-hidden", !isLoggedIn);
   }
+
+  syncAppStateClasses();
 
   if (elements.brandSelectField) {
     elements.brandSelectField.style.display = isLoggedIn ? "" : "none";
