@@ -1,0 +1,18 @@
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Runtime data
+data/
+history/
+templates/
+pera.sqlite3
+
+# Local environment / temp
+.env
+.env.*
+*.log
+

@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pera Collage Studio</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Pera Istanbul</p>
+          <h1>Collage Studio</h1>
+          <p class="hero-copy">
+            Минималистичный редактор шаблонов для администратора и понятный рабочий
+            экран для сотрудников.
+          </p>
+        </div>
+        <div class="hero-badge">Visual Editor v3</div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel stack">
+          <div class="panel-header">
+            <h2>Режим работы</h2>
+            <div class="segmented">
+              <button class="segment is-active" data-mode="employee" type="button">Сотрудник</button>
+              <button class="segment" data-mode="admin" type="button">Админ</button>
+            </div>
+          </div>
+
+          <div class="mode-panel" data-panel="employee">
+            <div class="auth-shell">
+              <div class="auth-card">
+                <div class="auth-head">
+                  <div>
+                    <p class="eyebrow">Вход</p>
+                    <h3>Сотрудник</h3>
+                  </div>
+                  <button id="logoutUser" class="ghost small" type="button">Выйти</button>
+                </div>
+
+                <div class="field-grid">
+                  <label class="field">
+                    <span>Пользователь</span>
+                    <select id="employeeUserSelect"></select>
+                  </label>
+                  <label class="field">
+                    <span>PIN</span>
+                    <input id="employeeUserPin" type="password" placeholder="Введите PIN" />
+                  </label>
+                </div>
+
+                <div class="actions">
+                  <button id="loginUser" class="primary" type="button">Войти</button>
+                </div>
+
+                <p id="employeeSessionHint" class="admin-hint"></p>
+              </div>
+            </div>
+
+            <div id="employeeWorkspace" class="is-hidden">
+              <div id="employeeViewTabs" class="workspace-tabs">
+                <button class="workspace-tab is-active" data-employee-view="compose" type="button">
+                  Создать
+                </button>
+                <button class="workspace-tab" data-employee-view="history" type="button">
+                  История
+                </button>
+              </div>
+
+              <div class="employee-view-panel" data-employee-view-panel="compose">
+                <div class="admin-section">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Коллаж</p>
+                      <h3>Параметры</h3>
+                    </div>
+                  </div>
+
+                  <div class="field-grid">
+                    <label class="field">
+                      <span>Шаблон</span>
+                      <select id="photoCount"></select>
+                    </label>
+                    <label class="field">
+                      <span>Фирма / бренд</span>
+                      <select id="brandSelect"></select>
+                    </label>
+                  </div>
+
+                  <div id="employeeCustomFields" class="field-grid"></div>
+
+                  <div class="actions">
+                    <button id="downloadPng" class="primary" type="button">Скачать PNG</button>
+                    <button id="resetEmployee" class="ghost" type="button">Сбросить</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="employee-view-panel is-hidden" data-employee-view-panel="history">
+                <div class="admin-section">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">История</p>
+                      <h3>Мои коллажи</h3>
+                    </div>
+                  </div>
+
+                  <div id="employeeHistoryList" class="brand-admin-list"></div>
+                </div>
+              </div>
+
+              <div class="hidden-inputs" aria-hidden="true">
+                <input id="photo1" type="file" accept="image/*" />
+                <input id="photo2" type="file" accept="image/*" />
+                <input id="photo3" type="file" accept="image/*" />
+                <input id="photo4" type="file" accept="image/*" />
+                <input id="photo5" type="file" accept="image/*" />
+                <input id="photo6" type="file" accept="image/*" />
+                <input id="photo7" type="file" accept="image/*" />
+                <input id="photo8" type="file" accept="image/*" />
+              </div>
+            </div>
+          </div>
+
+          <div class="mode-panel is-hidden" data-panel="admin">
+            <div id="adminViewTabs" class="workspace-tabs">
+              <button class="workspace-tab" data-admin-view="overview" type="button">Основное</button>
+              <button class="workspace-tab is-active" data-admin-view="scene" type="button">Сцена</button>
+              <button class="workspace-tab" data-admin-view="fields" type="button">Поля</button>
+              <button class="workspace-tab" data-admin-view="assets" type="button">Медиа</button>
+              <button class="workspace-tab" data-admin-view="users" type="button">Пользователи</button>
+            </div>
+
+            <div class="admin-view-panel is-hidden" data-admin-view-panel="overview">
+              <div class="admin-section">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">Система</p>
+                    <h3>Основные настройки</h3>
+                  </div>
+                  <div class="admin-access">
+                    <label class="field">
+                      <span>PIN админа</span>
+                      <input id="adminPin" type="password" placeholder="PIN админа" />
+                    </label>
+                    <button id="lockAdmin" class="ghost small" type="button">Закрыть админку</button>
+                  </div>
+                </div>
+
+                <div class="field-grid">
+                  <label class="field">
+                    <span>Ширина холста</span>
+                    <input id="canvasWidth" type="number" min="600" step="10" value="1080" />
+                  </label>
+                  <label class="field">
+                    <span>Высота холста</span>
+                    <input id="canvasHeight" type="number" min="900" step="10" value="1620" />
+                  </label>
+                  <label class="field">
+                    <span>Фон шапки</span>
+                    <input id="headerBackground" type="color" value="#ffffff" />
+                  </label>
+                  <label class="field">
+                    <span>Фон нижнего блока</span>
+                    <input id="footerBackground" type="color" value="#ffffff" />
+                  </label>
+                  <label class="field">
+                    <span>Фон карточки</span>
+                    <input id="canvasBackground" type="color" value="#f6f1ea" />
+                  </label>
+                  <label class="field">
+                    <span>Цвет направляющих</span>
+                    <input id="guideColor" type="color" value="#d47516" />
+                  </label>
+                  <label class="field checkbox-field">
+                    <span>Показывать направляющие</span>
+                    <input id="showGuides" type="checkbox" checked />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-view-panel" data-admin-view-panel="scene">
+              <div class="scene-shell">
+                <div class="scene-card">
+                  <div class="scene-card-head">
+                    <div>
+                      <p class="eyebrow">Слои</p>
+                      <h3>Шаблон</h3>
+                    </div>
+                    <div class="segmented compact">
+                      <button id="editBlocksBtn" class="segment compact-btn is-active" type="button">
+                        Блоки
+                      </button>
+                      <button id="editPhotosBtn" class="segment compact-btn" type="button">
+                        Фото-ячейки
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="small-actions">
+                    <select id="adminPhotoTemplateSelect" class="ghost tiny"></select>
+                    <button id="clearPhotoTemplate" class="ghost tiny" type="button">Очистить</button>
+                    <button id="duplicatePhotoTemplate" class="ghost tiny" type="button">Дублировать</button>
+                    <button id="addPhotoTemplate" class="ghost tiny" type="button">Новый шаблон</button>
+                    <button id="removePhotoTemplate" class="ghost tiny" type="button">Удалить шаблон</button>
+                  </div>
+
+                  <label class="field">
+                    <span>Название шаблона</span>
+                    <input id="adminPhotoTemplateName" type="text" placeholder="Название шаблона" />
+                  </label>
+
+                  <div id="photoTemplateList" class="template-block-list"></div>
+                </div>
+
+                <div class="scene-card">
+                  <div class="scene-card-head">
+                    <div>
+                      <p class="eyebrow">Библиотека</p>
+                      <h3>Элементы сцены</h3>
+                    </div>
+                  </div>
+
+                  <div class="small-actions">
+                    <select id="availableBlockSelect" class="ghost tiny">
+                      <option value="">Выберите тип блока</option>
+                    </select>
+                    <button id="insertBlock" class="ghost tiny" type="button">Добавить блок</button>
+                    <button id="addPhotoCell" class="ghost tiny" type="button">Добавить ячейку</button>
+                    <button id="removeSelected" class="ghost tiny" type="button">Удалить</button>
+                  </div>
+
+                  <div id="templateItemList" class="template-block-list"></div>
+                </div>
+
+                <div class="scene-card scene-inspector">
+                  <div class="selection-card selection-card--header">
+                    <div>
+                      <p class="eyebrow">Инспектор</p>
+                      <h4 id="selectionTitle">Элемент</h4>
+                    </div>
+                    <p id="selectionMeta" class="selection-meta">Выбери блок или фото-ячейку</p>
+                  </div>
+
+                  <div id="textBindingSection" class="selection-card is-hidden">
+                    <div>
+                      <p class="eyebrow">Текст</p>
+                      <h4>Привязка переменных</h4>
+                    </div>
+                    <div class="field-grid">
+                      <label class="field">
+                        <span>Основной текст</span>
+                        <select id="bindingPrimary"></select>
+                      </label>
+                      <label class="field">
+                        <span>Второй текст</span>
+                        <select id="bindingSecondary"></select>
+                      </label>
+                      <label class="field">
+                        <span>Цвет текста</span>
+                        <input id="textColor" type="color" />
+                      </label>
+                      <label class="field">
+                        <span>Выравнивание</span>
+                        <select id="textAlign">
+                          <option value="left">Слева</option>
+                          <option value="center">По центру</option>
+                          <option value="right">Справа</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div id="imageBlockSection" class="selection-card is-hidden">
+                    <div>
+                      <p class="eyebrow">Изображение</p>
+                      <h4>Картинка блока</h4>
+                    </div>
+                    <div class="field-grid">
+                      <label class="field">
+                        <span>Файл изображения</span>
+                        <input id="customImageUpload" type="file" accept="image/*" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="selection-card">
+                    <div>
+                      <p class="eyebrow">Геометрия</p>
+                      <h4>Положение и стиль</h4>
+                    </div>
+                    <div class="field-grid compact-grid">
+                      <label class="field">
+                        <span>X</span>
+                        <input id="itemX" type="number" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Y</span>
+                        <input id="itemY" type="number" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Ширина</span>
+                        <input id="itemWidth" type="number" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Высота</span>
+                        <input id="itemHeight" type="number" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Скругление</span>
+                        <input id="itemRadius" type="number" min="0" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Толщина рамки</span>
+                        <input id="itemBorderWidth" type="number" min="0" step="1" />
+                      </label>
+                      <label class="field">
+                        <span>Фон</span>
+                        <input id="itemFill" type="color" />
+                      </label>
+                      <label class="field">
+                        <span>Рамка</span>
+                        <input id="itemStroke" type="color" />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-view-panel is-hidden" data-admin-view-panel="fields">
+              <div class="admin-section">
+                <div class="admin-inline">
+                  <div>
+                    <p class="eyebrow">Переменные</p>
+                    <h3>Поля сотрудника</h3>
+                  </div>
+                  <button id="addEmployeeField" class="ghost small" type="button">Добавить поле</button>
+                </div>
+
+                <p class="admin-hint">
+                  Эти поля увидит сотрудник. Их можно привязывать к текстовым блокам на
+                  коллаже.
+                </p>
+
+                <div id="employeeFieldAdminList" class="brand-admin-list"></div>
+              </div>
+            </div>
+
+            <div class="admin-view-panel is-hidden" data-admin-view-panel="assets">
+              <div class="admin-section stack">
+                <div class="admin-section section-nested">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Типографика</p>
+                      <h3>Шапка и тексты</h3>
+                    </div>
+                  </div>
+
+                  <div class="field-grid">
+                    <label class="field">
+                      <span>Заголовок магазина</span>
+                      <input id="storeTitle" type="text" value="PERA" />
+                    </label>
+                    <label class="field">
+                      <span>Подзаголовок</span>
+                      <input id="storeSubtitle" type="text" value="ISTANBUL" />
+                    </label>
+                    <label class="field">
+                      <span>Размер заголовка</span>
+                      <input id="storeTitleSize" type="number" min="20" step="1" value="74" />
+                    </label>
+                    <label class="field">
+                      <span>Размер подзаголовка</span>
+                      <input id="storeSubtitleSize" type="number" min="12" step="1" value="26" />
+                    </label>
+                    <label class="field">
+                      <span>Цвет текста магазина</span>
+                      <input id="storeTextColor" type="color" value="#121212" />
+                    </label>
+                    <label class="field">
+                      <span>Цвет текста бренда</span>
+                      <input id="brandTextColor" type="color" value="#151515" />
+                    </label>
+                    <label class="field">
+                      <span>Цвет нижнего текста</span>
+                      <input id="footerTextColor" type="color" value="#121212" />
+                    </label>
+                    <label class="field">
+                      <span>Цвет цены</span>
+                      <input id="priceTextColor" type="color" value="#ffffff" />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="admin-section section-nested">
+                  <div class="section-head">
+                    <div>
+                      <p class="eyebrow">Медиа</p>
+                      <h3>Логотипы шапки</h3>
+                    </div>
+                  </div>
+
+                  <div class="field-grid">
+                    <label class="field">
+                      <span>Центральный логотип</span>
+                      <input id="storeLogoUpload" type="file" accept="image/*" />
+                    </label>
+                    <label class="field">
+                      <span>Левая эмблема</span>
+                      <input id="leftBadgeUpload" type="file" accept="image/*" />
+                    </label>
+                    <label class="field">
+                      <span>Правая эмблема</span>
+                      <input id="rightBadgeUpload" type="file" accept="image/*" />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="admin-section section-nested">
+                  <div class="admin-inline">
+                    <div>
+                      <p class="eyebrow">Фирмы</p>
+                      <h3>Список брендов</h3>
+                    </div>
+                    <button id="addBrand" class="ghost small" type="button">Добавить фирму</button>
+                  </div>
+
+                  <div id="brandAdminList" class="brand-admin-list"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-view-panel is-hidden" data-admin-view-panel="users">
+              <div class="admin-section">
+                <div class="admin-inline">
+                  <div>
+                    <p class="eyebrow">Доступ</p>
+                    <h3>Пользователи</h3>
+                  </div>
+                  <button id="addUser" class="ghost small" type="button">Добавить пользователя</button>
+                </div>
+
+                <p class="admin-hint">
+                  У каждого сотрудника свой PIN, доступные фирмы и своя история коллажей.
+                </p>
+
+                <div id="userAdminList" class="brand-admin-list"></div>
+              </div>
+            </div>
+
+            <div class="actions admin-actions-bar">
+              <button id="saveTemplate" class="primary" type="button">Сохранить в файл</button>
+              <button id="exportTemplate" class="ghost" type="button">Экспорт JSON</button>
+              <button id="resetTemplate" class="ghost" type="button">Сбросить шаблон</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="preview-panel">
+          <div class="preview-head">
+            <div>
+              <p class="eyebrow">Превью</p>
+              <h2>Коллаж товара</h2>
+            </div>
+            <p class="preview-meta">
+              Справа всегда живое превью. В админке ты настраиваешь сцену, в режиме
+              сотрудника двигаешь фото внутри ячеек.
+            </p>
+          </div>
+
+          <div class="preview-frame">
+            <div id="stage" class="stage">
+              <canvas id="collageCanvas" width="1080" height="1620"></canvas>
+              <div id="editorOverlay" class="editor-overlay"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
