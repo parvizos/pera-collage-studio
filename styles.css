@@ -337,6 +337,10 @@ textarea:focus-visible {
   line-height: 1.55;
 }
 
+#employeePreviewActionsHost {
+  margin-top: 14px;
+}
+
 .admin-section,
 .template-map,
 .template-controls,
@@ -1010,7 +1014,9 @@ body.app-state-login #employeeSessionHint {
 }
 
 .employee-view-panel[data-employee-view-panel="compose"] .section-head,
-.employee-view-panel[data-employee-view-panel="compose"] .compose-steps {
+.employee-view-panel[data-employee-view-panel="compose"] .compose-steps,
+.employee-view-panel[data-employee-view-panel="compose"] .compose-collage-card,
+body:not(.app-state-admin) .preview-head {
   display: none;
 }
 

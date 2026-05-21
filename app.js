@@ -341,7 +341,9 @@ const elements = {
   employeeSessionHint: document.getElementById("employeeSessionHint"),
   employeeWorkspace: document.getElementById("employeeWorkspace"),
   employeePrimaryFields: document.getElementById("employeePrimaryFields"),
+  employeeComposeActionsHost: document.getElementById("employeeComposeActionsHost"),
   employeeComposeActions: document.getElementById("employeeComposeActions"),
+  employeePreviewActionsHost: document.getElementById("employeePreviewActionsHost"),
   employeeComposeCollage: document.getElementById("employeeComposeCollage"),
   employeeNextStep: document.getElementById("employeeNextStep"),
   employeeBackStep: document.getElementById("employeeBackStep"),
@@ -1129,6 +1131,16 @@ function activateEmployeeComposeStep(step) {
 
   if (elements.resetEmployee) {
     elements.resetEmployee.textContent = step === "details" ? "Сбросить" : "Сбросить всё";
+  }
+
+  if (elements.employeeComposeActions) {
+    const targetHost =
+      step === "collage" && elements.employeePreviewActionsHost
+        ? elements.employeePreviewActionsHost
+        : elements.employeeComposeActionsHost;
+    if (targetHost && elements.employeeComposeActions.parentElement !== targetHost) {
+      targetHost.appendChild(elements.employeeComposeActions);
+    }
   }
 
   syncAppStateClasses();
