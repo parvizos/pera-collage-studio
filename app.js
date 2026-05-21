@@ -1978,7 +1978,7 @@ function syncEmployeeAccess() {
 
   if (elements.employeeSessionHint) {
     elements.employeeSessionHint.textContent = currentUser
-      ? `Вошёл: ${currentUser.name}. Доступно фирм: ${allowedBrandIds.length || 0}`
+      ? `Вы вошли как ${currentUser.name}. Фирм в доступе: ${allowedBrandIds.length || 0}`
       : "Войди как сотрудник, чтобы создавать и сохранять свои коллажи.";
     elements.employeeSessionHint.style.display = isLoggedIn ? "" : "none";
   }

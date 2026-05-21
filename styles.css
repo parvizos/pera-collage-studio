@@ -987,15 +987,47 @@ body.app-state-login #employeeSessionHint {
 }
 
 .auth-shell.is-authenticated .auth-card {
-  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(246, 238, 228, 0.96)),
+    #ffffff;
 }
 
 .auth-shell.is-authenticated .auth-head {
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.auth-shell.is-authenticated .auth-head > div {
+  display: none;
+}
+
+.auth-shell.is-authenticated #employeeSessionHint {
+  display: block !important;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .auth-shell.is-authenticated .auth-card-copy {
   display: none;
+}
+
+.auth-shell.is-authenticated #logoutUser {
+  min-width: 118px;
 }
 
 @media (max-width: 1380px) {
