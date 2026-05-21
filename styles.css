@@ -35,6 +35,20 @@ body {
     linear-gradient(180deg, #f8f3ed 0%, #f2eadf 100%);
 }
 
+.admin-secret-trigger {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: auto;
+  z-index: 5;
+  background: transparent;
+}
+
 body.app-state-login {
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), transparent 30%),

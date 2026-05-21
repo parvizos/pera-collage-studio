@@ -327,7 +327,7 @@ const elements = {
   stage: document.getElementById("stage"),
   overlay: document.getElementById("editorOverlay"),
   heroBadge: document.querySelector(".hero-badge"),
-  secretAdminTrigger: document.querySelector(".page-shell"),
+  secretAdminTrigger: document.getElementById("adminSecretTrigger"),
   modeButtons: Array.from(document.querySelectorAll(".segment[data-mode]")),
   panels: Array.from(document.querySelectorAll(".mode-panel")),
   photoCount: document.getElementById("photoCount"),
@@ -1189,7 +1189,6 @@ function bindSecretAdminTrigger() {
   const trigger = elements.secretAdminTrigger || elements.heroBadge;
   if (!trigger) return;
 
-  trigger.title = "Служебная зона";
   trigger.addEventListener("click", () => {
     const now = Date.now();
     if (now - adminTapState.lastTime > 1800) {
