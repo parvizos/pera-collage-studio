@@ -201,6 +201,34 @@ function goToEmployeeRoute() {
   window.location.href = "/";
 }
 
+function applyAdminRouteLoginState() {
+  if (!isAdminRoute()) return;
+
+  document.body.classList.add("app-route-admin");
+
+  if (elements.authHeadEyebrow) {
+    elements.authHeadEyebrow.textContent = "Вход";
+  }
+  if (elements.authHeadTitle) {
+    elements.authHeadTitle.textContent = "Администратор";
+  }
+  if (elements.employeeUserField) {
+    elements.employeeUserField.style.display = "none";
+  }
+  if (elements.employeeUserPinField) {
+    const label = elements.employeeUserPinField.querySelector("span");
+    if (label) {
+      label.textContent = "PIN администратора";
+    }
+  }
+  if (elements.employeeUserPin) {
+    elements.employeeUserPin.placeholder = "Введите PIN администратора";
+  }
+  if (elements.loginUser) {
+    elements.loginUser.textContent = "Войти в админку";
+  }
+}
+
 function supportsLocalFileSystem() {
   return typeof window.showDirectoryPicker === "function";
 }
@@ -439,6 +467,8 @@ elements.brandSelectField = elements.brandSelect.closest(".field");
 
 const ctx = elements.canvas.getContext("2d");
 
+applyAdminRouteLoginState();
+
 boot().catch((error) => {
   console.error("Boot failed", error);
   alert(
@@ -486,30 +516,8 @@ async function boot() {
   updatePhotoInputState();
   scheduleRender();
 
-  if (isAdminRoute()) {
-    if (elements.authHeadEyebrow) {
-      elements.authHeadEyebrow.textContent = "Вход";
-    }
-    if (elements.authHeadTitle) {
-      elements.authHeadTitle.textContent = "Администратор";
-    }
-    if (elements.employeeUserField) {
-      elements.employeeUserField.style.display = "none";
-    }
-    if (elements.employeeUserPinField) {
-      const label = elements.employeeUserPinField.querySelector("span");
-      if (label) {
-        label.textContent = "PIN администратора";
-      }
-    }
-    if (elements.employeeUserPin) {
-      elements.employeeUserPin.placeholder = "Введите PIN администратора";
-    }
-    if (elements.loginUser) {
-      elements.loginUser.textContent = "Войти в админку";
-    }
-    syncAppStateClasses();
-  }
+  applyAdminRouteLoginState();
+  syncAppStateClasses();
 }
 
 async function initializeTemplateStorage() {

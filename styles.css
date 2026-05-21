@@ -1027,6 +1027,10 @@ body.app-state-login #employeeSessionHint {
   display: none !important;
 }
 
+body.app-route-admin .field:has(#employeeUserSelect) {
+  display: none !important;
+}
+
 .employee-view-panel[data-employee-view-panel="compose"] .section-head,
 .employee-view-panel[data-employee-view-panel="compose"] .compose-steps,
 .employee-view-panel[data-employee-view-panel="compose"] .compose-collage-card,
