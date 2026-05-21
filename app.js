@@ -1442,9 +1442,20 @@ function bindEmployeeInputs() {
       alert("Сначала войди как сотрудник.");
       return;
     }
-    const imageDataUrl = elements.canvas.toDataURL("image/png");
     const productCode = getProductCodeFromState();
+    let exportAsset;
     try {
+      exportAsset = await exportCanvasPng(elements.canvas);
+    } catch (error) {
+      console.error("PNG export failed", error);
+      alert("Не удалось подготовить PNG для скачивания.");
+      return;
+    }
+
+    triggerBlobDownload(exportAsset.blob, buildSafeFileName(productCode));
+
+    try {
+      const imageDataUrl = exportAsset.dataUrl ?? (await blobToDataUrl(exportAsset.blob));
       await saveCollageHistory(imageDataUrl);
     } catch (error) {
       console.error("History save failed", error);
@@ -1454,10 +1465,6 @@ function bindEmployeeInputs() {
           : "Не удалось сохранить коллаж в историю."
       );
     }
-    const link = document.createElement("a");
-    link.download = buildSafeFileName(productCode);
-    link.href = imageDataUrl;
-    link.click();
   });
 
   elements.resetEmployee.addEventListener("click", () => {
@@ -3399,6 +3406,68 @@ function fileToDataUrl(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function exportCanvasPng(canvas) {
+  return new Promise((resolve, reject) => {
+    if (!canvas) {
+      reject(new Error("Canvas is not available."));
+      return;
+    }
+
+    if (typeof canvas.toBlob === "function") {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Canvas PNG blob is empty."));
+          return;
+        }
+        resolve({ blob, dataUrl: null });
+      }, "image/png");
+      return;
+    }
+
+    try {
+      const dataUrl = canvas.toDataURL("image/png");
+      const fallbackBlob = dataUrlToBlob(dataUrl);
+      resolve({ blob: fallbackBlob, dataUrl });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [meta, base64Data = ""] = String(dataUrl || "").split(",", 2);
+  const mimeMatch = meta.match(/data:(.*?);base64/);
+  const mimeType = mimeMatch?.[1] || "image/png";
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
+function triggerBlobDownload(blob, fileName) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = fileName;
+  link.href = objectUrl;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(objectUrl);
+  }, 1000);
 }
 
 function numberValue(element, fallback) {
