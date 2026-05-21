@@ -180,6 +180,8 @@ let employeeHistory = [];
 let adminHistory = [];
 let employeeHistoryQuery = "";
 let adminHistoryQuery = "";
+let employeeHistoryLoading = false;
+let adminHistoryLoading = false;
 let dragState = null;
 let photoAdjustSelection = 0;
 let employeeTouchState = null;
@@ -512,13 +514,14 @@ async function boot() {
   renderEmployeeFieldInputs();
   renderEmployeeFieldAdminList();
   syncEmployeeAccess();
-  await loadEmployeeHistory();
-  await loadAdminHistory();
   renderAvailableBlocks();
   renderItemList();
   syncSelectionInspector();
   updatePhotoInputState();
   scheduleRender();
+
+  renderEmployeeHistoryList();
+  renderAdminHistoryList();
 
   applyAdminRouteLoginState();
   syncAppStateClasses();
@@ -1203,6 +1206,11 @@ function activateEmployeeView(view) {
     panel.classList.toggle("is-hidden", panel.dataset.employeeViewPanel !== view);
   });
   syncAppStateClasses();
+  if (view === "history") {
+    loadEmployeeHistory().catch((error) => {
+      console.error("Employee history load failed", error);
+    });
+  }
 }
 
 function activateEmployeeComposeStep(step) {
@@ -1340,7 +1348,9 @@ function bindEmployeeInputs() {
       activateEmployeeView("compose");
       populateBrandSelect();
       syncEmployeeInputs();
-      await loadEmployeeHistory();
+      loadEmployeeHistory().catch((error) => {
+        console.error("Employee history load failed", error);
+      });
       scheduleRender();
     });
   }
@@ -2180,10 +2190,14 @@ function syncEmployeeAccess() {
 async function loadEmployeeHistory() {
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) {
+    employeeHistoryLoading = false;
     employeeHistory = [];
     renderEmployeeHistoryList();
     return;
   }
+
+  employeeHistoryLoading = true;
+  renderEmployeeHistoryList();
 
   try {
     if (isFileMode()) {
@@ -2202,12 +2216,16 @@ async function loadEmployeeHistory() {
   } catch (error) {
     console.error("Employee history load failed", error);
     employeeHistory = [];
+  } finally {
+    employeeHistoryLoading = false;
   }
 
   renderEmployeeHistoryList();
 }
 
 async function loadAdminHistory() {
+  adminHistoryLoading = true;
+  renderAdminHistoryList();
   try {
     if (isFileMode()) {
       const records = await listLocalJsonRecordsRecursive(["history"]);
@@ -2225,6 +2243,8 @@ async function loadAdminHistory() {
   } catch (error) {
     console.error("Admin history load failed", error);
     adminHistory = [];
+  } finally {
+    adminHistoryLoading = false;
   }
 
   renderAdminHistoryList();
@@ -2240,6 +2260,14 @@ function renderEmployeeHistoryList() {
     empty.className = "brand-row";
     empty.textContent = "Войди как сотрудник, чтобы видеть историю своих коллажей.";
     elements.employeeHistoryList.append(empty);
+    return;
+  }
+
+  if (employeeHistoryLoading && !employeeHistory.length) {
+    const loading = document.createElement("div");
+    loading.className = "brand-row";
+    loading.textContent = "Загружаем историю...";
+    elements.employeeHistoryList.append(loading);
     return;
   }
 
@@ -2318,6 +2346,14 @@ function renderEmployeeHistoryList() {
 function renderAdminHistoryList() {
   if (!elements.adminHistoryList) return;
   elements.adminHistoryList.innerHTML = "";
+
+  if (adminHistoryLoading && !adminHistory.length) {
+    const loading = document.createElement("div");
+    loading.className = "brand-row";
+    loading.textContent = "Загружаем историю...";
+    elements.adminHistoryList.append(loading);
+    return;
+  }
 
   if (!adminHistory.length) {
     const empty = document.createElement("div");
