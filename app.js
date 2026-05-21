@@ -2681,14 +2681,6 @@ async function drawPhotoCell(src, cell, transform) {
   drawShape(cell, cell.fill);
 
   if (!src) {
-    ctx.fillStyle = "#d9cfbf";
-    roundRect(ctx, cell.x, cell.y, cell.width, cell.height, cell.radius);
-    ctx.fill();
-    ctx.fillStyle = "#6e6256";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `600 ${Math.max(20, Math.round(cell.width * 0.06))}px Segoe UI`;
-    ctx.fillText("Ğ—Ğ°Ğ³Ñ€ÑƒĞ·Ğ¸Ñ‚Ğµ Ñ„Ğ¾Ñ‚Ğ¾", cell.x + cell.width / 2, cell.y + cell.height / 2);
     return;
   }
 
