@@ -103,7 +103,15 @@
                     </div>
                   </div>
 
-                  <div class="field-grid">
+                  <div class="compose-steps">
+                    <button id="employeeStepDetails" class="compose-step is-active" data-employee-compose-step="details" type="button">
+                      1. Данные
+                    </button>
+                    <button id="employeeStepCollage" class="compose-step" data-employee-compose-step="collage" type="button">
+                      2. Коллаж
+                    </button>
+                  </div>
+                  <div id="employeePrimaryFields" class="field-grid">
                     <label class="field">
                       <span>Шаблон</span>
                       <select id="photoCount"></select>
@@ -115,8 +123,19 @@
                   </div>
 
                   <div id="employeeCustomFields" class="field-grid"></div>
+                  <div id="employeeComposeCollage" class="compose-collage-card is-hidden">
+                    <p class="eyebrow">Шаг 2</p>
+                    <h4>Настройка коллажа</h4>
+                    <p class="compose-copy">
+                      Двигайте фото внутри ячеек, приближайте жестами и проверьте итог перед сохранением.
+                    </p>
+                    <div class="actions">
+                      <button id="employeeBackStep" class="ghost" type="button">Назад к данным</button>
+                    </div>
+                  </div>
 
-                  <div class="actions">
+                  <div id="employeeComposeActions" class="actions">
+                    <button id="employeeNextStep" class="primary" type="button">Далее к коллажу</button>
                     <button id="downloadPng" class="primary" type="button">Скачать PNG</button>
                     <button id="resetEmployee" class="ghost" type="button">Сбросить</button>
                   </div>

@@ -172,6 +172,7 @@ let activePhotoLayout = DEFAULT_PHOTO_TEMPLATE_ID;
 let currentSceneTemplateId = DEFAULT_PHOTO_TEMPLATE_ID;
 let selection = { type: "block", key: "header" };
 let employeeView = "compose";
+let employeeComposeStep = "details";
 let adminView = "scene";
 let currentEmployeeUserId = null;
 let adminUnlocked = false;
@@ -337,11 +338,17 @@ const elements = {
   employeeAuthShell: document.getElementById("employeeAuthShell"),
   employeeSessionHint: document.getElementById("employeeSessionHint"),
   employeeWorkspace: document.getElementById("employeeWorkspace"),
+  employeePrimaryFields: document.getElementById("employeePrimaryFields"),
+  employeeComposeActions: document.getElementById("employeeComposeActions"),
+  employeeComposeCollage: document.getElementById("employeeComposeCollage"),
+  employeeNextStep: document.getElementById("employeeNextStep"),
+  employeeBackStep: document.getElementById("employeeBackStep"),
   employeeHistoryList: document.getElementById("employeeHistoryList"),
   adminHistoryList: document.getElementById("adminHistoryList"),
   employeeCustomFields: document.getElementById("employeeCustomFields"),
   employeeViewButtons: Array.from(document.querySelectorAll("[data-employee-view]")),
   employeeViewPanels: Array.from(document.querySelectorAll("[data-employee-view-panel]")),
+  employeeComposeStepButtons: Array.from(document.querySelectorAll("[data-employee-compose-step]")),
   photoInputs: Array.from(document.querySelectorAll(".hidden-inputs input[type='file']")),
   downloadPng: document.getElementById("downloadPng"),
   resetEmployee: document.getElementById("resetEmployee"),
@@ -1023,6 +1030,14 @@ function syncAppStateClasses() {
   document.body.classList.toggle("app-state-login", currentMode === "employee" && !isLoggedIn);
   document.body.classList.toggle("app-state-employee", currentMode === "employee" && isLoggedIn);
   document.body.classList.toggle("app-state-admin", currentMode === "admin");
+  document.body.classList.toggle(
+    "app-state-compose-details",
+    currentMode === "employee" && isLoggedIn && employeeView === "compose" && employeeComposeStep === "details"
+  );
+  document.body.classList.toggle(
+    "app-state-compose-collage",
+    currentMode === "employee" && isLoggedIn && employeeView === "compose" && employeeComposeStep === "collage"
+  );
 
   if (elements.employeeAuthShell) {
     elements.employeeAuthShell.classList.toggle("is-authenticated", isLoggedIn);
@@ -1081,6 +1096,40 @@ function activateEmployeeView(view) {
   elements.employeeViewPanels.forEach((panel) => {
     panel.classList.toggle("is-hidden", panel.dataset.employeeViewPanel !== view);
   });
+  syncAppStateClasses();
+}
+
+function activateEmployeeComposeStep(step) {
+  employeeComposeStep = step;
+  elements.employeeComposeStepButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.employeeComposeStep === step);
+  });
+
+  if (elements.employeePrimaryFields) {
+    elements.employeePrimaryFields.classList.toggle("is-hidden", step !== "details");
+  }
+
+  if (elements.employeeCustomFields) {
+    elements.employeeCustomFields.classList.toggle("is-hidden", step !== "details");
+  }
+
+  if (elements.employeeComposeCollage) {
+    elements.employeeComposeCollage.classList.toggle("is-hidden", step !== "collage");
+  }
+
+  if (elements.employeeNextStep) {
+    elements.employeeNextStep.style.display = step === "details" ? "" : "none";
+  }
+
+  if (elements.downloadPng) {
+    elements.downloadPng.style.display = step === "collage" ? "" : "none";
+  }
+
+  if (elements.resetEmployee) {
+    elements.resetEmployee.textContent = step === "details" ? "Сбросить" : "Сбросить всё";
+  }
+
+  syncAppStateClasses();
 }
 
 function activateAdminView(view) {
@@ -1100,11 +1149,18 @@ function activateAdminView(view) {
 
 function bindWorkspaceTabs() {
   activateEmployeeView(employeeView);
+  activateEmployeeComposeStep(employeeComposeStep);
   activateAdminView(adminView);
 
   elements.employeeViewButtons.forEach((button) => {
     button.addEventListener("click", () => {
       activateEmployeeView(button.dataset.employeeView);
+    });
+  });
+
+  elements.employeeComposeStepButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      activateEmployeeComposeStep(button.dataset.employeeComposeStep);
     });
   });
 
@@ -1155,6 +1211,8 @@ function bindEmployeeInputs() {
       setCurrentEmployeeUser(selectedUser.id);
       elements.employeeUserPin.value = "";
       employeeData.brandId = selectedUser.brandIds?.[0] ?? null;
+      activateEmployeeComposeStep("details");
+      activateEmployeeView("compose");
       populateBrandSelect();
       syncEmployeeInputs();
       await loadEmployeeHistory();
@@ -1167,8 +1225,23 @@ function bindEmployeeInputs() {
       setCurrentEmployeeUser(null);
       elements.employeeUserPin.value = "";
       employeeHistory = [];
+      activateEmployeeComposeStep("details");
       syncEmployeeInputs();
       scheduleRender();
+    });
+  }
+
+  if (elements.employeeNextStep) {
+    elements.employeeNextStep.addEventListener("click", () => {
+      activateEmployeeComposeStep("collage");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  if (elements.employeeBackStep) {
+    elements.employeeBackStep.addEventListener("click", () => {
+      activateEmployeeComposeStep("details");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
@@ -1253,6 +1326,7 @@ function bindEmployeeInputs() {
     if (currentMode === "employee") {
       loadScene(employeeData.photoTemplateId);
     }
+    activateEmployeeComposeStep("details");
     syncEmployeeInputs();
     populateBrandSelect();
     updatePhotoInputState();
@@ -1923,7 +1997,7 @@ function syncEmployeeAccess() {
     elements.brandSelectField.style.display = isLoggedIn ? "" : "none";
   }
 
-  [elements.photoCount, elements.downloadPng, elements.resetEmployee].forEach((element) => {
+  [elements.photoCount, elements.downloadPng, elements.resetEmployee, elements.employeeNextStep, elements.employeeBackStep].forEach((element) => {
     if (element) {
       element.disabled = !isLoggedIn;
     }
@@ -2182,6 +2256,8 @@ function openHistoryRecord(record) {
   if (currentMode === "employee") {
     loadScene(employeeData.photoTemplateId);
   }
+  activateEmployeeView("compose");
+  activateEmployeeComposeStep("collage");
   syncEmployeeInputs();
   syncEmployeeAccess();
   scheduleRender();
