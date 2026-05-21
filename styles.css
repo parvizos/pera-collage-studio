@@ -980,6 +980,20 @@ body.app-state-login #employeeSessionHint {
   display: none;
 }
 
+.auth-shell.is-authenticated .field-grid,
+.auth-shell.is-authenticated #loginUser,
+.auth-shell.is-authenticated .auth-card-copy {
+  display: none !important;
+}
+
+.auth-shell.is-authenticated .auth-card {
+  padding: 16px 18px;
+}
+
+.auth-shell.is-authenticated .auth-head {
+  margin-bottom: 8px;
+}
+
 .auth-shell.is-authenticated .auth-card-copy {
   display: none;
 }
