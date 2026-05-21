@@ -1967,30 +1967,58 @@ function renderEmployeeHistoryList() {
     return;
   }
 
-  employeeHistory.forEach((record) => {
-    const row = document.createElement("div");
-    row.className = "brand-row history-row";
+  const groupedRecords = employeeHistory.reduce((groups, record) => {
+    const key = record.brandName?.trim() || "Без бренда";
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key).push(record);
+    return groups;
+  }, new Map());
 
-    const meta = document.createElement("div");
-    meta.className = "history-meta";
-    const createdAt = new Date(record.createdAt);
-    meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${record.brandName ?? "Без бренда"} · ${createdAt.toLocaleString("ru-RU")}</span>`;
+  groupedRecords.forEach((records, brandName) => {
+    const group = document.createElement("section");
+    group.className = "history-group";
 
-    const editButton = document.createElement("button");
-    editButton.type = "button";
-    editButton.textContent = "Открыть";
-    editButton.addEventListener("click", () => {
-      openHistoryRecord(record);
+    const head = document.createElement("div");
+    head.className = "history-group-head";
+    const title = document.createElement("h4");
+    title.textContent = brandName;
+    const count = document.createElement("span");
+    count.textContent = `${records.length} шт.`;
+    head.append(title, count);
+
+    const list = document.createElement("div");
+    list.className = "history-group-list";
+
+    records.forEach((record) => {
+      const row = document.createElement("div");
+      row.className = "brand-row history-row";
+
+      const meta = document.createElement("div");
+      meta.className = "history-meta";
+      const createdAt = new Date(record.createdAt);
+      meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
+
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.textContent = "Открыть";
+      editButton.addEventListener("click", () => {
+        openHistoryRecord(record);
+      });
+
+      const downloadButton = document.createElement("a");
+      downloadButton.className = "history-download";
+      downloadButton.href = record.imageDataUrl || record.imagePath;
+      downloadButton.download = "";
+      downloadButton.textContent = "Скачать";
+
+      row.append(meta, editButton, downloadButton);
+      list.append(row);
     });
 
-    const downloadButton = document.createElement("a");
-    downloadButton.className = "history-download";
-    downloadButton.href = record.imageDataUrl || record.imagePath;
-    downloadButton.download = "";
-    downloadButton.textContent = "Скачать";
-
-    row.append(meta, editButton, downloadButton);
-    elements.employeeHistoryList.append(row);
+    group.append(head, list);
+    elements.employeeHistoryList.append(group);
   });
 }
 

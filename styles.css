@@ -663,6 +663,41 @@ button.tiny {
   line-height: 1.45;
 }
 
+.history-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.history-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.history-group-head h4 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.history-group-head span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.history-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .user-row {
   grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1fr) auto;
   align-items: start;
