@@ -21,6 +21,7 @@ SCENES_DIR = TEMPLATES_DIR / "scenes"
 HISTORY_DIR = DATA_ROOT / "history"
 HISTORY_RECORDS_DIR = HISTORY_DIR / "records"
 HISTORY_IMAGES_DIR = HISTORY_DIR / "images"
+HISTORY_BRANDS_DIR = HISTORY_DIR / "brands"
 DB_FILE = DATA_ROOT / "pera.sqlite3"
 
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -42,6 +43,7 @@ def ensure_directories() -> None:
     SCENES_DIR.mkdir(parents=True, exist_ok=True)
     HISTORY_RECORDS_DIR.mkdir(parents=True, exist_ok=True)
     HISTORY_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    HISTORY_BRANDS_DIR.mkdir(parents=True, exist_ok=True)
     DATA_ROOT.mkdir(parents=True, exist_ok=True)
 
 
@@ -173,15 +175,23 @@ def write_scene_files(payload: dict) -> list[str]:
 def save_history_record(payload: dict) -> dict:
     HISTORY_RECORDS_DIR.mkdir(parents=True, exist_ok=True)
     HISTORY_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    HISTORY_BRANDS_DIR.mkdir(parents=True, exist_ok=True)
 
     created_at = payload.get("createdAt") or "unknown-date"
     record_id = f"{created_at.replace(':', '-').replace('.', '-')}-{slugify(payload.get('userName', 'user'))}"
+    brand_name = payload.get("brandName") or payload.get("brandId") or "unknown-brand"
+    brand_slug = slugify(brand_name)
+    brand_history_dir = HISTORY_BRANDS_DIR / brand_slug
+    brand_records_dir = brand_history_dir / "records"
+    brand_images_dir = brand_history_dir / "images"
+    brand_records_dir.mkdir(parents=True, exist_ok=True)
+    brand_images_dir.mkdir(parents=True, exist_ok=True)
 
     image_data_url = payload.get("imageDataUrl", "")
     image_base64 = image_data_url.split(",", 1)[1] if "," in image_data_url else ""
     image_bytes = base64.b64decode(image_base64) if image_base64 else b""
 
-    image_path = HISTORY_IMAGES_DIR / f"{record_id}.png"
+    image_path = brand_images_dir / f"{record_id}.png"
     image_path.write_bytes(image_bytes)
 
     record = {
@@ -191,29 +201,35 @@ def save_history_record(payload: dict) -> dict:
         "userName": payload.get("userName"),
         "brandId": payload.get("brandId"),
         "brandName": payload.get("brandName"),
+        "brandSlug": brand_slug,
         "templateId": payload.get("templateId"),
         "templateName": payload.get("templateName"),
         "imagePath": to_public_data_url(image_path),
         "state": payload.get("state", {}),
     }
 
-    record_path = HISTORY_RECORDS_DIR / f"{record_id}.json"
+    record_path = brand_records_dir / f"{record_id}.json"
     record_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return record
 
 
 def load_history_records(user_id: str | None) -> list[dict]:
-    if not HISTORY_RECORDS_DIR.exists():
+    if not HISTORY_DIR.exists():
         return []
 
     records: list[dict] = []
-    for file_path in sorted(HISTORY_RECORDS_DIR.glob("*.json"), reverse=True):
+    record_files = set(HISTORY_RECORDS_DIR.glob("*.json"))
+    record_files.update(HISTORY_BRANDS_DIR.rglob("records/*.json"))
+
+    for file_path in sorted(record_files, reverse=True):
         try:
             record = json.loads(file_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue
         if user_id and record.get("userId") != user_id:
             continue
+        if not record.get("brandSlug"):
+            record["brandSlug"] = slugify(record.get("brandName") or record.get("brandId") or "unknown-brand")
         records.append(record)
     records.sort(key=lambda item: item.get("createdAt", ""), reverse=True)
     return records

@@ -284,6 +284,42 @@ async function listLocalJsonRecords(pathParts) {
   return records;
 }
 
+async function listLocalJsonRecordsRecursive(pathParts) {
+  const rootHandle = await ensureLocalDataRoot(false);
+  if (!rootHandle) return [];
+
+  let current = rootHandle;
+  try {
+    for (const part of pathParts) {
+      current = await current.getDirectoryHandle(part, { create: false });
+    }
+  } catch (error) {
+    if (error?.name === "NotFoundError") return [];
+    throw error;
+  }
+
+  const records = [];
+
+  async function walkDirectory(directoryHandle) {
+    for await (const [name, handle] of directoryHandle.entries()) {
+      if (handle.kind === "directory") {
+        await walkDirectory(handle);
+        continue;
+      }
+      if (!name.endsWith(".json")) continue;
+      const file = await handle.getFile();
+      try {
+        records.push(JSON.parse(await file.text()));
+      } catch (error) {
+        console.error("Local JSON parse failed", name, error);
+      }
+    }
+  }
+
+  await walkDirectory(current);
+  return records;
+}
+
 const elements = {
   canvas: document.getElementById("collageCanvas"),
   stage: document.getElementById("stage"),
@@ -1890,7 +1926,7 @@ async function loadEmployeeHistory() {
 
   try {
     if (isFileMode()) {
-      const records = await listLocalJsonRecords(["history", "records"]);
+      const records = await listLocalJsonRecordsRecursive(["history"]);
       employeeHistory = records
         .filter((record) => record.userId === currentUser.id)
         .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
@@ -1938,7 +1974,7 @@ function renderEmployeeHistoryList() {
     const meta = document.createElement("div");
     meta.className = "history-meta";
     const createdAt = new Date(record.createdAt);
-    meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
+    meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${record.brandName ?? "Без бренда"} · ${createdAt.toLocaleString("ru-RU")}</span>`;
 
     const editButton = document.createElement("button");
     editButton.type = "button";
@@ -1960,6 +1996,7 @@ function renderEmployeeHistoryList() {
 
 function openHistoryRecord(record) {
   if (!record?.state) return;
+  const currentUser = getCurrentEmployeeUser();
   employeeData = {
     ...defaultEmployeeData,
     ...record.state,
@@ -1968,7 +2005,9 @@ function openHistoryRecord(record) {
       record.state.photoTransforms ??
       defaultEmployeeData.photoTransforms.map(() => ({ scale: 1, offsetX: 0, offsetY: 0 })),
   };
-  employeeData.brandId = getCurrentEmployeeUser()?.brandId ?? employeeData.brandId;
+  if (currentUser && !((currentUser.brandIds ?? []).includes(employeeData.brandId))) {
+    employeeData.brandId = currentUser.brandIds?.[0] ?? employeeData.brandId;
+  }
   if (currentMode === "employee") {
     loadScene(employeeData.photoTemplateId);
   }
@@ -1980,13 +2019,21 @@ function openHistoryRecord(record) {
 async function saveCollageHistory(imageDataUrl) {
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) return null;
+  const brandName = template.brands.find((brand) => brand.id === employeeData.brandId)?.name ?? "";
+  const brandSlug =
+    (brandName || employeeData.brandId || "unknown-brand")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\u0400-\u04ff]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "unknown-brand";
 
   const payload = {
     userId: currentUser.id,
     userName: currentUser.name,
     brandId: employeeData.brandId,
-    brandName: template.brands.find((brand) => brand.id === employeeData.brandId)?.name ?? "",
-      templateId: employeeData.photoTemplateId,
+    brandName,
+    brandSlug,
+    templateId: employeeData.photoTemplateId,
     templateName: getPhotoTemplateName(employeeData.photoTemplateId),
     createdAt: new Date().toISOString(),
     imageDataUrl,
@@ -1998,11 +2045,11 @@ async function saveCollageHistory(imageDataUrl) {
     const record = {
       ...payload,
       id: recordId,
-      imagePath: `history/images/${recordId}.png`,
+      imagePath: `history/brands/${brandSlug}/images/${recordId}.png`,
       imageDataUrl,
     };
-    await writeLocalDataUrl(["history", "images", `${recordId}.png`], imageDataUrl);
-    await writeLocalJson(["history", "records", `${recordId}.json`], record);
+    await writeLocalDataUrl(["history", "brands", brandSlug, "images", `${recordId}.png`], imageDataUrl);
+    await writeLocalJson(["history", "brands", brandSlug, "records", `${recordId}.json`], record);
     await loadEmployeeHistory();
     return { ok: true, record };
   }
