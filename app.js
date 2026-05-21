@@ -192,6 +192,15 @@ function isFileMode() {
   return window.location.protocol === "file:";
 }
 
+function isAdminRoute() {
+  return !isFileMode() && /^\/admin\/?$/.test(window.location.pathname);
+}
+
+function goToEmployeeRoute() {
+  if (isFileMode()) return;
+  window.location.href = "/";
+}
+
 function supportsLocalFileSystem() {
   return typeof window.showDirectoryPicker === "function";
 }
@@ -472,6 +481,14 @@ async function boot() {
   syncSelectionInspector();
   updatePhotoInputState();
   scheduleRender();
+
+  if (isAdminRoute()) {
+    if (requestAdminAccess()) {
+      activateMode("admin");
+    } else {
+      goToEmployeeRoute();
+    }
+  }
 }
 
 async function initializeTemplateStorage() {
@@ -1369,6 +1386,9 @@ function bindAdminInputs() {
     elements.lockAdmin.addEventListener("click", () => {
       lockAdminSession();
       activateMode("employee");
+      if (isAdminRoute()) {
+        goToEmployeeRoute();
+      }
     });
   }
 
