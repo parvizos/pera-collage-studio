@@ -347,6 +347,10 @@ const elements = {
   logoutUser: document.getElementById("logoutUser"),
   employeeWorkspaceLogout: document.getElementById("employeeWorkspaceLogout"),
   employeeAuthShell: document.getElementById("employeeAuthShell"),
+  authHeadEyebrow: document.querySelector(".auth-head .eyebrow"),
+  authHeadTitle: document.querySelector(".auth-head h3"),
+  employeeUserField: document.getElementById("employeeUserSelect")?.closest(".field"),
+  employeeUserPinField: document.getElementById("employeeUserPin")?.closest(".field"),
   employeeSessionHint: document.getElementById("employeeSessionHint"),
   employeeWorkspace: document.getElementById("employeeWorkspace"),
   employeePrimaryFields: document.getElementById("employeePrimaryFields"),
@@ -483,11 +487,28 @@ async function boot() {
   scheduleRender();
 
   if (isAdminRoute()) {
-    if (requestAdminAccess()) {
-      activateMode("admin");
-    } else {
-      goToEmployeeRoute();
+    if (elements.authHeadEyebrow) {
+      elements.authHeadEyebrow.textContent = "Вход";
     }
+    if (elements.authHeadTitle) {
+      elements.authHeadTitle.textContent = "Администратор";
+    }
+    if (elements.employeeUserField) {
+      elements.employeeUserField.style.display = "none";
+    }
+    if (elements.employeeUserPinField) {
+      const label = elements.employeeUserPinField.querySelector("span");
+      if (label) {
+        label.textContent = "PIN администратора";
+      }
+    }
+    if (elements.employeeUserPin) {
+      elements.employeeUserPin.placeholder = "Введите PIN администратора";
+    }
+    if (elements.loginUser) {
+      elements.loginUser.textContent = "Войти в админку";
+    }
+    syncAppStateClasses();
   }
 }
 
@@ -1051,6 +1072,7 @@ function syncAppStateClasses() {
   document.body.classList.toggle("app-state-login", currentMode === "employee" && !isLoggedIn);
   document.body.classList.toggle("app-state-employee", currentMode === "employee" && isLoggedIn);
   document.body.classList.toggle("app-state-admin", currentMode === "admin");
+  document.body.classList.toggle("app-route-admin", isAdminRoute());
   document.body.classList.toggle(
     "app-state-compose-details",
     currentMode === "employee" && isLoggedIn && employeeView === "compose" && employeeComposeStep === "details"
@@ -1080,8 +1102,8 @@ function activateMode(mode) {
   scheduleRender();
 }
 
-function requestAdminAccess() {
-  const pin = window.prompt("Введите PIN для входа в админку");
+function requestAdminAccess(providedPin) {
+  const pin = typeof providedPin === "string" ? providedPin : window.prompt("Введите PIN для входа в админку");
   if (pin === null) {
     return false;
   }
@@ -1228,6 +1250,15 @@ function bindSecretAdminTrigger() {
 function bindEmployeeInputs() {
   if (elements.loginUser) {
     elements.loginUser.addEventListener("click", async () => {
+      if (isAdminRoute()) {
+        if (!requestAdminAccess(elements.employeeUserPin.value.trim())) {
+          return;
+        }
+        elements.employeeUserPin.value = "";
+        activateMode("admin");
+        return;
+      }
+
       const selectedUser = users.find((user) => user.id === elements.employeeUserSelect.value);
       if (!selectedUser) {
         alert("Выбери пользователя.");
