@@ -336,6 +336,7 @@ const elements = {
   employeeUserPin: document.getElementById("employeeUserPin"),
   loginUser: document.getElementById("loginUser"),
   logoutUser: document.getElementById("logoutUser"),
+  employeeWorkspaceLogout: document.getElementById("employeeWorkspaceLogout"),
   employeeAuthShell: document.getElementById("employeeAuthShell"),
   employeeSessionHint: document.getElementById("employeeSessionHint"),
   employeeWorkspace: document.getElementById("employeeWorkspace"),
@@ -1233,6 +1234,16 @@ function bindEmployeeInputs() {
     });
   }
 
+  if (elements.employeeWorkspaceLogout) {
+    elements.employeeWorkspaceLogout.addEventListener("click", () => {
+      setCurrentEmployeeUser(null);
+      elements.employeeUserPin.value = "";
+      activateEmployeeComposeStep("details");
+      syncEmployeeInputs();
+      scheduleRender();
+    });
+  }
+
   if (elements.employeeNextStep) {
     elements.employeeNextStep.addEventListener("click", () => {
       activateEmployeeComposeStep("collage");
@@ -1987,6 +1998,10 @@ function syncEmployeeAccess() {
 
   if (elements.logoutUser) {
     elements.logoutUser.style.display = isLoggedIn ? "" : "none";
+  }
+
+  if (elements.employeeWorkspaceLogout) {
+    elements.employeeWorkspaceLogout.style.display = isLoggedIn ? "" : "none";
   }
 
   if (elements.employeeWorkspace) {

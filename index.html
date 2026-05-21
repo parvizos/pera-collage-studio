@@ -85,13 +85,16 @@
             </div>
 
             <div id="employeeWorkspace" class="is-hidden">
-              <div id="employeeViewTabs" class="workspace-tabs">
-                <button class="workspace-tab is-active" data-employee-view="compose" type="button">
-                  Создать
-                </button>
-                <button class="workspace-tab" data-employee-view="history" type="button">
-                  История
-                </button>
+              <div class="employee-workspace-head">
+                <div id="employeeViewTabs" class="workspace-tabs">
+                  <button class="workspace-tab is-active" data-employee-view="compose" type="button">
+                    Создать
+                  </button>
+                  <button class="workspace-tab" data-employee-view="history" type="button">
+                    История
+                  </button>
+                </div>
+                <button id="employeeWorkspaceLogout" class="ghost small" type="button">Выйти</button>
               </div>
 
               <div class="employee-view-panel" data-employee-view-panel="compose">

@@ -880,6 +880,16 @@ button.tiny {
   display: none !important;
 }
 
+.employee-workspace-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.employee-workspace-head .workspace-tabs {
+  flex: 1 1 auto;
+}
+
 body.app-state-login .page-shell {
   max-width: 560px;
   min-height: 100vh;
@@ -919,6 +929,12 @@ body.app-state-employee .workspace,
 body.app-state-compose-details .workspace {
   grid-template-columns: minmax(0, 760px);
   justify-content: center;
+}
+
+body.app-state-employee .auth-shell.is-authenticated,
+body.app-state-compose-details .auth-shell.is-authenticated,
+body.app-state-compose-collage .auth-shell.is-authenticated {
+  display: none;
 }
 
 body.app-state-employee .preview-panel,
@@ -991,6 +1007,11 @@ body.app-state-login #loginUser {
 body.app-state-login #logoutUser,
 body.app-state-login #employeeSessionHint {
   display: none !important;
+}
+
+.employee-view-panel[data-employee-view-panel="compose"] .section-head,
+.employee-view-panel[data-employee-view-panel="compose"] .compose-steps {
+  display: none;
 }
 
 .auth-shell.is-authenticated .auth-showcase {
@@ -1176,6 +1197,11 @@ body.app-state-login #employeeSessionHint {
     padding: 4px;
     flex-wrap: nowrap;
     overflow-x: auto;
+  }
+
+  .employee-workspace-head {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .workspace-tab {
