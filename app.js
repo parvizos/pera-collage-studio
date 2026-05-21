@@ -178,6 +178,8 @@ let currentEmployeeUserId = null;
 let adminUnlocked = false;
 let employeeHistory = [];
 let adminHistory = [];
+let employeeHistoryQuery = "";
+let adminHistoryQuery = "";
 let dragState = null;
 let photoAdjustSelection = 0;
 let employeeTouchState = null;
@@ -390,6 +392,8 @@ const elements = {
   employeeBackStep: document.getElementById("employeeBackStep"),
   employeeHistoryList: document.getElementById("employeeHistoryList"),
   adminHistoryList: document.getElementById("adminHistoryList"),
+  employeeHistorySearch: document.getElementById("employeeHistorySearch"),
+  adminHistorySearch: document.getElementById("adminHistorySearch"),
   employeeCustomFields: document.getElementById("employeeCustomFields"),
   employeeViewButtons: Array.from(document.querySelectorAll("[data-employee-view]")),
   employeeViewPanels: Array.from(document.querySelectorAll("[data-employee-view-panel]")),
@@ -711,6 +715,57 @@ function buildDefaultFieldValues(fields) {
       (field.inputType === "select" ? field.options?.[0] ?? "" : "");
   });
   return values;
+}
+
+function getProductCodeFromState(state = employeeData) {
+  return String(state?.values?.code ?? "").trim() || "collage";
+}
+
+function getRecordProductCode(record) {
+  return String(record?.productCode ?? record?.state?.values?.code ?? "").trim() || "Коллаж";
+}
+
+function getRecordDisplayName(record) {
+  return getRecordProductCode(record) || record?.templateName || "Коллаж";
+}
+
+function buildSafeFileName(baseName, extension = "png") {
+  const safeBase =
+    String(baseName || "collage")
+      .trim()
+      .replace(/[<>:\"/\\\\|?*\u0000-\u001F]+/g, "-")
+      .replace(/\s+/g, " ")
+      .replace(/\.+$/g, "") || "collage";
+  return `${safeBase}.${extension}`;
+}
+
+function slugifyValue(value, fallback = "item") {
+  return (
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\u0400-\u04ff]+/g, "-")
+      .replace(/^-+|-+$/g, "") || fallback
+  );
+}
+
+function getHistorySearchText(record) {
+  return [
+    getRecordProductCode(record),
+    record?.brandName,
+    record?.userName,
+    record?.templateName,
+    record?.createdAt,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function filterHistoryRecords(records, query) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (!normalizedQuery) return records;
+  return records.filter((record) => getHistorySearchText(record).includes(normalizedQuery));
 }
 
 function createEmployeeField(index = template.fields.length + 1) {
@@ -1311,6 +1366,20 @@ function bindEmployeeInputs() {
     });
   }
 
+  if (elements.employeeHistorySearch) {
+    elements.employeeHistorySearch.addEventListener("input", (event) => {
+      employeeHistoryQuery = event.target.value;
+      renderEmployeeHistoryList();
+    });
+  }
+
+  if (elements.adminHistorySearch) {
+    elements.adminHistorySearch.addEventListener("input", (event) => {
+      adminHistoryQuery = event.target.value;
+      renderAdminHistoryList();
+    });
+  }
+
   if (elements.employeeNextStep) {
     elements.employeeNextStep.addEventListener("click", () => {
       activateEmployeeComposeStep("collage");
@@ -1374,6 +1443,7 @@ function bindEmployeeInputs() {
       return;
     }
     const imageDataUrl = elements.canvas.toDataURL("image/png");
+    const productCode = getProductCodeFromState();
     try {
       await saveCollageHistory(imageDataUrl);
     } catch (error) {
@@ -1385,7 +1455,7 @@ function bindEmployeeInputs() {
       );
     }
     const link = document.createElement("a");
-    link.download = `pera-collage-${Date.now()}.png`;
+    link.download = buildSafeFileName(productCode);
     link.href = imageDataUrl;
     link.click();
   });
@@ -2174,7 +2244,16 @@ function renderEmployeeHistoryList() {
     return;
   }
 
-  const groupedRecords = employeeHistory.reduce((groups, record) => {
+  const visibleRecords = filterHistoryRecords(employeeHistory, employeeHistoryQuery);
+  if (!visibleRecords.length) {
+    const empty = document.createElement("div");
+    empty.className = "brand-row";
+    empty.textContent = "По этому запросу ничего не найдено.";
+    elements.employeeHistoryList.append(empty);
+    return;
+  }
+
+  const groupedRecords = visibleRecords.reduce((groups, record) => {
     const key = record.brandName?.trim() || "Без бренда";
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -2205,7 +2284,7 @@ function renderEmployeeHistoryList() {
       const meta = document.createElement("div");
       meta.className = "history-meta";
       const createdAt = new Date(record.createdAt);
-      meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
+      meta.innerHTML = `<strong>${getRecordDisplayName(record)}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
 
       const editButton = document.createElement("button");
       editButton.type = "button";
@@ -2217,7 +2296,7 @@ function renderEmployeeHistoryList() {
       const downloadButton = document.createElement("a");
       downloadButton.className = "history-download";
       downloadButton.href = record.imageDataUrl || record.imagePath;
-      downloadButton.download = "";
+      downloadButton.download = buildSafeFileName(getRecordDisplayName(record));
       downloadButton.textContent = "Скачать";
 
       row.append(meta, editButton, downloadButton);
@@ -2241,7 +2320,16 @@ function renderAdminHistoryList() {
     return;
   }
 
-  const userGroups = adminHistory.reduce((groups, record) => {
+  const visibleRecords = filterHistoryRecords(adminHistory, adminHistoryQuery);
+  if (!visibleRecords.length) {
+    const empty = document.createElement("div");
+    empty.className = "brand-row";
+    empty.textContent = "По этому запросу ничего не найдено.";
+    elements.adminHistoryList.append(empty);
+    return;
+  }
+
+  const userGroups = visibleRecords.reduce((groups, record) => {
     const key = record.userName?.trim() || "Без пользователя";
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -2296,7 +2384,7 @@ function renderAdminHistoryList() {
         const meta = document.createElement("div");
         meta.className = "history-meta";
         const createdAt = new Date(record.createdAt);
-        meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
+        meta.innerHTML = `<strong>${getRecordDisplayName(record)}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
 
         const openButton = document.createElement("button");
         openButton.type = "button";
@@ -2310,7 +2398,7 @@ function renderAdminHistoryList() {
         const downloadButton = document.createElement("a");
         downloadButton.className = "history-download";
         downloadButton.href = record.imageDataUrl || record.imagePath;
-        downloadButton.download = "";
+        downloadButton.download = buildSafeFileName(getRecordDisplayName(record));
         downloadButton.textContent = "Скачать";
 
         row.append(meta, openButton, downloadButton);
@@ -2354,12 +2442,9 @@ async function saveCollageHistory(imageDataUrl) {
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) return null;
   const brandName = template.brands.find((brand) => brand.id === employeeData.brandId)?.name ?? "";
-  const brandSlug =
-    (brandName || employeeData.brandId || "unknown-brand")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9\u0400-\u04ff]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "unknown-brand";
+  const brandSlug = slugifyValue(brandName || employeeData.brandId || "unknown-brand", "unknown-brand");
+  const productCode = getProductCodeFromState(employeeData);
+  const productCodeSlug = slugifyValue(productCode, "collage");
 
   const payload = {
     userId: currentUser.id,
@@ -2367,6 +2452,7 @@ async function saveCollageHistory(imageDataUrl) {
     brandId: employeeData.brandId,
     brandName,
     brandSlug,
+    productCode,
     templateId: employeeData.photoTemplateId,
     templateName: getPhotoTemplateName(employeeData.photoTemplateId),
     createdAt: new Date().toISOString(),
@@ -2375,16 +2461,19 @@ async function saveCollageHistory(imageDataUrl) {
   };
 
   if (isFileMode()) {
-    const recordId = `${payload.createdAt.replace(/[:.]/g, "-")}-${(currentUser.name || "user").replace(/\s+/g, "-").toLowerCase()}`;
+    const recordId = `${payload.createdAt.replace(/[:.]/g, "-")}-${productCodeSlug}`;
+    const imageFileName = `${recordId}.png`;
     const record = {
       ...payload,
       id: recordId,
-      imagePath: `history/brands/${brandSlug}/images/${recordId}.png`,
+      imagePath: `history/brands/${brandSlug}/images/${imageFileName}`,
       imageDataUrl,
+      imageFileName,
     };
-    await writeLocalDataUrl(["history", "brands", brandSlug, "images", `${recordId}.png`], imageDataUrl);
+    await writeLocalDataUrl(["history", "brands", brandSlug, "images", imageFileName], imageDataUrl);
     await writeLocalJson(["history", "brands", brandSlug, "records", `${recordId}.json`], record);
     await loadEmployeeHistory();
+    await loadAdminHistory();
     return { ok: true, record };
   }
 

@@ -178,7 +178,13 @@ def save_history_record(payload: dict) -> dict:
     HISTORY_BRANDS_DIR.mkdir(parents=True, exist_ok=True)
 
     created_at = payload.get("createdAt") or "unknown-date"
-    record_id = f"{created_at.replace(':', '-').replace('.', '-')}-{slugify(payload.get('userName', 'user'))}"
+    product_code = (
+        payload.get("productCode")
+        or payload.get("state", {}).get("values", {}).get("code")
+        or "collage"
+    )
+    product_slug = slugify(product_code) or "collage"
+    record_id = f"{created_at.replace(':', '-').replace('.', '-')}-{product_slug}"
     brand_name = payload.get("brandName") or payload.get("brandId") or "unknown-brand"
     brand_slug = slugify(brand_name)
     brand_history_dir = HISTORY_BRANDS_DIR / brand_slug
@@ -191,7 +197,8 @@ def save_history_record(payload: dict) -> dict:
     image_base64 = image_data_url.split(",", 1)[1] if "," in image_data_url else ""
     image_bytes = base64.b64decode(image_base64) if image_base64 else b""
 
-    image_path = brand_images_dir / f"{record_id}.png"
+    image_file_name = f"{record_id}.png"
+    image_path = brand_images_dir / image_file_name
     image_path.write_bytes(image_bytes)
 
     record = {
@@ -202,8 +209,10 @@ def save_history_record(payload: dict) -> dict:
         "brandId": payload.get("brandId"),
         "brandName": payload.get("brandName"),
         "brandSlug": brand_slug,
+        "productCode": product_code,
         "templateId": payload.get("templateId"),
         "templateName": payload.get("templateName"),
+        "imageFileName": image_file_name,
         "imagePath": to_public_data_url(image_path),
         "state": payload.get("state", {}),
     }
@@ -230,6 +239,8 @@ def load_history_records(user_id: str | None) -> list[dict]:
             continue
         if not record.get("brandSlug"):
             record["brandSlug"] = slugify(record.get("brandName") or record.get("brandId") or "unknown-brand")
+        if not record.get("productCode"):
+            record["productCode"] = record.get("state", {}).get("values", {}).get("code") or record.get("templateName") or "Коллаж"
         records.append(record)
     records.sort(key=lambda item: item.get("createdAt", ""), reverse=True)
     return records

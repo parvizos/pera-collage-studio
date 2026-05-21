@@ -855,6 +855,10 @@ button.tiny {
   gap: 10px;
 }
 
+.history-search {
+  margin-bottom: 12px;
+}
+
 .admin-history-group {
   gap: 14px;
 }
