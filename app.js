@@ -176,6 +176,7 @@ let adminView = "scene";
 let currentEmployeeUserId = null;
 let adminUnlocked = false;
 let employeeHistory = [];
+let adminHistory = [];
 let dragState = null;
 let photoAdjustSelection = 0;
 let employeeTouchState = null;
@@ -336,6 +337,7 @@ const elements = {
   employeeSessionHint: document.getElementById("employeeSessionHint"),
   employeeWorkspace: document.getElementById("employeeWorkspace"),
   employeeHistoryList: document.getElementById("employeeHistoryList"),
+  adminHistoryList: document.getElementById("adminHistoryList"),
   employeeCustomFields: document.getElementById("employeeCustomFields"),
   employeeViewButtons: Array.from(document.querySelectorAll("[data-employee-view]")),
   employeeViewPanels: Array.from(document.querySelectorAll("[data-employee-view-panel]")),
@@ -452,6 +454,7 @@ async function boot() {
   renderEmployeeFieldAdminList();
   syncEmployeeAccess();
   await loadEmployeeHistory();
+  await loadAdminHistory();
   renderAvailableBlocks();
   renderItemList();
   syncSelectionInspector();
@@ -1075,6 +1078,11 @@ function activateAdminView(view) {
   elements.adminViewPanels.forEach((panel) => {
     panel.classList.toggle("is-hidden", panel.dataset.adminViewPanel !== view);
   });
+  if (view === "history") {
+    loadAdminHistory().catch((error) => {
+      console.error("Admin history load failed", error);
+    });
+  }
 }
 
 function bindWorkspaceTabs() {
@@ -1946,6 +1954,29 @@ async function loadEmployeeHistory() {
   renderEmployeeHistoryList();
 }
 
+async function loadAdminHistory() {
+  try {
+    if (isFileMode()) {
+      const records = await listLocalJsonRecordsRecursive(["history"]);
+      adminHistory = records.sort((a, b) =>
+        String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))
+      );
+    } else {
+      const response = await fetch(COLLAGES_API_URL);
+      if (!response.ok) {
+        throw new Error(`Admin history load failed: ${response.status}`);
+      }
+      const payload = await response.json();
+      adminHistory = Array.isArray(payload.records) ? payload.records : [];
+    }
+  } catch (error) {
+    console.error("Admin history load failed", error);
+    adminHistory = [];
+  }
+
+  renderAdminHistoryList();
+}
+
 function renderEmployeeHistoryList() {
   if (!elements.employeeHistoryList) return;
   elements.employeeHistoryList.innerHTML = "";
@@ -2019,6 +2050,103 @@ function renderEmployeeHistoryList() {
 
     group.append(head, list);
     elements.employeeHistoryList.append(group);
+  });
+}
+
+function renderAdminHistoryList() {
+  if (!elements.adminHistoryList) return;
+  elements.adminHistoryList.innerHTML = "";
+
+  if (!adminHistory.length) {
+    const empty = document.createElement("div");
+    empty.className = "brand-row";
+    empty.textContent = "История сотрудников пока пустая.";
+    elements.adminHistoryList.append(empty);
+    return;
+  }
+
+  const userGroups = adminHistory.reduce((groups, record) => {
+    const key = record.userName?.trim() || "Без пользователя";
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key).push(record);
+    return groups;
+  }, new Map());
+
+  userGroups.forEach((userRecords, userName) => {
+    const userGroup = document.createElement("section");
+    userGroup.className = "history-group admin-history-group";
+
+    const userHead = document.createElement("div");
+    userHead.className = "history-group-head";
+    const userTitle = document.createElement("h4");
+    userTitle.textContent = userName;
+    const userCount = document.createElement("span");
+    userCount.textContent = `${userRecords.length} коллажей`;
+    userHead.append(userTitle, userCount);
+
+    const nestedGroups = document.createElement("div");
+    nestedGroups.className = "history-nested-groups";
+
+    const brandGroups = userRecords.reduce((groups, record) => {
+      const key = record.brandName?.trim() || "Без бренда";
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(record);
+      return groups;
+    }, new Map());
+
+    brandGroups.forEach((records, brandName) => {
+      const brandGroup = document.createElement("section");
+      brandGroup.className = "history-group history-subgroup";
+
+      const head = document.createElement("div");
+      head.className = "history-group-head";
+      const title = document.createElement("h4");
+      title.textContent = brandName;
+      const count = document.createElement("span");
+      count.textContent = `${records.length} шт.`;
+      head.append(title, count);
+
+      const list = document.createElement("div");
+      list.className = "history-group-list";
+
+      records.forEach((record) => {
+        const row = document.createElement("div");
+        row.className = "brand-row history-row";
+
+        const meta = document.createElement("div");
+        meta.className = "history-meta";
+        const createdAt = new Date(record.createdAt);
+        meta.innerHTML = `<strong>${record.templateName ?? "Коллаж"}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
+
+        const openButton = document.createElement("button");
+        openButton.type = "button";
+        openButton.textContent = "Открыть";
+        openButton.addEventListener("click", () => {
+          openHistoryRecord(record);
+          activateMode("employee");
+          activateEmployeeView("compose");
+        });
+
+        const downloadButton = document.createElement("a");
+        downloadButton.className = "history-download";
+        downloadButton.href = record.imageDataUrl || record.imagePath;
+        downloadButton.download = "";
+        downloadButton.textContent = "Скачать";
+
+        row.append(meta, openButton, downloadButton);
+        list.append(row);
+      });
+
+      brandGroup.append(head, list);
+      nestedGroups.append(brandGroup);
+    });
+
+    userGroup.append(userHead, nestedGroups);
+    elements.adminHistoryList.append(userGroup);
   });
 }
 
@@ -2096,6 +2224,7 @@ async function saveCollageHistory(imageDataUrl) {
 
   const result = await response.json();
   await loadEmployeeHistory();
+  await loadAdminHistory();
   return result;
 }
 

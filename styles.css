@@ -698,6 +698,20 @@ button.tiny {
   gap: 10px;
 }
 
+.admin-history-group {
+  gap: 14px;
+}
+
+.history-nested-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-subgroup {
+  background: #faf7f3;
+}
+
 .user-row {
   grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1fr) auto;
   align-items: start;

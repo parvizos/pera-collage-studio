@@ -132,6 +132,7 @@
               <button class="workspace-tab" data-admin-view="fields" type="button">Поля</button>
               <button class="workspace-tab" data-admin-view="assets" type="button">Медиа</button>
               <button class="workspace-tab" data-admin-view="users" type="button">Пользователи</button>
+              <button class="workspace-tab" data-admin-view="history" type="button">История</button>
             </div>
 
             <div class="admin-view-panel is-hidden" data-admin-view-panel="overview">
@@ -450,6 +451,23 @@
                 </p>
 
                 <div id="userAdminList" class="brand-admin-list"></div>
+              </div>
+            </div>
+
+            <div class="admin-view-panel is-hidden" data-admin-view-panel="history">
+              <div class="admin-section">
+                <div class="section-head">
+                  <div>
+                    <p class="eyebrow">История</p>
+                    <h3>Коллажи сотрудников</h3>
+                  </div>
+                </div>
+
+                <p class="admin-hint">
+                  Здесь администратор видит историю всех сотрудников по пользователям и брендам.
+                </p>
+
+                <div id="adminHistoryList" class="brand-admin-list"></div>
               </div>
             </div>
 
