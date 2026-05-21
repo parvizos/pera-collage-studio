@@ -42,6 +42,20 @@ body.app-state-login {
     linear-gradient(180deg, #fbf7f1 0%, #f1e7da 100%);
 }
 
+body:not(.app-state-admin) .hero,
+body:not(.app-state-admin) .panel-header {
+  display: none !important;
+}
+
+body:not(.app-state-admin) .page-shell {
+  padding-top: 16px;
+}
+
+body:not(.app-state-admin) .workspace {
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
+}
+
 button,
 input,
 select,
@@ -901,15 +915,18 @@ body.app-state-login .workspace {
   grid-template-columns: 1fr;
 }
 
+body.app-state-employee .workspace,
 body.app-state-compose-details .workspace {
   grid-template-columns: minmax(0, 760px);
   justify-content: center;
 }
 
+body.app-state-employee .preview-panel,
 body.app-state-compose-details .preview-panel {
   display: none;
 }
 
+body.app-state-employee .panel,
 body.app-state-compose-details .panel {
   max-width: 760px;
   width: 100%;

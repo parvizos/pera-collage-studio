@@ -327,6 +327,7 @@ const elements = {
   stage: document.getElementById("stage"),
   overlay: document.getElementById("editorOverlay"),
   heroBadge: document.querySelector(".hero-badge"),
+  secretAdminTrigger: document.querySelector(".page-shell"),
   modeButtons: Array.from(document.querySelectorAll(".segment[data-mode]")),
   panels: Array.from(document.querySelectorAll(".mode-panel")),
   photoCount: document.getElementById("photoCount"),
@@ -1172,10 +1173,11 @@ function bindWorkspaceTabs() {
 }
 
 function bindSecretAdminTrigger() {
-  if (!elements.heroBadge) return;
+  const trigger = elements.secretAdminTrigger || elements.heroBadge;
+  if (!trigger) return;
 
-  elements.heroBadge.title = "Служебная зона";
-  elements.heroBadge.addEventListener("click", () => {
+  trigger.title = "Служебная зона";
+  trigger.addEventListener("click", () => {
     const now = Date.now();
     if (now - adminTapState.lastTime > 1800) {
       adminTapState.count = 0;
