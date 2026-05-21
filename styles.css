@@ -806,54 +806,73 @@ button.tiny {
   display: none !important;
 }
 
+body.app-state-login .page-shell {
+  max-width: 560px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+
 body.app-state-login .hero {
-  margin-bottom: 28px;
-  align-items: start;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
+  gap: 8px;
+  margin-bottom: 18px;
 }
 
 body.app-state-login .hero h1 {
-  font-size: clamp(54px, 7vw, 92px);
-  letter-spacing: -0.045em;
+  font-size: clamp(44px, 9vw, 64px);
+  letter-spacing: -0.05em;
 }
 
-body.app-state-login .hero-copy {
-  max-width: 620px;
-  font-size: 18px;
-}
-
-body.app-state-login .hero-badge {
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.92);
+body.app-state-login .hero-copy,
+body.app-state-login .hero-badge,
+body.app-state-login .preview-panel,
+body.app-state-login .auth-showcase,
+body.app-state-login .panel-header {
+  display: none !important;
 }
 
 body.app-state-login .workspace {
-  grid-template-columns: minmax(460px, 560px) minmax(0, 1fr);
-  align-items: stretch;
+  grid-template-columns: 1fr;
 }
 
 body.app-state-login .panel {
-  padding: 22px;
+  padding: 0;
+  border-radius: 32px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(250, 244, 236, 0.92)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(249, 243, 235, 0.95)),
     #ffffff;
 }
 
-body.app-state-login .panel-header {
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--line);
-}
-
-body.app-state-login .panel-header h2 {
-  font-size: 28px;
+body.app-state-login .mode-panel[data-panel="employee"] {
+  padding: 22px;
 }
 
 body.app-state-login .auth-shell {
-  gap: 18px;
+  display: block;
 }
 
 body.app-state-login .auth-card {
-  padding: 22px;
-  border-radius: 24px;
+  padding: 28px;
+  border-radius: 26px;
+}
+
+body.app-state-login .auth-head {
+  margin-bottom: 20px;
+}
+
+body.app-state-login .auth-head h3 {
+  font-size: 32px;
+}
+
+body.app-state-login .auth-card-copy {
+  display: block;
+  font-size: 15px;
 }
 
 body.app-state-login .auth-card .field-grid {
@@ -861,46 +880,18 @@ body.app-state-login .auth-card .field-grid {
 }
 
 body.app-state-login .auth-card .actions {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 body.app-state-login #loginUser {
   width: 100%;
-  min-height: 54px;
+  min-height: 56px;
   font-size: 16px;
 }
 
-body.app-state-login #logoutUser {
+body.app-state-login #logoutUser,
+body.app-state-login #employeeSessionHint {
   display: none !important;
-}
-
-body.app-state-login .preview-panel {
-  padding: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 231, 0.92)),
-    #ffffff;
-}
-
-body.app-state-login .preview-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
-  align-items: end;
-}
-
-body.app-state-login .preview-head h2 {
-  font-size: clamp(42px, 6vw, 70px);
-  letter-spacing: -0.045em;
-}
-
-body.app-state-login .preview-frame {
-  padding: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(248, 237, 222, 0.6), transparent 26%),
-    linear-gradient(180deg, #fffefe, #f8f2ea);
-}
-
-body.app-state-login #collageCanvas {
-  border-radius: 30px;
 }
 
 .auth-shell.is-authenticated .auth-showcase {
@@ -927,11 +918,6 @@ body.app-state-login #collageCanvas {
 
   body.app-state-login .workspace {
     grid-template-columns: 1fr;
-  }
-
-  body.app-state-login .preview-head {
-    grid-template-columns: 1fr;
-    align-items: start;
   }
 }
 
@@ -1057,12 +1043,7 @@ body.app-state-login #collageCanvas {
     font-size: clamp(42px, 14vw, 62px);
   }
 
-  body.app-state-login .auth-showcase,
   body.app-state-login .auth-card {
     padding: 16px;
-  }
-
-  body.app-state-login .preview-frame {
-    padding: 14px;
   }
 }
