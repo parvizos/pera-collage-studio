@@ -690,9 +690,19 @@ const elements = {
 elements.photoCountField = elements.photoCount.closest(".field");
 elements.brandSelectField = elements.brandSelect.closest(".field");
 
-const ctx = elements.canvas.getContext("2d");
+const ctx = elements.canvas ? elements.canvas.getContext("2d") : null;
 
-applyAdminRouteLoginState();
+function bootstrapAuthShell() {
+  try {
+    ensureFallbackUsers();
+    populateEmployeeUserSelect();
+    applyAdminRouteLoginState();
+  } catch (error) {
+    console.error("Auth shell bootstrap failed", error);
+  }
+}
+
+bootstrapAuthShell();
 
 boot().catch((error) => {
   console.error("Boot failed", error);
@@ -712,8 +722,10 @@ async function boot() {
       console.error("Standalone folder access failed", error);
     }
   }
-  await initializeTemplateStorage();
   await initializeUsersStorage();
+  populateEmployeeUserSelect();
+  applyAdminRouteLoginState();
+  await initializeTemplateStorage();
   elements.overlay.classList.remove("is-hidden");
   ensureTemplateState();
   loadScene(activePhotoLayout);
