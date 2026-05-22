@@ -859,6 +859,49 @@ button.tiny {
   margin-bottom: 12px;
 }
 
+.history-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.history-view-switch {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  overflow-x: auto;
+}
+
+.history-view-btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.history-view-btn.is-active {
+  background: #171412;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(23, 20, 18, 0.18);
+}
+
+.history-sort-field {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
 .admin-history-group {
   gap: 14px;
 }
@@ -871,6 +914,139 @@ button.tiny {
 
 .history-subgroup {
   background: #faf7f3;
+}
+
+.history-empty {
+  padding: 16px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.history-card-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.history-card-grid--list,
+.history-card-grid--large {
+  grid-template-columns: 1fr;
+}
+
+.history-card-grid--tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.history-card-grid--grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 28px rgba(44, 31, 17, 0.08);
+}
+
+.history-card--list {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.history-card-preview {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f7f3ee, #ece4d9);
+}
+
+.history-card--list .history-card-preview {
+  width: 120px;
+  aspect-ratio: 1 / 1.28;
+}
+
+.history-card-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.history-card-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.history-card-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.history-card-topline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.history-card-badge,
+.history-card-user {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f5ede2;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.history-card-title {
+  display: block;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.history-card-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.history-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.history-card-actions button,
+.history-card-actions .history-download {
+  flex: 1 1 0;
+}
+
+.history-card-actions button,
+.history-download {
+  min-height: 42px;
 }
 
 .user-row {
@@ -1153,6 +1329,15 @@ body:not(.app-state-admin) .preview-head {
   .compose-steps {
     grid-template-columns: 1fr;
   }
+
+  .history-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .history-card-grid--grid,
+  .history-card-grid--tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -1271,5 +1456,42 @@ body:not(.app-state-admin) .preview-head {
 
   .compose-collage-card {
     padding: 16px;
+  }
+
+  .history-toolbar {
+    gap: 10px;
+  }
+
+  .history-view-switch {
+    width: 100%;
+  }
+
+  .history-card-grid--list,
+  .history-card-grid--grid,
+  .history-card-grid--tiles,
+  .history-card-grid--large {
+    grid-template-columns: 1fr;
+  }
+
+  .history-card {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .history-card--list {
+    flex-direction: column;
+  }
+
+  .history-card--list .history-card-preview {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+  }
+
+  .history-card-title {
+    font-size: 17px;
+  }
+
+  .history-card-actions {
+    flex-direction: column;
   }
 }

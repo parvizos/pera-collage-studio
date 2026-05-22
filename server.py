@@ -189,8 +189,10 @@ def save_history_record(payload: dict) -> dict:
     brand_slug = slugify(brand_name)
     brand_history_dir = HISTORY_BRANDS_DIR / brand_slug
     brand_records_dir = brand_history_dir / "records"
+    brand_details_dir = brand_history_dir / "details"
     brand_images_dir = brand_history_dir / "images"
     brand_records_dir.mkdir(parents=True, exist_ok=True)
+    brand_details_dir.mkdir(parents=True, exist_ok=True)
     brand_images_dir.mkdir(parents=True, exist_ok=True)
 
     image_data_url = payload.get("imageDataUrl", "")
@@ -217,9 +219,28 @@ def save_history_record(payload: dict) -> dict:
         "state": payload.get("state", {}),
     }
 
+    detail_path = brand_details_dir / f"{record_id}.json"
+    detail_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    summary = {
+        "id": record_id,
+        "createdAt": record.get("createdAt"),
+        "userId": record.get("userId"),
+        "userName": record.get("userName"),
+        "brandId": record.get("brandId"),
+        "brandName": record.get("brandName"),
+        "brandSlug": record.get("brandSlug"),
+        "productCode": record.get("productCode"),
+        "templateId": record.get("templateId"),
+        "templateName": record.get("templateName"),
+        "imageFileName": record.get("imageFileName"),
+        "imagePath": record.get("imagePath"),
+        "hasState": True,
+    }
+
     record_path = brand_records_dir / f"{record_id}.json"
-    record_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
-    return record
+    record_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    return summary
 
 
 def load_history_records(user_id: str | None) -> list[dict]:
@@ -237,13 +258,72 @@ def load_history_records(user_id: str | None) -> list[dict]:
             continue
         if user_id and record.get("userId") != user_id:
             continue
+        brand_slug = record.get("brandSlug") or slugify(
+            record.get("brandName") or record.get("brandId") or "unknown-brand"
+        )
+        product_code = (
+            record.get("productCode")
+            or record.get("state", {}).get("values", {}).get("code")
+            or record.get("templateName")
+            or "collage"
+        )
+        records.append(
+            {
+                "id": record.get("id"),
+                "createdAt": record.get("createdAt"),
+                "userId": record.get("userId"),
+                "userName": record.get("userName"),
+                "brandId": record.get("brandId"),
+                "brandName": record.get("brandName"),
+                "brandSlug": brand_slug,
+                "productCode": product_code,
+                "templateId": record.get("templateId"),
+                "templateName": record.get("templateName"),
+                "imageFileName": record.get("imageFileName"),
+                "imagePath": record.get("imagePath"),
+                "hasState": bool(record.get("hasState") or record.get("state")),
+            }
+        )
+    records.sort(key=lambda item: item.get("createdAt", ""), reverse=True)
+    return records
+
+
+def load_history_record_detail(record_id: str, brand_slug: str | None = None, user_id: str | None = None) -> dict | None:
+    candidate_paths: list[Path] = []
+    if brand_slug:
+        candidate_paths.extend(
+            [
+                HISTORY_BRANDS_DIR / brand_slug / "details" / f"{record_id}.json",
+                HISTORY_BRANDS_DIR / brand_slug / "records" / f"{record_id}.json",
+            ]
+        )
+
+    candidate_paths.append(HISTORY_RECORDS_DIR / f"{record_id}.json")
+    candidate_paths.extend(HISTORY_BRANDS_DIR.rglob(f"{record_id}.json"))
+
+    checked: set[Path] = set()
+    for file_path in candidate_paths:
+        resolved = file_path.resolve()
+        if resolved in checked or not file_path.exists():
+            continue
+        checked.add(resolved)
+        try:
+            record = json.loads(file_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if user_id and record.get("userId") != user_id:
+            continue
         if not record.get("brandSlug"):
             record["brandSlug"] = slugify(record.get("brandName") or record.get("brandId") or "unknown-brand")
         if not record.get("productCode"):
-            record["productCode"] = record.get("state", {}).get("values", {}).get("code") or record.get("templateName") or "Коллаж"
-        records.append(record)
-    records.sort(key=lambda item: item.get("createdAt", ""), reverse=True)
-    return records
+            record["productCode"] = (
+                record.get("state", {}).get("values", {}).get("code")
+                or record.get("templateName")
+                or "collage"
+            )
+        if record.get("id") == record_id:
+            return record
+    return None
 
 
 class PeraHandler(SimpleHTTPRequestHandler):
@@ -383,6 +463,23 @@ class PeraHandler(SimpleHTTPRequestHandler):
     def handle_get_collages(self, parsed) -> None:
         query = parse_qs(parsed.query)
         user_id = query.get("userId", [None])[0]
+        record_id = query.get("id", [None])[0]
+        brand_slug = query.get("brandSlug", [None])[0]
+        if record_id:
+            record = load_history_record_detail(record_id, brand_slug, user_id)
+            if not record:
+                self.send_response(HTTPStatus.NOT_FOUND)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'{"error":"record_not_found"}')
+                return
+            response = json.dumps({"record": record}, ensure_ascii=False).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return
         records = load_history_records(user_id)
         response = json.dumps({"records": records}, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.OK)

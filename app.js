@@ -180,6 +180,10 @@ let employeeHistory = [];
 let adminHistory = [];
 let employeeHistoryQuery = "";
 let adminHistoryQuery = "";
+let employeeHistoryView = "list";
+let adminHistoryView = "list";
+let employeeHistorySort = "newest";
+let adminHistorySort = "newest";
 let employeeHistoryLoading = false;
 let adminHistoryLoading = false;
 let dragState = null;
@@ -363,6 +367,26 @@ async function listLocalJsonRecordsRecursive(pathParts) {
   return records;
 }
 
+async function readLocalHistoryRecordDetail(record) {
+  const candidatePaths = [];
+  if (record?.brandSlug && record?.id) {
+    candidatePaths.push(["history", "brands", record.brandSlug, "details", `${record.id}.json`]);
+    candidatePaths.push(["history", "brands", record.brandSlug, "records", `${record.id}.json`]);
+  }
+  if (record?.id) {
+    candidatePaths.push(["history", "records", `${record.id}.json`]);
+  }
+
+  for (const pathParts of candidatePaths) {
+    const loaded = await readLocalJson(pathParts);
+    if (loaded?.id === record?.id) {
+      return loaded;
+    }
+  }
+
+  return record;
+}
+
 const elements = {
   canvas: document.getElementById("collageCanvas"),
   stage: document.getElementById("stage"),
@@ -396,6 +420,9 @@ const elements = {
   adminHistoryList: document.getElementById("adminHistoryList"),
   employeeHistorySearch: document.getElementById("employeeHistorySearch"),
   adminHistorySearch: document.getElementById("adminHistorySearch"),
+  employeeHistorySort: document.getElementById("employeeHistorySort"),
+  adminHistorySort: document.getElementById("adminHistorySort"),
+  historyViewButtons: Array.from(document.querySelectorAll("[data-history-view]")),
   employeeCustomFields: document.getElementById("employeeCustomFields"),
   employeeViewButtons: Array.from(document.querySelectorAll("[data-employee-view]")),
   employeeViewPanels: Array.from(document.querySelectorAll("[data-employee-view-panel]")),
@@ -769,6 +796,75 @@ function filterHistoryRecords(records, query) {
   const normalizedQuery = String(query || "").trim().toLowerCase();
   if (!normalizedQuery) return records;
   return records.filter((record) => getHistorySearchText(record).includes(normalizedQuery));
+}
+
+function summarizeHistoryRecord(record) {
+  if (!record) return null;
+  return {
+    id: record.id,
+    createdAt: record.createdAt,
+    userId: record.userId,
+    userName: record.userName,
+    brandId: record.brandId,
+    brandName: record.brandName,
+    brandSlug: record.brandSlug,
+    productCode: getRecordProductCode(record),
+    templateId: record.templateId,
+    templateName: record.templateName,
+    imageFileName: record.imageFileName,
+    imagePath: record.imagePath,
+    imageDataUrl: record.imageDataUrl,
+    hasState: Boolean(record.hasState || record.state),
+  };
+}
+
+function dedupeHistoryRecords(records) {
+  const map = new Map();
+  records
+    .map(summarizeHistoryRecord)
+    .filter(Boolean)
+    .forEach((record) => {
+      const previous = map.get(record.id);
+      if (!previous || (!previous.imagePath && record.imagePath) || (!previous.hasState && record.hasState)) {
+        map.set(record.id, record);
+      }
+    });
+  return Array.from(map.values());
+}
+
+function sortHistoryRecords(records, sortMode = "newest") {
+  const sorted = [...records];
+  sorted.sort((left, right) => {
+    if (sortMode === "oldest") {
+      return String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? ""));
+    }
+    if (sortMode === "code") {
+      return getRecordProductCode(left).localeCompare(getRecordProductCode(right), "ru");
+    }
+    if (sortMode === "brand") {
+      return String(left.brandName ?? "").localeCompare(String(right.brandName ?? ""), "ru");
+    }
+    if (sortMode === "user") {
+      return String(left.userName ?? "").localeCompare(String(right.userName ?? ""), "ru");
+    }
+    return String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? ""));
+  });
+  return sorted;
+}
+
+function getHistoryCardMeta(record) {
+  const createdAt = record?.createdAt ? new Date(record.createdAt) : null;
+  return {
+    title: getRecordDisplayName(record),
+    subtitle: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString("ru-RU") : "",
+    brandName: record?.brandName || "Без бренда",
+    userName: record?.userName || "Без сотрудника",
+  };
+}
+
+function getHistoryPreviewUrl(record) {
+  if (!record) return "";
+  return record.imageDataUrl || record.imagePath || "";
 }
 
 function createEmployeeField(index = template.fields.length + 1) {
@@ -1348,9 +1444,6 @@ function bindEmployeeInputs() {
       activateEmployeeView("compose");
       populateBrandSelect();
       syncEmployeeInputs();
-      loadEmployeeHistory().catch((error) => {
-        console.error("Employee history load failed", error);
-      });
       scheduleRender();
     });
   }
@@ -1389,6 +1482,40 @@ function bindEmployeeInputs() {
       renderAdminHistoryList();
     });
   }
+
+  if (elements.employeeHistorySort) {
+    elements.employeeHistorySort.addEventListener("change", (event) => {
+      employeeHistorySort = event.target.value;
+      renderEmployeeHistoryList();
+    });
+  }
+
+  if (elements.adminHistorySort) {
+    elements.adminHistorySort.addEventListener("change", (event) => {
+      adminHistorySort = event.target.value;
+      renderAdminHistoryList();
+    });
+  }
+
+  elements.historyViewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const scope = button.dataset.historyScope;
+      const view = button.dataset.historyView;
+      if (scope === "employee") {
+        employeeHistoryView = view;
+        renderEmployeeHistoryList();
+      } else if (scope === "admin") {
+        adminHistoryView = view;
+        renderAdminHistoryList();
+      }
+      elements.historyViewButtons.forEach((item) => {
+        item.classList.toggle(
+          "is-active",
+          item.dataset.historyScope === scope && item.dataset.historyView === view
+        );
+      });
+    });
+  });
 
   if (elements.employeeNextStep) {
     elements.employeeNextStep.addEventListener("click", () => {
@@ -2202,16 +2329,16 @@ async function loadEmployeeHistory() {
   try {
     if (isFileMode()) {
       const records = await listLocalJsonRecordsRecursive(["history"]);
-      employeeHistory = records
-        .filter((record) => record.userId === currentUser.id)
-        .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
+      employeeHistory = dedupeHistoryRecords(
+        records.filter((record) => record?.userId === currentUser.id)
+      ).sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
     } else {
       const response = await fetch(`${COLLAGES_API_URL}?userId=${encodeURIComponent(currentUser.id)}`);
       if (!response.ok) {
         throw new Error(`History load failed: ${response.status}`);
       }
       const payload = await response.json();
-      employeeHistory = Array.isArray(payload.records) ? payload.records : [];
+      employeeHistory = Array.isArray(payload.records) ? dedupeHistoryRecords(payload.records) : [];
     }
   } catch (error) {
     console.error("Employee history load failed", error);
@@ -2229,7 +2356,7 @@ async function loadAdminHistory() {
   try {
     if (isFileMode()) {
       const records = await listLocalJsonRecordsRecursive(["history"]);
-      adminHistory = records.sort((a, b) =>
+      adminHistory = dedupeHistoryRecords(records).sort((a, b) =>
         String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))
       );
     } else {
@@ -2238,7 +2365,7 @@ async function loadAdminHistory() {
         throw new Error(`Admin history load failed: ${response.status}`);
       }
       const payload = await response.json();
-      adminHistory = Array.isArray(payload.records) ? payload.records : [];
+      adminHistory = Array.isArray(payload.records) ? dedupeHistoryRecords(payload.records) : [];
     }
   } catch (error) {
     console.error("Admin history load failed", error);
@@ -2250,6 +2377,80 @@ async function loadAdminHistory() {
   renderAdminHistoryList();
 }
 
+function createHistoryCard(record, viewMode, scope) {
+  const card = document.createElement("article");
+  card.className = `history-card history-card--${viewMode}`;
+
+  const preview = document.createElement("div");
+  preview.className = "history-card-preview";
+  const previewSrc = getHistoryPreviewUrl(record);
+  if (previewSrc) {
+    const image = document.createElement("img");
+    image.src = previewSrc;
+    image.alt = getRecordDisplayName(record);
+    image.loading = "lazy";
+    image.decoding = "async";
+    preview.append(image);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "history-card-empty";
+    empty.textContent = "Нет превью";
+    preview.append(empty);
+  }
+
+  const content = document.createElement("div");
+  content.className = "history-card-content";
+
+  const info = getHistoryCardMeta(record);
+  const topLine = document.createElement("div");
+  topLine.className = "history-card-topline";
+  topLine.innerHTML = `<span class="history-card-badge">${info.brandName}</span>${
+    scope === "admin" ? `<span class="history-card-user">${info.userName}</span>` : ""
+  }`;
+
+  const title = document.createElement("strong");
+  title.className = "history-card-title";
+  title.textContent = info.title;
+
+  const subtitle = document.createElement("span");
+  subtitle.className = "history-card-subtitle";
+  subtitle.textContent = info.subtitle;
+
+  const actions = document.createElement("div");
+  actions.className = "history-card-actions";
+
+  const openButton = document.createElement("button");
+  openButton.type = "button";
+  openButton.textContent = "Открыть";
+  openButton.addEventListener("click", async () => {
+    await openHistoryRecord(record);
+    if (scope === "admin") {
+      activateMode("employee");
+      activateEmployeeView("compose");
+    }
+  });
+
+  const downloadButton = document.createElement("a");
+  downloadButton.className = "history-download";
+  downloadButton.href = previewSrc || "#";
+  downloadButton.download = buildSafeFileName(getRecordDisplayName(record));
+  downloadButton.textContent = "Скачать";
+
+  actions.append(openButton, downloadButton);
+  content.append(topLine, title, subtitle, actions);
+  card.append(preview, content);
+  return card;
+}
+
+function createHistoryGrid(records, viewMode, scope) {
+  const list = document.createElement("div");
+  list.className = `history-card-grid history-card-grid--${viewMode}`;
+  records.forEach((record) => {
+    list.append(createHistoryCard(record, viewMode, scope));
+  });
+  return list;
+}
+
 function renderEmployeeHistoryList() {
   if (!elements.employeeHistoryList) return;
   elements.employeeHistoryList.innerHTML = "";
@@ -2257,7 +2458,7 @@ function renderEmployeeHistoryList() {
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) {
     const empty = document.createElement("div");
-    empty.className = "brand-row";
+    empty.className = "history-empty";
     empty.textContent = "Войди как сотрудник, чтобы видеть историю своих коллажей.";
     elements.employeeHistoryList.append(empty);
     return;
@@ -2265,7 +2466,7 @@ function renderEmployeeHistoryList() {
 
   if (employeeHistoryLoading && !employeeHistory.length) {
     const loading = document.createElement("div");
-    loading.className = "brand-row";
+    loading.className = "history-empty";
     loading.textContent = "Загружаем историю...";
     elements.employeeHistoryList.append(loading);
     return;
@@ -2273,7 +2474,7 @@ function renderEmployeeHistoryList() {
 
   if (!employeeHistory.length) {
     const empty = document.createElement("div");
-    empty.className = "brand-row";
+    empty.className = "history-empty";
     empty.textContent = "История пока пустая.";
     elements.employeeHistoryList.append(empty);
     return;
@@ -2282,13 +2483,14 @@ function renderEmployeeHistoryList() {
   const visibleRecords = filterHistoryRecords(employeeHistory, employeeHistoryQuery);
   if (!visibleRecords.length) {
     const empty = document.createElement("div");
-    empty.className = "brand-row";
+    empty.className = "history-empty";
     empty.textContent = "По этому запросу ничего не найдено.";
     elements.employeeHistoryList.append(empty);
     return;
   }
 
-  const groupedRecords = visibleRecords.reduce((groups, record) => {
+  const sortedRecords = sortHistoryRecords(visibleRecords, employeeHistorySort);
+  const groupedRecords = sortedRecords.reduce((groups, record) => {
     const key = record.brandName?.trim() || "Без бренда";
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -2309,35 +2511,7 @@ function renderEmployeeHistoryList() {
     count.textContent = `${records.length} шт.`;
     head.append(title, count);
 
-    const list = document.createElement("div");
-    list.className = "history-group-list";
-
-    records.forEach((record) => {
-      const row = document.createElement("div");
-      row.className = "brand-row history-row";
-
-      const meta = document.createElement("div");
-      meta.className = "history-meta";
-      const createdAt = new Date(record.createdAt);
-      meta.innerHTML = `<strong>${getRecordDisplayName(record)}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
-
-      const editButton = document.createElement("button");
-      editButton.type = "button";
-      editButton.textContent = "Открыть";
-      editButton.addEventListener("click", () => {
-        openHistoryRecord(record);
-      });
-
-      const downloadButton = document.createElement("a");
-      downloadButton.className = "history-download";
-      downloadButton.href = record.imageDataUrl || record.imagePath;
-      downloadButton.download = buildSafeFileName(getRecordDisplayName(record));
-      downloadButton.textContent = "Скачать";
-
-      row.append(meta, editButton, downloadButton);
-      list.append(row);
-    });
-
+    const list = createHistoryGrid(records, employeeHistoryView, "employee");
     group.append(head, list);
     elements.employeeHistoryList.append(group);
   });
@@ -2349,7 +2523,7 @@ function renderAdminHistoryList() {
 
   if (adminHistoryLoading && !adminHistory.length) {
     const loading = document.createElement("div");
-    loading.className = "brand-row";
+    loading.className = "history-empty";
     loading.textContent = "Загружаем историю...";
     elements.adminHistoryList.append(loading);
     return;
@@ -2357,7 +2531,7 @@ function renderAdminHistoryList() {
 
   if (!adminHistory.length) {
     const empty = document.createElement("div");
-    empty.className = "brand-row";
+    empty.className = "history-empty";
     empty.textContent = "История сотрудников пока пустая.";
     elements.adminHistoryList.append(empty);
     return;
@@ -2366,13 +2540,14 @@ function renderAdminHistoryList() {
   const visibleRecords = filterHistoryRecords(adminHistory, adminHistoryQuery);
   if (!visibleRecords.length) {
     const empty = document.createElement("div");
-    empty.className = "brand-row";
+    empty.className = "history-empty";
     empty.textContent = "По этому запросу ничего не найдено.";
     elements.adminHistoryList.append(empty);
     return;
   }
 
-  const userGroups = visibleRecords.reduce((groups, record) => {
+  const sortedRecords = sortHistoryRecords(visibleRecords, adminHistorySort);
+  const userGroups = sortedRecords.reduce((groups, record) => {
     const key = record.userName?.trim() || "Без пользователя";
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -2417,37 +2592,7 @@ function renderAdminHistoryList() {
       count.textContent = `${records.length} шт.`;
       head.append(title, count);
 
-      const list = document.createElement("div");
-      list.className = "history-group-list";
-
-      records.forEach((record) => {
-        const row = document.createElement("div");
-        row.className = "brand-row history-row";
-
-        const meta = document.createElement("div");
-        meta.className = "history-meta";
-        const createdAt = new Date(record.createdAt);
-        meta.innerHTML = `<strong>${getRecordDisplayName(record)}</strong><br><span>${createdAt.toLocaleString("ru-RU")}</span>`;
-
-        const openButton = document.createElement("button");
-        openButton.type = "button";
-        openButton.textContent = "Открыть";
-        openButton.addEventListener("click", () => {
-          openHistoryRecord(record);
-          activateMode("employee");
-          activateEmployeeView("compose");
-        });
-
-        const downloadButton = document.createElement("a");
-        downloadButton.className = "history-download";
-        downloadButton.href = record.imageDataUrl || record.imagePath;
-        downloadButton.download = buildSafeFileName(getRecordDisplayName(record));
-        downloadButton.textContent = "Скачать";
-
-        row.append(meta, openButton, downloadButton);
-        list.append(row);
-      });
-
+      const list = createHistoryGrid(records, adminHistoryView, "admin");
       brandGroup.append(head, list);
       nestedGroups.append(brandGroup);
     });
@@ -2457,15 +2602,47 @@ function renderAdminHistoryList() {
   });
 }
 
-function openHistoryRecord(record) {
-  if (!record?.state) return;
+async function openHistoryRecord(record) {
+  let sourceRecord = record;
+  if (!sourceRecord?.state) {
+    try {
+      if (isFileMode()) {
+        sourceRecord = await readLocalHistoryRecordDetail(record);
+      } else {
+        const params = new URLSearchParams({ id: record.id ?? "" });
+        if (record.brandSlug) {
+          params.set("brandSlug", record.brandSlug);
+        }
+        const currentUser = getCurrentEmployeeUser();
+        if (currentMode !== "admin" && currentUser?.id) {
+          params.set("userId", currentUser.id);
+        }
+        const response = await fetch(`${COLLAGES_API_URL}?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error(`History detail load failed: ${response.status}`);
+        }
+        const payload = await response.json();
+        sourceRecord = payload.record ?? record;
+      }
+    } catch (error) {
+      console.error("History detail load failed", error);
+      alert("Не удалось открыть этот коллаж.");
+      return;
+    }
+  }
+
+  if (!sourceRecord?.state) {
+    alert("Полное состояние коллажа не найдено.");
+    return;
+  }
+
   const currentUser = getCurrentEmployeeUser();
   employeeData = {
     ...defaultEmployeeData,
-    ...record.state,
-    photos: record.state.photos ?? defaultEmployeeData.photos.map(() => null),
+    ...sourceRecord.state,
+    photos: sourceRecord.state.photos ?? defaultEmployeeData.photos.map(() => null),
     photoTransforms:
-      record.state.photoTransforms ??
+      sourceRecord.state.photoTransforms ??
       defaultEmployeeData.photoTransforms.map(() => ({ scale: 1, offsetX: 0, offsetY: 0 })),
   };
   if (currentUser && !((currentUser.brandIds ?? []).includes(employeeData.brandId))) {
@@ -2506,18 +2683,34 @@ async function saveCollageHistory(imageDataUrl) {
   if (isFileMode()) {
     const recordId = `${payload.createdAt.replace(/[:.]/g, "-")}-${productCodeSlug}`;
     const imageFileName = `${recordId}.png`;
-    const record = {
+    const summaryRecord = {
+      id: recordId,
+      createdAt: payload.createdAt,
+      userId: payload.userId,
+      userName: payload.userName,
+      brandId: payload.brandId,
+      brandName,
+      brandSlug,
+      productCode,
+      templateId: payload.templateId,
+      templateName: payload.templateName,
+      imagePath: `history/brands/${brandSlug}/images/${imageFileName}`,
+      imageFileName,
+      hasState: true,
+    };
+    const detailRecord = {
       ...payload,
       id: recordId,
-      imagePath: `history/brands/${brandSlug}/images/${imageFileName}`,
+      imagePath: summaryRecord.imagePath,
       imageDataUrl,
       imageFileName,
     };
     await writeLocalDataUrl(["history", "brands", brandSlug, "images", imageFileName], imageDataUrl);
-    await writeLocalJson(["history", "brands", brandSlug, "records", `${recordId}.json`], record);
-    await loadEmployeeHistory();
-    await loadAdminHistory();
-    return { ok: true, record };
+    await writeLocalJson(["history", "brands", brandSlug, "records", `${recordId}.json`], summaryRecord);
+    await writeLocalJson(["history", "brands", brandSlug, "details", `${recordId}.json`], detailRecord);
+    loadEmployeeHistory().catch((error) => console.error("Employee history refresh failed", error));
+    loadAdminHistory().catch((error) => console.error("Admin history refresh failed", error));
+    return { ok: true, record: summaryRecord };
   }
 
   const response = await fetch(COLLAGES_API_URL, {
@@ -2529,12 +2722,18 @@ async function saveCollageHistory(imageDataUrl) {
   });
 
   if (!response.ok) {
-    throw new Error(`History save failed: ${response.status}`);
+    let details = "";
+    try {
+      details = await response.text();
+    } catch (error) {
+      console.error("History save response read failed", error);
+    }
+    throw new Error(`History save failed: ${response.status}${details ? ` ${details}` : ""}`);
   }
 
   const result = await response.json();
-  await loadEmployeeHistory();
-  await loadAdminHistory();
+  loadEmployeeHistory().catch((error) => console.error("Employee history refresh failed", error));
+  loadAdminHistory().catch((error) => console.error("Admin history refresh failed", error));
   return result;
 }
 

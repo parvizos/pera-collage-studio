@@ -162,6 +162,24 @@
                     <input id="employeeHistorySearch" type="search" placeholder="Код товара, бренд, шаблон..." />
                   </label>
 
+                  <div class="history-toolbar">
+                    <div class="history-view-switch" data-history-view-switch="employee">
+                      <button class="history-view-btn is-active" data-history-scope="employee" data-history-view="list" type="button">Список</button>
+                      <button class="history-view-btn" data-history-scope="employee" data-history-view="tiles" type="button">Плитка</button>
+                      <button class="history-view-btn" data-history-scope="employee" data-history-view="grid" type="button">Значки</button>
+                      <button class="history-view-btn" data-history-scope="employee" data-history-view="large" type="button">Большие</button>
+                    </div>
+                    <label class="field history-sort-field">
+                      <span>Сортировка</span>
+                      <select id="employeeHistorySort">
+                        <option value="newest">Сначала новые</option>
+                        <option value="oldest">Сначала старые</option>
+                        <option value="code">По коду товара</option>
+                        <option value="brand">По бренду</option>
+                      </select>
+                    </label>
+                  </div>
+
                   <div id="employeeHistoryList" class="brand-admin-list"></div>
                 </div>
               </div>
@@ -525,6 +543,25 @@
                   <span>Поиск по истории</span>
                   <input id="adminHistorySearch" type="search" placeholder="Код товара, сотрудник, бренд..." />
                 </label>
+
+                <div class="history-toolbar">
+                  <div class="history-view-switch" data-history-view-switch="admin">
+                    <button class="history-view-btn is-active" data-history-scope="admin" data-history-view="list" type="button">Список</button>
+                    <button class="history-view-btn" data-history-scope="admin" data-history-view="tiles" type="button">Плитка</button>
+                    <button class="history-view-btn" data-history-scope="admin" data-history-view="grid" type="button">Значки</button>
+                    <button class="history-view-btn" data-history-scope="admin" data-history-view="large" type="button">Большие</button>
+                  </div>
+                  <label class="field history-sort-field">
+                    <span>Сортировка</span>
+                    <select id="adminHistorySort">
+                      <option value="newest">Сначала новые</option>
+                      <option value="oldest">Сначала старые</option>
+                      <option value="code">По коду товара</option>
+                      <option value="brand">По бренду</option>
+                      <option value="user">По сотруднику</option>
+                    </select>
+                  </label>
+                </div>
 
                 <div id="adminHistoryList" class="brand-admin-list"></div>
               </div>
