@@ -65,7 +65,7 @@ body:not(.app-state-admin) .page-shell {
   padding-top: 16px;
 }
 
-body:not(.app-state-admin) .workspace {
+body:not(.app-state-admin).app-state-login .workspace {
   grid-template-columns: minmax(0, 760px);
   justify-content: center;
 }
@@ -1303,7 +1303,7 @@ body.app-state-login .workspace {
 
 body.app-state-employee .workspace,
 body.app-state-compose-details .workspace {
-  grid-template-columns: minmax(0, 760px);
+  grid-template-columns: minmax(0, 1240px);
   justify-content: center;
 }
 
@@ -1320,7 +1320,7 @@ body.app-state-compose-details .preview-panel {
 
 body.app-state-employee .panel,
 body.app-state-compose-details .panel {
-  max-width: 760px;
+  max-width: 1240px;
   width: 100%;
 }
 
