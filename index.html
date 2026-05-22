@@ -141,6 +141,13 @@
                     <input id="employeeHistorySearch" type="search" placeholder="Код товара, бренд, шаблон..." />
                   </label>
 
+                  <div class="history-range-switch" data-history-range-switch="employee">
+                    <button class="history-range-btn is-active" data-history-scope="employee" data-history-range="all" type="button">Все</button>
+                    <button class="history-range-btn" data-history-scope="employee" data-history-range="today" type="button">Сегодня</button>
+                    <button class="history-range-btn" data-history-scope="employee" data-history-range="7" type="button">7 дней</button>
+                    <button class="history-range-btn" data-history-scope="employee" data-history-range="30" type="button">30 дней</button>
+                  </div>
+
                   <div class="history-toolbar">
                     <div class="history-view-switch" data-history-view-switch="employee">
                       <button class="history-view-btn is-active" data-history-scope="employee" data-history-view="list" type="button">Список</button>
@@ -157,6 +164,14 @@
                         <option value="brand">По бренду</option>
                       </select>
                     </label>
+                  </div>
+
+                  <div id="employeeHistoryBulkBar" class="history-bulk-bar is-hidden">
+                    <span id="employeeHistorySelectedCount" class="history-bulk-count">0 выбрано</span>
+                    <div class="history-bulk-actions">
+                      <button id="employeeHistoryDownloadSelected" class="ghost small" type="button">Скачать выбранные</button>
+                      <button id="employeeHistoryDeleteSelected" class="ghost small danger" type="button">Удалить</button>
+                    </div>
                   </div>
 
                   <div id="employeeHistoryList" class="brand-admin-list"></div>
@@ -523,6 +538,13 @@
                   <input id="adminHistorySearch" type="search" placeholder="Код товара, сотрудник, бренд..." />
                 </label>
 
+                <div class="history-range-switch" data-history-range-switch="admin">
+                  <button class="history-range-btn is-active" data-history-scope="admin" data-history-range="all" type="button">Все</button>
+                  <button class="history-range-btn" data-history-scope="admin" data-history-range="today" type="button">Сегодня</button>
+                  <button class="history-range-btn" data-history-scope="admin" data-history-range="7" type="button">7 дней</button>
+                  <button class="history-range-btn" data-history-scope="admin" data-history-range="30" type="button">30 дней</button>
+                </div>
+
                 <div class="history-toolbar">
                   <div class="history-view-switch" data-history-view-switch="admin">
                     <button class="history-view-btn is-active" data-history-scope="admin" data-history-view="list" type="button">Список</button>
@@ -540,6 +562,14 @@
                       <option value="user">По сотруднику</option>
                     </select>
                   </label>
+                </div>
+
+                <div id="adminHistoryBulkBar" class="history-bulk-bar is-hidden">
+                  <span id="adminHistorySelectedCount" class="history-bulk-count">0 выбрано</span>
+                  <div class="history-bulk-actions">
+                    <button id="adminHistoryDownloadSelected" class="ghost small" type="button">Скачать выбранные</button>
+                    <button id="adminHistoryDeleteSelected" class="ghost small danger" type="button">Удалить</button>
+                  </div>
                 </div>
 
                 <div id="adminHistoryList" class="brand-admin-list"></div>
@@ -575,6 +605,28 @@
           <div id="employeePreviewActionsHost"></div>
         </section>
       </main>
+    </div>
+
+    <div id="historyPreviewModal" class="history-preview-modal is-hidden" aria-hidden="true">
+      <div id="historyPreviewBackdrop" class="history-preview-backdrop"></div>
+      <div class="history-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="historyPreviewTitle">
+        <button id="historyPreviewClose" class="history-preview-close" type="button" aria-label="Закрыть">×</button>
+        <div class="history-preview-media">
+          <img id="historyPreviewImage" alt="Предпросмотр коллажа" />
+        </div>
+        <div class="history-preview-body">
+          <div class="history-preview-badges">
+            <span id="historyPreviewBrand" class="history-card-badge"></span>
+            <span id="historyPreviewUser" class="history-card-user"></span>
+          </div>
+          <h3 id="historyPreviewTitle">Коллаж</h3>
+          <p id="historyPreviewMeta" class="history-preview-meta"></p>
+          <div class="history-preview-actions">
+            <button id="historyPreviewOpen" class="primary" type="button">Открыть</button>
+            <a id="historyPreviewDownload" class="history-download" href="#">Скачать</a>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="./app.js"></script>

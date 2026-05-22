@@ -326,6 +326,32 @@ def load_history_record_detail(record_id: str, brand_slug: str | None = None, us
     return None
 
 
+def delete_history_record(record_id: str, brand_slug: str | None = None, user_id: str | None = None) -> bool:
+    record = load_history_record_detail(record_id, brand_slug, user_id)
+    if not record:
+        return False
+
+    resolved_brand_slug = record.get("brandSlug") or slugify(
+        record.get("brandName") or record.get("brandId") or "unknown-brand"
+    )
+    image_file_name = record.get("imageFileName") or f"{record_id}.png"
+
+    candidate_paths = [
+        HISTORY_BRANDS_DIR / resolved_brand_slug / "records" / f"{record_id}.json",
+        HISTORY_BRANDS_DIR / resolved_brand_slug / "details" / f"{record_id}.json",
+        HISTORY_BRANDS_DIR / resolved_brand_slug / "images" / image_file_name,
+        HISTORY_RECORDS_DIR / f"{record_id}.json",
+        HISTORY_IMAGES_DIR / image_file_name,
+    ]
+
+    deleted = False
+    for path in candidate_paths:
+        if path.exists():
+            path.unlink()
+            deleted = True
+    return deleted
+
+
 class PeraHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -367,6 +393,9 @@ class PeraHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/collages":
             self.handle_save_collage()
+            return
+        if self.path == "/api/collages/delete":
+            self.handle_delete_collages()
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
@@ -506,6 +535,38 @@ class PeraHandler(SimpleHTTPRequestHandler):
 
         record = save_history_record(payload)
         response = json.dumps({"ok": True, "record": record}, ensure_ascii=False).encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
+
+    def handle_delete_collages(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+
+        raw_body = self.rfile.read(length)
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.send_response(HTTPStatus.BAD_REQUEST)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b'{"error":"invalid_json"}')
+            return
+
+        records = payload.get("records") or []
+        deleted_ids: list[str] = []
+        for record in records:
+            record_id = record.get("id")
+            if not record_id:
+                continue
+            if delete_history_record(record_id, record.get("brandSlug"), record.get("userId")):
+                deleted_ids.append(record_id)
+
+        response = json.dumps({"ok": True, "deletedIds": deleted_ids}, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(response)))

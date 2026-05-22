@@ -184,8 +184,13 @@ let employeeHistoryView = "list";
 let adminHistoryView = "list";
 let employeeHistorySort = "newest";
 let adminHistorySort = "newest";
+let employeeHistoryRange = "all";
+let adminHistoryRange = "all";
 let employeeHistoryLoading = false;
 let adminHistoryLoading = false;
+let employeeHistorySelection = new Set();
+let adminHistorySelection = new Set();
+let activeHistoryPreview = null;
 let dragState = null;
 let photoAdjustSelection = 0;
 let employeeTouchState = null;
@@ -367,6 +372,107 @@ async function listLocalJsonRecordsRecursive(pathParts) {
   return records;
 }
 
+async function listLocalHistorySummaryRecords() {
+  const rootHandle = await ensureLocalDataRoot(false);
+  if (!rootHandle) return [];
+
+  const records = [];
+
+  async function collectJsonFiles(pathParts) {
+    let current = rootHandle;
+    try {
+      for (const part of pathParts) {
+        current = await current.getDirectoryHandle(part, { create: false });
+      }
+    } catch (error) {
+      if (error?.name === "NotFoundError") return;
+      throw error;
+    }
+
+    for await (const [name, handle] of current.entries()) {
+      if (handle.kind !== "file" || !name.endsWith(".json")) continue;
+      const file = await handle.getFile();
+      try {
+        records.push(JSON.parse(await file.text()));
+      } catch (error) {
+        console.error("Local history summary parse failed", name, error);
+      }
+    }
+  }
+
+  await collectJsonFiles(["history", "records"]);
+
+  let brandsHandle = null;
+  try {
+    brandsHandle = await rootHandle.getDirectoryHandle("history", { create: false });
+    brandsHandle = await brandsHandle.getDirectoryHandle("brands", { create: false });
+  } catch (error) {
+    if (error?.name === "NotFoundError") {
+      return records;
+    }
+    throw error;
+  }
+
+  for await (const [, brandHandle] of brandsHandle.entries()) {
+    if (brandHandle.kind !== "directory") continue;
+    try {
+      const recordsHandle = await brandHandle.getDirectoryHandle("records", { create: false });
+      for await (const [name, handle] of recordsHandle.entries()) {
+        if (handle.kind !== "file" || !name.endsWith(".json")) continue;
+        const file = await handle.getFile();
+        try {
+          records.push(JSON.parse(await file.text()));
+        } catch (error) {
+          console.error("Local brand history summary parse failed", name, error);
+        }
+      }
+    } catch (error) {
+      if (error?.name !== "NotFoundError") {
+        throw error;
+      }
+    }
+  }
+
+  return records;
+}
+
+async function deleteLocalEntry(pathParts) {
+  const rootHandle = await ensureLocalDataRoot(false);
+  if (!rootHandle) return false;
+
+  let current = rootHandle;
+  try {
+    for (let index = 0; index < pathParts.length - 1; index += 1) {
+      current = await current.getDirectoryHandle(pathParts[index], { create: false });
+    }
+    await current.removeEntry(pathParts[pathParts.length - 1]);
+    return true;
+  } catch (error) {
+    if (error?.name === "NotFoundError") return false;
+    throw error;
+  }
+}
+
+async function deleteLocalHistoryRecord(record) {
+  const brandSlug = record?.brandSlug || slugifyValue(record?.brandName || record?.brandId || "unknown-brand", "unknown-brand");
+  const recordId = record?.id;
+  const imageFileName = record?.imageFileName || `${recordId}.png`;
+
+  const deletionPaths = [
+    ["history", "brands", brandSlug, "records", `${recordId}.json`],
+    ["history", "brands", brandSlug, "details", `${recordId}.json`],
+    ["history", "brands", brandSlug, "images", imageFileName],
+    ["history", "records", `${recordId}.json`],
+    ["history", "images", imageFileName],
+  ];
+
+  let deleted = false;
+  for (const pathParts of deletionPaths) {
+    deleted = (await deleteLocalEntry(pathParts)) || deleted;
+  }
+  return deleted;
+}
+
 async function readLocalHistoryRecordDetail(record) {
   const candidatePaths = [];
   if (record?.brandSlug && record?.id) {
@@ -422,7 +528,17 @@ const elements = {
   adminHistorySearch: document.getElementById("adminHistorySearch"),
   employeeHistorySort: document.getElementById("employeeHistorySort"),
   adminHistorySort: document.getElementById("adminHistorySort"),
+  employeeHistoryRangeButtons: Array.from(document.querySelectorAll("[data-history-scope='employee'][data-history-range]")),
+  adminHistoryRangeButtons: Array.from(document.querySelectorAll("[data-history-scope='admin'][data-history-range]")),
   historyViewButtons: Array.from(document.querySelectorAll("[data-history-view]")),
+  employeeHistoryBulkBar: document.getElementById("employeeHistoryBulkBar"),
+  adminHistoryBulkBar: document.getElementById("adminHistoryBulkBar"),
+  employeeHistorySelectedCount: document.getElementById("employeeHistorySelectedCount"),
+  adminHistorySelectedCount: document.getElementById("adminHistorySelectedCount"),
+  employeeHistoryDownloadSelected: document.getElementById("employeeHistoryDownloadSelected"),
+  adminHistoryDownloadSelected: document.getElementById("adminHistoryDownloadSelected"),
+  employeeHistoryDeleteSelected: document.getElementById("employeeHistoryDeleteSelected"),
+  adminHistoryDeleteSelected: document.getElementById("adminHistoryDeleteSelected"),
   employeeCustomFields: document.getElementById("employeeCustomFields"),
   employeeViewButtons: Array.from(document.querySelectorAll("[data-employee-view]")),
   employeeViewPanels: Array.from(document.querySelectorAll("[data-employee-view-panel]")),
@@ -493,6 +609,16 @@ const elements = {
   saveTemplate: document.getElementById("saveTemplate"),
   exportTemplate: document.getElementById("exportTemplate"),
   resetTemplate: document.getElementById("resetTemplate"),
+  historyPreviewModal: document.getElementById("historyPreviewModal"),
+  historyPreviewBackdrop: document.getElementById("historyPreviewBackdrop"),
+  historyPreviewClose: document.getElementById("historyPreviewClose"),
+  historyPreviewImage: document.getElementById("historyPreviewImage"),
+  historyPreviewBrand: document.getElementById("historyPreviewBrand"),
+  historyPreviewUser: document.getElementById("historyPreviewUser"),
+  historyPreviewTitle: document.getElementById("historyPreviewTitle"),
+  historyPreviewMeta: document.getElementById("historyPreviewMeta"),
+  historyPreviewOpen: document.getElementById("historyPreviewOpen"),
+  historyPreviewDownload: document.getElementById("historyPreviewDownload"),
 };
 
 elements.photoCountField = elements.photoCount.closest(".field");
@@ -850,6 +976,217 @@ function sortHistoryRecords(records, sortMode = "newest") {
     return String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? ""));
   });
   return sorted;
+}
+
+function getHistoryRangeDays(range) {
+  if (range === "today") return 1;
+  if (range === "7") return 7;
+  if (range === "30") return 30;
+  return 0;
+}
+
+function filterHistoryRecordsByRange(records, range = "all") {
+  const days = getHistoryRangeDays(range);
+  if (!days) return records;
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const threshold = days === 1 ? startOfToday : now.getTime() - days * 24 * 60 * 60 * 1000;
+
+  return records.filter((record) => {
+    const createdAt = new Date(record?.createdAt ?? "");
+    if (Number.isNaN(createdAt.getTime())) return false;
+    return createdAt.getTime() >= threshold;
+  });
+}
+
+function getHistorySelection(scope) {
+  return scope === "admin" ? adminHistorySelection : employeeHistorySelection;
+}
+
+function getHistoryCollection(scope) {
+  return scope === "admin" ? adminHistory : employeeHistory;
+}
+
+function setHistorySelection(scope, nextSelection) {
+  if (scope === "admin") {
+    adminHistorySelection = nextSelection;
+  } else {
+    employeeHistorySelection = nextSelection;
+  }
+}
+
+function isHistoryRecordSelected(scope, recordId) {
+  return getHistorySelection(scope).has(recordId);
+}
+
+function toggleHistoryRecordSelection(scope, recordId) {
+  const nextSelection = new Set(getHistorySelection(scope));
+  if (nextSelection.has(recordId)) {
+    nextSelection.delete(recordId);
+  } else {
+    nextSelection.add(recordId);
+  }
+  setHistorySelection(scope, nextSelection);
+  if (scope === "admin") {
+    renderAdminHistoryList();
+  } else {
+    renderEmployeeHistoryList();
+  }
+}
+
+function clearHistorySelection(scope) {
+  setHistorySelection(scope, new Set());
+}
+
+function getVisibleEmployeeHistoryRecords() {
+  const visibleRecords = filterHistoryRecords(employeeHistory, employeeHistoryQuery);
+  return sortHistoryRecords(filterHistoryRecordsByRange(visibleRecords, employeeHistoryRange), employeeHistorySort);
+}
+
+function getVisibleAdminHistoryRecords() {
+  const visibleRecords = filterHistoryRecords(adminHistory, adminHistoryQuery);
+  return sortHistoryRecords(filterHistoryRecordsByRange(visibleRecords, adminHistoryRange), adminHistorySort);
+}
+
+function syncHistoryRangeButtons(scope) {
+  const buttons = scope === "admin" ? elements.adminHistoryRangeButtons : elements.employeeHistoryRangeButtons;
+  const currentRange = scope === "admin" ? adminHistoryRange : employeeHistoryRange;
+  buttons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.historyRange === currentRange);
+  });
+}
+
+function syncHistoryBulkBar(scope, visibleRecords = []) {
+  const bulkBar = scope === "admin" ? elements.adminHistoryBulkBar : elements.employeeHistoryBulkBar;
+  const countNode = scope === "admin" ? elements.adminHistorySelectedCount : elements.employeeHistorySelectedCount;
+  const downloadButton =
+    scope === "admin" ? elements.adminHistoryDownloadSelected : elements.employeeHistoryDownloadSelected;
+  const deleteButton = scope === "admin" ? elements.adminHistoryDeleteSelected : elements.employeeHistoryDeleteSelected;
+
+  if (!bulkBar || !countNode || !downloadButton || !deleteButton) return;
+
+  const visibleIds = new Set(visibleRecords.map((record) => record.id));
+  const selectedRecords = getHistoryCollection(scope).filter(
+    (record) => getHistorySelection(scope).has(record.id) && (!visibleIds.size || visibleIds.has(record.id))
+  );
+  const selectedCount = selectedRecords.length;
+  bulkBar.classList.toggle("is-hidden", selectedCount === 0);
+  countNode.textContent = selectedCount ? `Выбрано: ${selectedCount}` : "Ничего не выбрано";
+  downloadButton.disabled = selectedCount === 0;
+  deleteButton.disabled = selectedCount === 0;
+}
+
+function closeHistoryPreview() {
+  activeHistoryPreview = null;
+  if (elements.historyPreviewModal) {
+    elements.historyPreviewModal.classList.add("is-hidden");
+  }
+}
+
+function openHistoryPreview(record, scope) {
+  activeHistoryPreview = { record, scope };
+  if (!elements.historyPreviewModal) return;
+
+  const info = getHistoryCardMeta(record);
+  const previewSrc = getHistoryPreviewUrl(record);
+  elements.historyPreviewImage.src =
+    previewSrc ||
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+  elements.historyPreviewImage.alt = info.title;
+  elements.historyPreviewBrand.textContent = info.brandName;
+  elements.historyPreviewUser.textContent = scope === "admin" ? info.userName : "Мой коллаж";
+  elements.historyPreviewTitle.textContent = info.title;
+  elements.historyPreviewMeta.textContent = info.subtitle || "Без даты";
+  elements.historyPreviewOpen.onclick = async () => {
+    await openHistoryRecord(record);
+    closeHistoryPreview();
+  };
+  elements.historyPreviewDownload.onclick = () => {
+    downloadHistoryRecord(record);
+  };
+  elements.historyPreviewModal.classList.remove("is-hidden");
+}
+
+function downloadHistoryRecord(record) {
+  const previewSrc = getHistoryPreviewUrl(record);
+  if (!previewSrc) return;
+
+  if (/^data:/i.test(previewSrc)) {
+    const fileName = buildSafeFileName(getRecordDisplayName(record));
+    triggerBlobDownload(dataUrlToBlob(previewSrc), fileName);
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = previewSrc;
+  link.download = buildSafeFileName(getRecordDisplayName(record));
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+async function downloadSelectedHistoryRecords(scope) {
+  const selectedIds = getHistorySelection(scope);
+  const selectedRecords = getHistoryCollection(scope).filter((record) => selectedIds.has(record.id));
+  for (const record of selectedRecords) {
+    downloadHistoryRecord(record);
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
+  }
+}
+
+async function deleteHistoryRecordFromServer(record, scope) {
+  if (isFileMode()) {
+    return deleteLocalHistoryRecord(record);
+  }
+
+  const currentUser = getCurrentEmployeeUser();
+  const payload = {
+    records: [
+      {
+        id: record.id,
+        brandSlug: record.brandSlug,
+        userId: scope === "employee" ? currentUser?.id || record.userId : record.userId,
+      },
+    ],
+  };
+
+  const response = await fetch(`${COLLAGES_API_URL}/delete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`History delete failed: ${response.status}`);
+  }
+  return true;
+}
+
+async function deleteSelectedHistoryRecords(scope) {
+  const selectedIds = getHistorySelection(scope);
+  const selectedRecords = getHistoryCollection(scope).filter((record) => selectedIds.has(record.id));
+  if (!selectedRecords.length) return;
+
+  const isConfirmed = window.confirm(`Удалить выбранные коллажи: ${selectedRecords.length} шт.?`);
+  if (!isConfirmed) return;
+
+  try {
+    for (const record of selectedRecords) {
+      await deleteHistoryRecordFromServer(record, scope);
+    }
+    clearHistorySelection(scope);
+    if (scope === "admin") {
+      await loadAdminHistory();
+    } else {
+      await loadEmployeeHistory();
+    }
+  } catch (error) {
+    console.error("History delete failed", error);
+    alert("Не удалось удалить выбранные коллажи.");
+  }
 }
 
 function getHistoryCardMeta(record) {
@@ -1519,6 +1856,58 @@ function bindEmployeeInputs() {
         );
       });
     });
+  });
+
+  elements.employeeHistoryRangeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      employeeHistoryRange = button.dataset.historyRange || "all";
+      renderEmployeeHistoryList();
+    });
+  });
+
+  elements.adminHistoryRangeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      adminHistoryRange = button.dataset.historyRange || "all";
+      renderAdminHistoryList();
+    });
+  });
+
+  if (elements.employeeHistoryDownloadSelected) {
+    elements.employeeHistoryDownloadSelected.addEventListener("click", async () => {
+      await downloadSelectedHistoryRecords("employee");
+    });
+  }
+
+  if (elements.adminHistoryDownloadSelected) {
+    elements.adminHistoryDownloadSelected.addEventListener("click", async () => {
+      await downloadSelectedHistoryRecords("admin");
+    });
+  }
+
+  if (elements.employeeHistoryDeleteSelected) {
+    elements.employeeHistoryDeleteSelected.addEventListener("click", async () => {
+      await deleteSelectedHistoryRecords("employee");
+    });
+  }
+
+  if (elements.adminHistoryDeleteSelected) {
+    elements.adminHistoryDeleteSelected.addEventListener("click", async () => {
+      await deleteSelectedHistoryRecords("admin");
+    });
+  }
+
+  [elements.historyPreviewBackdrop, elements.historyPreviewClose].forEach((element) => {
+    if (element) {
+      element.addEventListener("click", () => {
+        closeHistoryPreview();
+      });
+    }
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && activeHistoryPreview) {
+      closeHistoryPreview();
+    }
   });
 
   if (elements.employeeNextStep) {
@@ -2323,6 +2712,7 @@ async function loadEmployeeHistory() {
   if (!currentUser) {
     employeeHistoryLoading = false;
     employeeHistory = [];
+    clearHistorySelection("employee");
     renderEmployeeHistoryList();
     return;
   }
@@ -2332,7 +2722,7 @@ async function loadEmployeeHistory() {
 
   try {
     if (isFileMode()) {
-      const records = await listLocalJsonRecordsRecursive(["history"]);
+      const records = await listLocalHistorySummaryRecords();
       employeeHistory = dedupeHistoryRecords(
         records.filter((record) => record?.userId === currentUser.id)
       ).sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
@@ -2351,6 +2741,11 @@ async function loadEmployeeHistory() {
     employeeHistoryLoading = false;
   }
 
+  const availableIds = new Set(employeeHistory.map((record) => record.id));
+  setHistorySelection(
+    "employee",
+    new Set([...employeeHistorySelection].filter((recordId) => availableIds.has(recordId)))
+  );
   renderEmployeeHistoryList();
 }
 
@@ -2359,7 +2754,7 @@ async function loadAdminHistory() {
   renderAdminHistoryList();
   try {
     if (isFileMode()) {
-      const records = await listLocalJsonRecordsRecursive(["history"]);
+      const records = await listLocalHistorySummaryRecords();
       adminHistory = dedupeHistoryRecords(records).sort((a, b) =>
         String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))
       );
@@ -2378,15 +2773,30 @@ async function loadAdminHistory() {
     adminHistoryLoading = false;
   }
 
+  const availableIds = new Set(adminHistory.map((record) => record.id));
+  setHistorySelection(
+    "admin",
+    new Set([...adminHistorySelection].filter((recordId) => availableIds.has(recordId)))
+  );
   renderAdminHistoryList();
 }
 
 function createHistoryCard(record, viewMode, scope) {
   const card = document.createElement("article");
   card.className = `history-card history-card--${viewMode}`;
+  card.classList.toggle("is-selected", isHistoryRecordSelected(scope, record.id));
 
   const preview = document.createElement("div");
   preview.className = "history-card-preview";
+  preview.role = "button";
+  preview.tabIndex = 0;
+  preview.addEventListener("click", () => openHistoryPreview(record, scope));
+  preview.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openHistoryPreview(record, scope);
+    }
+  });
   const previewSrc = getHistoryPreviewUrl(record);
   if (previewSrc) {
     const image = document.createElement("img");
@@ -2401,6 +2811,16 @@ function createHistoryCard(record, viewMode, scope) {
     empty.textContent = "Нет превью";
     preview.append(empty);
   }
+
+  const selectToggle = document.createElement("button");
+  selectToggle.type = "button";
+  selectToggle.className = "history-select-toggle";
+  selectToggle.textContent = isHistoryRecordSelected(scope, record.id) ? "Выбрано" : "Выбрать";
+  selectToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleHistoryRecordSelection(scope, record.id);
+  });
+  preview.append(selectToggle);
 
   const content = document.createElement("div");
   content.className = "history-card-content";
@@ -2439,6 +2859,14 @@ function createHistoryCard(record, viewMode, scope) {
   downloadButton.href = previewSrc || "#";
   downloadButton.download = buildSafeFileName(getRecordDisplayName(record));
   downloadButton.textContent = "Скачать";
+  downloadButton.addEventListener("click", (event) => {
+    if (!previewSrc) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    downloadHistoryRecord(record);
+  });
 
   actions.append(openButton, downloadButton);
   content.append(topLine, title, subtitle, actions);
@@ -2458,9 +2886,11 @@ function createHistoryGrid(records, viewMode, scope) {
 function renderEmployeeHistoryList() {
   if (!elements.employeeHistoryList) return;
   elements.employeeHistoryList.innerHTML = "";
+  syncHistoryRangeButtons("employee");
 
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) {
+    syncHistoryBulkBar("employee", []);
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "Войди как сотрудник, чтобы видеть историю своих коллажей.";
@@ -2469,6 +2899,7 @@ function renderEmployeeHistoryList() {
   }
 
   if (employeeHistoryLoading && !employeeHistory.length) {
+    syncHistoryBulkBar("employee", []);
     const loading = document.createElement("div");
     loading.className = "history-empty";
     loading.textContent = "Загружаем историю...";
@@ -2477,6 +2908,7 @@ function renderEmployeeHistoryList() {
   }
 
   if (!employeeHistory.length) {
+    syncHistoryBulkBar("employee", []);
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "История пока пустая.";
@@ -2484,8 +2916,9 @@ function renderEmployeeHistoryList() {
     return;
   }
 
-  const visibleRecords = filterHistoryRecords(employeeHistory, employeeHistoryQuery);
+  const visibleRecords = getVisibleEmployeeHistoryRecords();
   if (!visibleRecords.length) {
+    syncHistoryBulkBar("employee", []);
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "По этому запросу ничего не найдено.";
@@ -2493,8 +2926,8 @@ function renderEmployeeHistoryList() {
     return;
   }
 
-  const sortedRecords = sortHistoryRecords(visibleRecords, employeeHistorySort);
-  const groupedRecords = sortedRecords.reduce((groups, record) => {
+  syncHistoryBulkBar("employee", visibleRecords);
+  const groupedRecords = visibleRecords.reduce((groups, record) => {
     const key = record.brandName?.trim() || "Без бренда";
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -2524,8 +2957,10 @@ function renderEmployeeHistoryList() {
 function renderAdminHistoryList() {
   if (!elements.adminHistoryList) return;
   elements.adminHistoryList.innerHTML = "";
+  syncHistoryRangeButtons("admin");
 
   if (adminHistoryLoading && !adminHistory.length) {
+    syncHistoryBulkBar("admin", []);
     const loading = document.createElement("div");
     loading.className = "history-empty";
     loading.textContent = "Загружаем историю...";
@@ -2534,6 +2969,7 @@ function renderAdminHistoryList() {
   }
 
   if (!adminHistory.length) {
+    syncHistoryBulkBar("admin", []);
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "История сотрудников пока пустая.";
@@ -2541,8 +2977,9 @@ function renderAdminHistoryList() {
     return;
   }
 
-  const visibleRecords = filterHistoryRecords(adminHistory, adminHistoryQuery);
+  const visibleRecords = getVisibleAdminHistoryRecords();
   if (!visibleRecords.length) {
+    syncHistoryBulkBar("admin", []);
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "По этому запросу ничего не найдено.";
@@ -2550,8 +2987,8 @@ function renderAdminHistoryList() {
     return;
   }
 
-  const sortedRecords = sortHistoryRecords(visibleRecords, adminHistorySort);
-  const userGroups = sortedRecords.reduce((groups, record) => {
+  syncHistoryBulkBar("admin", visibleRecords);
+  const userGroups = visibleRecords.reduce((groups, record) => {
     const key = record.userName?.trim() || "Без пользователя";
     if (!groups.has(key)) {
       groups.set(key, []);
