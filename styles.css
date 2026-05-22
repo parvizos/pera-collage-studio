@@ -922,6 +922,16 @@ button.tiny {
   gap: 8px;
 }
 
+.history-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.history-pagination .is-hidden {
+  display: none !important;
+}
+
 .history-view-switch {
   display: inline-flex;
   gap: 8px;

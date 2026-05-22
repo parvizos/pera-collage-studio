@@ -188,6 +188,12 @@ let employeeHistoryRange = "all";
 let adminHistoryRange = "all";
 let employeeHistoryLoading = false;
 let adminHistoryLoading = false;
+let employeeHistoryPage = 1;
+let adminHistoryPage = 1;
+let employeeHistoryHasMore = false;
+let adminHistoryHasMore = false;
+let employeeHistorySearchTimer = null;
+let adminHistorySearchTimer = null;
 let employeeHistorySelection = new Set();
 let adminHistorySelection = new Set();
 let activeHistoryPreview = null;
@@ -200,6 +206,7 @@ let adminTapState = { count: 0, lastTime: 0 };
 let localDataRootHandle = null;
 const imageCache = new Map();
 const imagePromiseCache = new Map();
+const HISTORY_PAGE_LIMIT = 24;
 
 function isFileMode() {
   return window.location.protocol === "file:";
@@ -533,6 +540,8 @@ const elements = {
   historyViewButtons: Array.from(document.querySelectorAll("[data-history-view]")),
   employeeHistoryBulkBar: document.getElementById("employeeHistoryBulkBar"),
   adminHistoryBulkBar: document.getElementById("adminHistoryBulkBar"),
+  employeeHistoryLoadMore: document.getElementById("employeeHistoryLoadMore"),
+  adminHistoryLoadMore: document.getElementById("adminHistoryLoadMore"),
   employeeHistorySelectedCount: document.getElementById("employeeHistorySelectedCount"),
   adminHistorySelectedCount: document.getElementById("adminHistorySelectedCount"),
   employeeHistoryDownloadSelected: document.getElementById("employeeHistoryDownloadSelected"),
@@ -1000,6 +1009,35 @@ function filterHistoryRecordsByRange(records, range = "all") {
   });
 }
 
+function paginateHistoryRecords(records, page = 1, limit = HISTORY_PAGE_LIMIT) {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.max(1, Number(limit) || HISTORY_PAGE_LIMIT);
+  const offset = (safePage - 1) * safeLimit;
+  const paginatedRecords = records.slice(offset, offset + safeLimit);
+  return {
+    records: paginatedRecords,
+    page: safePage,
+    limit: safeLimit,
+    total: records.length,
+    hasMore: offset + safeLimit < records.length,
+  };
+}
+
+function applyHistoryQuery(records, options = {}) {
+  const {
+    query = "",
+    range = "all",
+    sort = "newest",
+    page = 1,
+    limit = HISTORY_PAGE_LIMIT,
+    userId = null,
+  } = options;
+
+  const normalizedRecords = userId ? records.filter((record) => record?.userId === userId) : records;
+  const filteredRecords = filterHistoryRecordsByRange(filterHistoryRecords(normalizedRecords, query), range);
+  return paginateHistoryRecords(sortHistoryRecords(filteredRecords, sort), page, limit);
+}
+
 function getHistorySelection(scope) {
   return scope === "admin" ? adminHistorySelection : employeeHistorySelection;
 }
@@ -1040,13 +1078,11 @@ function clearHistorySelection(scope) {
 }
 
 function getVisibleEmployeeHistoryRecords() {
-  const visibleRecords = filterHistoryRecords(employeeHistory, employeeHistoryQuery);
-  return sortHistoryRecords(filterHistoryRecordsByRange(visibleRecords, employeeHistoryRange), employeeHistorySort);
+  return employeeHistory;
 }
 
 function getVisibleAdminHistoryRecords() {
-  const visibleRecords = filterHistoryRecords(adminHistory, adminHistoryQuery);
-  return sortHistoryRecords(filterHistoryRecordsByRange(visibleRecords, adminHistoryRange), adminHistorySort);
+  return adminHistory;
 }
 
 function syncHistoryRangeButtons(scope) {
@@ -1075,6 +1111,17 @@ function syncHistoryBulkBar(scope, visibleRecords = []) {
   countNode.textContent = selectedCount ? `Выбрано: ${selectedCount}` : "Ничего не выбрано";
   downloadButton.disabled = selectedCount === 0;
   deleteButton.disabled = selectedCount === 0;
+}
+
+function syncHistoryPagination(scope) {
+  const button = scope === "admin" ? elements.adminHistoryLoadMore : elements.employeeHistoryLoadMore;
+  const isLoading = scope === "admin" ? adminHistoryLoading : employeeHistoryLoading;
+  const hasMore = scope === "admin" ? adminHistoryHasMore : employeeHistoryHasMore;
+
+  if (!button) return;
+  button.disabled = isLoading;
+  button.textContent = isLoading ? "Загружаем..." : "Показать ещё";
+  button.classList.toggle("is-hidden", !hasMore && !isLoading);
 }
 
 function closeHistoryPreview() {
@@ -1813,28 +1860,42 @@ function bindEmployeeInputs() {
   if (elements.employeeHistorySearch) {
     elements.employeeHistorySearch.addEventListener("input", (event) => {
       employeeHistoryQuery = event.target.value;
-      renderEmployeeHistoryList();
+      window.clearTimeout(employeeHistorySearchTimer);
+      employeeHistorySearchTimer = window.setTimeout(() => {
+        loadEmployeeHistory().catch((error) => {
+          console.error("Employee history load failed", error);
+        });
+      }, 220);
     });
   }
 
   if (elements.adminHistorySearch) {
     elements.adminHistorySearch.addEventListener("input", (event) => {
       adminHistoryQuery = event.target.value;
-      renderAdminHistoryList();
+      window.clearTimeout(adminHistorySearchTimer);
+      adminHistorySearchTimer = window.setTimeout(() => {
+        loadAdminHistory().catch((error) => {
+          console.error("Admin history load failed", error);
+        });
+      }, 220);
     });
   }
 
   if (elements.employeeHistorySort) {
     elements.employeeHistorySort.addEventListener("change", (event) => {
       employeeHistorySort = event.target.value;
-      renderEmployeeHistoryList();
+      loadEmployeeHistory().catch((error) => {
+        console.error("Employee history load failed", error);
+      });
     });
   }
 
   if (elements.adminHistorySort) {
     elements.adminHistorySort.addEventListener("change", (event) => {
       adminHistorySort = event.target.value;
-      renderAdminHistoryList();
+      loadAdminHistory().catch((error) => {
+        console.error("Admin history load failed", error);
+      });
     });
   }
 
@@ -1861,16 +1922,32 @@ function bindEmployeeInputs() {
   elements.employeeHistoryRangeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       employeeHistoryRange = button.dataset.historyRange || "all";
-      renderEmployeeHistoryList();
+      loadEmployeeHistory().catch((error) => {
+        console.error("Employee history load failed", error);
+      });
     });
   });
 
   elements.adminHistoryRangeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       adminHistoryRange = button.dataset.historyRange || "all";
-      renderAdminHistoryList();
+      loadAdminHistory().catch((error) => {
+        console.error("Admin history load failed", error);
+      });
     });
   });
+
+  if (elements.employeeHistoryLoadMore) {
+    elements.employeeHistoryLoadMore.addEventListener("click", async () => {
+      await loadEmployeeHistory({ append: true });
+    });
+  }
+
+  if (elements.adminHistoryLoadMore) {
+    elements.adminHistoryLoadMore.addEventListener("click", async () => {
+      await loadAdminHistory({ append: true });
+    });
+  }
 
   if (elements.employeeHistoryDownloadSelected) {
     elements.employeeHistoryDownloadSelected.addEventListener("click", async () => {
@@ -2707,36 +2784,63 @@ function syncEmployeeAccess() {
   renderEmployeeHistoryList();
 }
 
-async function loadEmployeeHistory() {
+async function loadEmployeeHistory(options = {}) {
+  const { append = false } = options;
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) {
     employeeHistoryLoading = false;
     employeeHistory = [];
+    employeeHistoryPage = 1;
+    employeeHistoryHasMore = false;
     clearHistorySelection("employee");
     renderEmployeeHistoryList();
     return;
   }
 
+  const nextPage = append ? employeeHistoryPage + 1 : 1;
   employeeHistoryLoading = true;
   renderEmployeeHistoryList();
 
   try {
     if (isFileMode()) {
-      const records = await listLocalHistorySummaryRecords();
-      employeeHistory = dedupeHistoryRecords(
-        records.filter((record) => record?.userId === currentUser.id)
-      ).sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
+      const allRecords = dedupeHistoryRecords(await listLocalHistorySummaryRecords());
+      const result = applyHistoryQuery(allRecords, {
+        userId: currentUser.id,
+        query: employeeHistoryQuery,
+        range: employeeHistoryRange,
+        sort: employeeHistorySort,
+        page: nextPage,
+        limit: HISTORY_PAGE_LIMIT,
+      });
+      employeeHistory = append ? [...employeeHistory, ...result.records] : result.records;
+      employeeHistoryPage = result.page;
+      employeeHistoryHasMore = result.hasMore;
     } else {
-      const response = await fetch(`${COLLAGES_API_URL}?userId=${encodeURIComponent(currentUser.id)}`);
+      const params = new URLSearchParams({
+        userId: currentUser.id,
+        page: String(nextPage),
+        limit: String(HISTORY_PAGE_LIMIT),
+        search: employeeHistoryQuery,
+        sort: employeeHistorySort,
+        range: employeeHistoryRange,
+      });
+      const response = await fetch(`${COLLAGES_API_URL}?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`History load failed: ${response.status}`);
       }
       const payload = await response.json();
-      employeeHistory = Array.isArray(payload.records) ? dedupeHistoryRecords(payload.records) : [];
+      const records = Array.isArray(payload.records) ? dedupeHistoryRecords(payload.records) : [];
+      employeeHistory = append ? [...employeeHistory, ...records] : records;
+      employeeHistoryPage = Number(payload.page || nextPage);
+      employeeHistoryHasMore = Boolean(payload.hasMore);
     }
   } catch (error) {
     console.error("Employee history load failed", error);
-    employeeHistory = [];
+    if (!append) {
+      employeeHistory = [];
+      employeeHistoryPage = 1;
+      employeeHistoryHasMore = false;
+    }
   } finally {
     employeeHistoryLoading = false;
   }
@@ -2749,26 +2853,49 @@ async function loadEmployeeHistory() {
   renderEmployeeHistoryList();
 }
 
-async function loadAdminHistory() {
+async function loadAdminHistory(options = {}) {
+  const { append = false } = options;
+  const nextPage = append ? adminHistoryPage + 1 : 1;
   adminHistoryLoading = true;
   renderAdminHistoryList();
   try {
     if (isFileMode()) {
-      const records = await listLocalHistorySummaryRecords();
-      adminHistory = dedupeHistoryRecords(records).sort((a, b) =>
-        String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))
-      );
+      const allRecords = dedupeHistoryRecords(await listLocalHistorySummaryRecords());
+      const result = applyHistoryQuery(allRecords, {
+        query: adminHistoryQuery,
+        range: adminHistoryRange,
+        sort: adminHistorySort,
+        page: nextPage,
+        limit: HISTORY_PAGE_LIMIT,
+      });
+      adminHistory = append ? [...adminHistory, ...result.records] : result.records;
+      adminHistoryPage = result.page;
+      adminHistoryHasMore = result.hasMore;
     } else {
-      const response = await fetch(COLLAGES_API_URL);
+      const params = new URLSearchParams({
+        page: String(nextPage),
+        limit: String(HISTORY_PAGE_LIMIT),
+        search: adminHistoryQuery,
+        sort: adminHistorySort,
+        range: adminHistoryRange,
+      });
+      const response = await fetch(`${COLLAGES_API_URL}?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`Admin history load failed: ${response.status}`);
       }
       const payload = await response.json();
-      adminHistory = Array.isArray(payload.records) ? dedupeHistoryRecords(payload.records) : [];
+      const records = Array.isArray(payload.records) ? dedupeHistoryRecords(payload.records) : [];
+      adminHistory = append ? [...adminHistory, ...records] : records;
+      adminHistoryPage = Number(payload.page || nextPage);
+      adminHistoryHasMore = Boolean(payload.hasMore);
     }
   } catch (error) {
     console.error("Admin history load failed", error);
-    adminHistory = [];
+    if (!append) {
+      adminHistory = [];
+      adminHistoryPage = 1;
+      adminHistoryHasMore = false;
+    }
   } finally {
     adminHistoryLoading = false;
   }
@@ -2887,10 +3014,12 @@ function renderEmployeeHistoryList() {
   if (!elements.employeeHistoryList) return;
   elements.employeeHistoryList.innerHTML = "";
   syncHistoryRangeButtons("employee");
+  syncHistoryPagination("employee");
 
   const currentUser = getCurrentEmployeeUser();
   if (!currentUser) {
     syncHistoryBulkBar("employee", []);
+    syncHistoryPagination("employee");
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "Войди как сотрудник, чтобы видеть историю своих коллажей.";
@@ -2900,6 +3029,7 @@ function renderEmployeeHistoryList() {
 
   if (employeeHistoryLoading && !employeeHistory.length) {
     syncHistoryBulkBar("employee", []);
+    syncHistoryPagination("employee");
     const loading = document.createElement("div");
     loading.className = "history-empty";
     loading.textContent = "Загружаем историю...";
@@ -2909,6 +3039,7 @@ function renderEmployeeHistoryList() {
 
   if (!employeeHistory.length) {
     syncHistoryBulkBar("employee", []);
+    syncHistoryPagination("employee");
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "История пока пустая.";
@@ -2919,6 +3050,7 @@ function renderEmployeeHistoryList() {
   const visibleRecords = getVisibleEmployeeHistoryRecords();
   if (!visibleRecords.length) {
     syncHistoryBulkBar("employee", []);
+    syncHistoryPagination("employee");
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "По этому запросу ничего не найдено.";
@@ -2927,6 +3059,7 @@ function renderEmployeeHistoryList() {
   }
 
   syncHistoryBulkBar("employee", visibleRecords);
+  syncHistoryPagination("employee");
   const groupedRecords = visibleRecords.reduce((groups, record) => {
     const key = record.brandName?.trim() || "Без бренда";
     if (!groups.has(key)) {
@@ -2958,9 +3091,11 @@ function renderAdminHistoryList() {
   if (!elements.adminHistoryList) return;
   elements.adminHistoryList.innerHTML = "";
   syncHistoryRangeButtons("admin");
+  syncHistoryPagination("admin");
 
   if (adminHistoryLoading && !adminHistory.length) {
     syncHistoryBulkBar("admin", []);
+    syncHistoryPagination("admin");
     const loading = document.createElement("div");
     loading.className = "history-empty";
     loading.textContent = "Загружаем историю...";
@@ -2970,6 +3105,7 @@ function renderAdminHistoryList() {
 
   if (!adminHistory.length) {
     syncHistoryBulkBar("admin", []);
+    syncHistoryPagination("admin");
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "История сотрудников пока пустая.";
@@ -2980,6 +3116,7 @@ function renderAdminHistoryList() {
   const visibleRecords = getVisibleAdminHistoryRecords();
   if (!visibleRecords.length) {
     syncHistoryBulkBar("admin", []);
+    syncHistoryPagination("admin");
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "По этому запросу ничего не найдено.";
@@ -2988,6 +3125,7 @@ function renderAdminHistoryList() {
   }
 
   syncHistoryBulkBar("admin", visibleRecords);
+  syncHistoryPagination("admin");
   const userGroups = visibleRecords.reduce((groups, record) => {
     const key = record.userName?.trim() || "Без пользователя";
     if (!groups.has(key)) {

@@ -288,6 +288,82 @@ def load_history_records(user_id: str | None) -> list[dict]:
     return records
 
 
+def apply_history_query(
+    records: list[dict],
+    *,
+    user_id: str | None = None,
+    search: str = "",
+    sort: str = "newest",
+    range_value: str = "all",
+    page: int = 1,
+    limit: int = 24,
+) -> dict:
+    filtered = [record for record in records if not user_id or record.get("userId") == user_id]
+
+    normalized_search = search.strip().lower()
+    if normalized_search:
+        filtered = [
+            record
+            for record in filtered
+            if normalized_search
+            in " ".join(
+                [
+                    str(record.get("productCode") or ""),
+                    str(record.get("brandName") or ""),
+                    str(record.get("userName") or ""),
+                    str(record.get("templateName") or ""),
+                    str(record.get("createdAt") or ""),
+                ]
+            ).lower()
+        ]
+
+    if range_value in {"today", "7", "30"}:
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        if range_value == "today":
+            threshold = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            threshold = now - timedelta(days=int(range_value))
+
+        next_filtered = []
+        for record in filtered:
+            created_at_raw = record.get("createdAt")
+            if not created_at_raw:
+                continue
+            try:
+                created_at = datetime.fromisoformat(str(created_at_raw).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if created_at >= threshold:
+                next_filtered.append(record)
+        filtered = next_filtered
+
+    if sort == "oldest":
+        filtered.sort(key=lambda item: str(item.get("createdAt") or ""))
+    elif sort == "code":
+        filtered.sort(key=lambda item: str(item.get("productCode") or ""))
+    elif sort == "brand":
+        filtered.sort(key=lambda item: str(item.get("brandName") or ""))
+    elif sort == "user":
+        filtered.sort(key=lambda item: str(item.get("userName") or ""))
+    else:
+        filtered.sort(key=lambda item: str(item.get("createdAt") or ""), reverse=True)
+
+    safe_page = max(1, page)
+    safe_limit = max(1, min(limit, 100))
+    offset = (safe_page - 1) * safe_limit
+    paginated_records = filtered[offset: offset + safe_limit]
+
+    return {
+        "records": paginated_records,
+        "total": len(filtered),
+        "page": safe_page,
+        "limit": safe_limit,
+        "hasMore": offset + safe_limit < len(filtered),
+    }
+
+
 def load_history_record_detail(record_id: str, brand_slug: str | None = None, user_id: str | None = None) -> dict | None:
     candidate_paths: list[Path] = []
     if brand_slug:
@@ -494,6 +570,17 @@ class PeraHandler(SimpleHTTPRequestHandler):
         user_id = query.get("userId", [None])[0]
         record_id = query.get("id", [None])[0]
         brand_slug = query.get("brandSlug", [None])[0]
+        search = query.get("search", [""])[0]
+        sort = query.get("sort", ["newest"])[0]
+        range_value = query.get("range", ["all"])[0]
+        try:
+            page = int(query.get("page", ["1"])[0])
+        except ValueError:
+            page = 1
+        try:
+            limit = int(query.get("limit", ["24"])[0])
+        except ValueError:
+            limit = 24
         if record_id:
             record = load_history_record_detail(record_id, brand_slug, user_id)
             if not record:
@@ -510,7 +597,16 @@ class PeraHandler(SimpleHTTPRequestHandler):
             self.wfile.write(response)
             return
         records = load_history_records(user_id)
-        response = json.dumps({"records": records}, ensure_ascii=False).encode("utf-8")
+        payload = apply_history_query(
+            records,
+            user_id=user_id,
+            search=search,
+            sort=sort,
+            range_value=range_value,
+            page=page,
+            limit=limit,
+        )
+        response = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(response)))
