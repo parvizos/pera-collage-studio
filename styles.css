@@ -1515,7 +1515,7 @@ body:not(.app-state-admin) .preview-head {
 
   .history-card--tiles .history-card-actions,
   .history-card--grid .history-card-actions {
-    flex-direction: row;
+    flex-direction: column;
     gap: 6px;
   }
 
@@ -1523,6 +1523,8 @@ body:not(.app-state-admin) .preview-head {
   .history-card--tiles .history-card-actions .history-download,
   .history-card--grid .history-card-actions button,
   .history-card--grid .history-card-actions .history-download {
+    width: 100%;
+    flex: 0 0 auto;
     min-height: 36px;
     padding: 8px 10px;
     font-size: 12px;
