@@ -537,7 +537,14 @@ textarea:focus-visible {
 }
 
 .hidden-inputs {
-  display: none;
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  left: -9999px;
+  top: 0;
 }
 
 .actions,
@@ -1302,9 +1309,10 @@ body.app-state-login .workspace {
 }
 
 body.app-state-employee .workspace,
-body.app-state-compose-details .workspace {
-  grid-template-columns: minmax(0, 1240px);
-  justify-content: center;
+body.app-state-compose-details .workspace,
+body.app-state-compose-collage .workspace {
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
 }
 
 body.app-state-employee .auth-shell.is-authenticated,
@@ -1319,9 +1327,55 @@ body.app-state-compose-details .preview-panel {
 }
 
 body.app-state-employee .panel,
-body.app-state-compose-details .panel {
-  max-width: 1240px;
+body.app-state-compose-details .panel,
+body.app-state-compose-collage .panel {
+  max-width: 1480px;
   width: 100%;
+  margin-inline: auto;
+}
+
+body.app-state-employee #employeeWorkspace,
+body.app-state-compose-details #employeeWorkspace,
+body.app-state-compose-collage #employeeWorkspace {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+body.app-state-employee .admin-section,
+body.app-state-compose-details .admin-section,
+body.app-state-compose-collage .admin-section {
+  width: 100%;
+}
+
+body.app-state-employee .history-card-grid--tiles {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+body.app-state-employee .history-card-grid--grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+body.app-state-employee .history-card-grid--large {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+body.app-state-employee .history-card-grid--list {
+  grid-template-columns: 1fr;
+}
+
+body.app-state-employee .history-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+body.app-state-employee .history-range-switch,
+body.app-state-employee .history-view-switch {
+  flex-wrap: wrap;
+}
+
+body.app-state-employee .history-sort-field {
+  min-width: 200px;
 }
 
 body.app-state-compose-details .admin-section {

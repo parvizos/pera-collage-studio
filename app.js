@@ -70,6 +70,71 @@ function createPhotoCell(x, y, width, height) {
   };
 }
 
+function normalizeBrandTemplateIds(rawTemplateIds, photoTemplates = []) {
+  const availableIds = new Set((photoTemplates ?? []).map((item) => item.id));
+  const sourceIds =
+    Array.isArray(rawTemplateIds) && rawTemplateIds.length
+      ? rawTemplateIds
+      : photoTemplates.map((item) => item.id);
+  const normalizedIds = sourceIds.filter((id) => availableIds.has(id));
+  return Array.from(new Set(normalizedIds));
+}
+
+function normalizeBrandFieldSettings(fieldSettings = {}) {
+  const result = {};
+  Object.entries(fieldSettings ?? {}).forEach(([fieldId, settings]) => {
+    result[fieldId] = {
+      defaultValue: settings?.defaultValue ?? "",
+      hidden: Boolean(settings?.hidden),
+    };
+  });
+  return result;
+}
+
+function createBrandProfile(name, photoTemplates, overrides = {}) {
+  const templateIds = normalizeBrandTemplateIds(overrides.templateIds, photoTemplates);
+  const defaultTemplateId =
+    templateIds.find((id) => id === overrides.defaultTemplateId) ??
+    templateIds[0] ??
+    photoTemplates[0]?.id ??
+    null;
+
+  return {
+    id: overrides.id || crypto.randomUUID(),
+    name,
+    logo: overrides.logo ?? null,
+    templateIds,
+    defaultTemplateId,
+    fieldSettings: normalizeBrandFieldSettings(overrides.fieldSettings),
+  };
+}
+
+const defaultPhotoTemplates = [
+  { id: "template_1", name: "1 фото" },
+  { id: "template_2", name: "2 фото" },
+  { id: "template_3", name: "3 фото" },
+];
+
+const defaultPhotoLayouts = {
+  template_1: [createPhotoCell(24, 204, 1032, 1160)],
+  template_2: [
+    createPhotoCell(24, 204, 510, 1160),
+    createPhotoCell(546, 204, 510, 1160),
+  ],
+  template_3: [
+    createPhotoCell(24, 204, 536, 1160),
+    createPhotoCell(572, 204, 484, 574),
+    createPhotoCell(572, 790, 484, 574),
+  ],
+};
+
+const defaultBrands = [
+  createBrandProfile("EXXpose ILine", defaultPhotoTemplates),
+  createBrandProfile("BILJANA", defaultPhotoTemplates),
+  createBrandProfile("Brand 03", defaultPhotoTemplates),
+  createBrandProfile("Brand 04", defaultPhotoTemplates),
+];
+
 const defaultTemplate = {
   security: {
     adminPin: "1234",
@@ -121,29 +186,9 @@ const defaultTemplate = {
   },
   blocks: structuredClone(BLOCK_LIBRARY),
   blockOrder: [...BLOCK_ORDER],
-  photoTemplates: [
-    { id: "template_1", name: "1 фото" },
-    { id: "template_2", name: "2 фото" },
-    { id: "template_3", name: "3 фото" },
-  ],
-  photoLayouts: {
-    template_1: [createPhotoCell(24, 204, 1032, 1160)],
-    template_2: [
-      createPhotoCell(24, 204, 510, 1160),
-      createPhotoCell(546, 204, 510, 1160),
-    ],
-    template_3: [
-      createPhotoCell(24, 204, 536, 1160),
-      createPhotoCell(572, 204, 484, 574),
-      createPhotoCell(572, 790, 484, 574),
-    ],
-  },
-  brands: [
-    { id: crypto.randomUUID(), name: "EXXpose ILine", logo: null },
-    { id: crypto.randomUUID(), name: "BILJANA", logo: null },
-    { id: crypto.randomUUID(), name: "Brand 03", logo: null },
-    { id: crypto.randomUUID(), name: "Brand 04", logo: null },
-  ],
+  photoTemplates: defaultPhotoTemplates,
+  photoLayouts: defaultPhotoLayouts,
+  brands: defaultBrands,
   users: [
     { id: crypto.randomUUID(), name: "employee-01", pin: "1111", brandIds: [] },
   ],
@@ -170,6 +215,7 @@ let currentMode = "employee";
 let editorLayer = "blocks";
 let activePhotoLayout = DEFAULT_PHOTO_TEMPLATE_ID;
 let currentSceneTemplateId = DEFAULT_PHOTO_TEMPLATE_ID;
+let activeBrandSettingsId = null;
 let selection = { type: "block", key: "header" };
 let employeeView = "compose";
 let employeeComposeStep = "details";
@@ -608,6 +654,7 @@ const elements = {
   leftBadgeUpload: document.getElementById("leftBadgeUpload"),
   rightBadgeUpload: document.getElementById("rightBadgeUpload"),
   employeeFieldAdminList: document.getElementById("employeeFieldAdminList"),
+  brandFieldSettingsSelect: document.getElementById("brandFieldSettingsSelect"),
   addEmployeeField: document.getElementById("addEmployeeField"),
   brandAdminList: document.getElementById("brandAdminList"),
   addBrand: document.getElementById("addBrand"),
@@ -710,9 +757,11 @@ async function initializeTemplateStorage() {
     brandId: template.brands[0]?.id ?? null,
     values: buildDefaultFieldValues(template.fields),
   };
+  activeBrandSettingsId = template.brands[0]?.id ?? null;
+  applyBrandFieldDefaults(employeeData.brandId, { replace: true });
   activePhotoLayout = template.photoTemplates[0]?.id ?? DEFAULT_PHOTO_TEMPLATE_ID;
   currentSceneTemplateId = activePhotoLayout;
-  employeeData.photoTemplateId = activePhotoLayout;
+  employeeData.photoTemplateId = getBrandDefaultTemplateId(employeeData.brandId);
   currentEmployeeUserId = null;
 }
 
@@ -805,6 +854,14 @@ function normalizeUserRecord(user, index = 0) {
   };
 }
 
+function normalizeBrandRecord(brand, index = 0, photoTemplates = template.photoTemplates ?? []) {
+  return createBrandProfile(
+    brand?.name || `Brand ${String(index + 1).padStart(2, "0")}`,
+    photoTemplates,
+    brand ?? {}
+  );
+}
+
 function mergeTemplate(parsed) {
   const photoTemplates = mergePhotoTemplates(parsed.photoTemplates);
   const templateScenes = mergeTemplateScenes(parsed.templateScenes, photoTemplates);
@@ -832,8 +889,8 @@ function mergeTemplate(parsed) {
     templateScenes,
     brands:
       Array.isArray(parsed.brands) && parsed.brands.length
-        ? parsed.brands
-        : structuredClone(defaultTemplate.brands),
+        ? parsed.brands.map((brand, index) => normalizeBrandRecord(brand, index, photoTemplates))
+        : defaultBrands.map((brand, index) => normalizeBrandRecord(brand, index, photoTemplates)),
     users:
       Array.isArray(parsed.users) && parsed.users.length
         ? parsed.users.map((user, index) => ({
@@ -847,6 +904,116 @@ function mergeTemplate(parsed) {
           }))
         : structuredClone(defaultTemplate.users),
   };
+}
+
+function getBrandById(brandId) {
+  return template.brands.find((brand) => brand.id === brandId) ?? null;
+}
+
+function getBrandTemplateIds(brandId) {
+  const brand = getBrandById(brandId);
+  if (!brand) {
+    return template.photoTemplates.map((item) => item.id);
+  }
+  const normalizedIds = normalizeBrandTemplateIds(brand.templateIds, template.photoTemplates);
+  return normalizedIds.length ? normalizedIds : template.photoTemplates.map((item) => item.id);
+}
+
+function getBrandDefaultTemplateId(brandId) {
+  const brand = getBrandById(brandId);
+  if (!brand) {
+    return template.photoTemplates[0]?.id ?? DEFAULT_PHOTO_TEMPLATE_ID;
+  }
+  const templateIds = getBrandTemplateIds(brandId);
+  return templateIds.find((id) => id === brand.defaultTemplateId) ?? templateIds[0] ?? template.photoTemplates[0]?.id ?? DEFAULT_PHOTO_TEMPLATE_ID;
+}
+
+function getAvailablePhotoTemplatesForBrand(brandId) {
+  const allowedIds = new Set(getBrandTemplateIds(brandId));
+  const available = template.photoTemplates.filter((item) => allowedIds.has(item.id));
+  return available.length ? available : [...template.photoTemplates];
+}
+
+function getBrandFieldSetting(brandId, fieldId) {
+  const brand = getBrandById(brandId);
+  return brand?.fieldSettings?.[fieldId] ?? null;
+}
+
+function getFieldDefaultValue(field, brandId) {
+  const brandDefault = getBrandFieldSetting(brandId, field.id)?.defaultValue;
+  if (brandDefault !== undefined && brandDefault !== null && brandDefault !== "") {
+    return brandDefault;
+  }
+  if (field.defaultValue !== undefined && field.defaultValue !== null && field.defaultValue !== "") {
+    return field.defaultValue;
+  }
+  return field.inputType === "select" ? field.options?.[0] ?? "" : "";
+}
+
+function getEffectiveFieldConfig(field, brandId) {
+  const brandSetting = getBrandFieldSetting(brandId, field.id);
+  return {
+    ...field,
+    defaultValue: getFieldDefaultValue(field, brandId),
+    hidden: Boolean(brandSetting?.hidden),
+  };
+}
+
+function getEffectiveEmployeeFields(brandId = employeeData.brandId) {
+  return template.fields
+    .map((field) => getEffectiveFieldConfig(field, brandId))
+    .filter((field) => !field.hidden);
+}
+
+function applyBrandFieldDefaults(brandId, { replace = false } = {}) {
+  template.fields.forEach((field) => {
+    const nextValue = getFieldDefaultValue(field, brandId);
+    const currentValue = employeeData.values[field.id];
+    if (replace || currentValue === undefined || currentValue === null || currentValue === "") {
+      employeeData.values[field.id] = nextValue;
+    }
+  });
+}
+
+function syncEmployeeBrandTemplate(brandId, { forceDefault = false } = {}) {
+  const availableTemplates = getAvailablePhotoTemplatesForBrand(brandId);
+  const defaultTemplateId = getBrandDefaultTemplateId(brandId);
+  if (
+    forceDefault ||
+    !availableTemplates.some((item) => item.id === employeeData.photoTemplateId)
+  ) {
+    employeeData.photoTemplateId =
+      availableTemplates.find((item) => item.id === defaultTemplateId)?.id ??
+      availableTemplates[0]?.id ??
+      template.photoTemplates[0]?.id ??
+      DEFAULT_PHOTO_TEMPLATE_ID;
+  }
+}
+
+function ensureBrandsState() {
+  if (!Array.isArray(template.brands) || !template.brands.length) {
+    template.brands = [normalizeBrandRecord(defaultBrands[0], 0, template.photoTemplates)];
+  }
+
+  template.brands = template.brands.map((brand, index) => normalizeBrandRecord(brand, index, template.photoTemplates));
+
+  users = users.map((user, index) => {
+    const normalized = normalizeUserRecord(user, index);
+    normalized.brandIds = normalized.brandIds.filter((brandId) => template.brands.some((brand) => brand.id === brandId));
+    if (!normalized.brandIds.length && template.brands[0]?.id) {
+      normalized.brandIds = [template.brands[0].id];
+    }
+    return normalized;
+  });
+
+  if (!template.brands.some((brand) => brand.id === employeeData.brandId)) {
+    employeeData.brandId = template.brands[0]?.id ?? null;
+  }
+
+  activeBrandSettingsId =
+    template.brands.find((brand) => brand.id === activeBrandSettingsId)?.id ??
+    template.brands[0]?.id ??
+    null;
 }
 
 function mergeBlockMap(savedBlocks = {}, fallbackBlocks = BLOCK_LIBRARY) {
@@ -1468,13 +1635,13 @@ function ensureTemplateState() {
     getTemplateScene(item.id);
   });
 
+  ensureBrandsState();
+
   if (!template.photoTemplates.some((item) => item.id === activePhotoLayout)) {
     activePhotoLayout = template.photoTemplates[0].id;
   }
 
-  if (!template.photoTemplates.some((item) => item.id === employeeData.photoTemplateId)) {
-    employeeData.photoTemplateId = template.photoTemplates[0].id;
-  }
+  syncEmployeeBrandTemplate(employeeData.brandId);
 }
 
 function populatePhotoTemplateSelectors() {
@@ -1487,18 +1654,23 @@ function populatePhotoTemplateSelectors() {
   elements.photoCount.innerHTML = "";
   elements.adminPhotoTemplateSelect.innerHTML = "";
 
-  template.photoTemplates.forEach((item) => {
+  const employeeTemplates = getAvailablePhotoTemplatesForBrand(employeeData.brandId);
+
+  employeeTemplates.forEach((item) => {
     const employeeOption = document.createElement("option");
     employeeOption.value = item.id;
     employeeOption.textContent = item.name;
     elements.photoCount.append(employeeOption);
+  });
 
+  template.photoTemplates.forEach((item) => {
     const adminOption = document.createElement("option");
     adminOption.value = item.id;
     adminOption.textContent = item.name;
     elements.adminPhotoTemplateSelect.append(adminOption);
   });
 
+  syncEmployeeBrandTemplate(employeeData.brandId);
   elements.photoCount.value = employeeData.photoTemplateId;
   elements.adminPhotoTemplateSelect.value = activePhotoLayout;
   elements.adminPhotoTemplateName.value = getPhotoTemplateName(activePhotoLayout);
@@ -1512,6 +1684,10 @@ function createPhotoTemplate() {
   saveCurrentScene();
   template.photoTemplates.push({ id, name });
   template.templateScenes[id] = buildEmptyScene();
+  template.brands.forEach((brand) => {
+    brand.templateIds = Array.from(new Set([...(brand.templateIds ?? []), id]));
+    brand.defaultTemplateId ??= id;
+  });
   return id;
 }
 
@@ -1525,6 +1701,10 @@ function duplicatePhotoTemplate(templateId) {
     name: `${source?.name || `Шаблон ${nextIndex}`} копия`,
   });
   template.templateScenes[id] = structuredClone(sourceScene);
+  template.brands.forEach((brand) => {
+    brand.templateIds = Array.from(new Set([...(brand.templateIds ?? []), id]));
+    brand.defaultTemplateId ??= id;
+  });
   return id;
 }
 
@@ -1828,6 +2008,8 @@ function bindEmployeeInputs() {
       setCurrentEmployeeUser(selectedUser.id);
       elements.employeeUserPin.value = "";
       employeeData.brandId = selectedUser.brandIds?.[0] ?? null;
+      applyBrandFieldDefaults(employeeData.brandId, { replace: true });
+      syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
       activateEmployeeComposeStep("details");
       activateEmployeeView("compose");
       populateBrandSelect();
@@ -2019,6 +2201,14 @@ function bindEmployeeInputs() {
       }
     }
     employeeData.brandId = elements.brandSelect.value;
+    applyBrandFieldDefaults(employeeData.brandId, { replace: true });
+    syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
+    renderEmployeeFieldInputs();
+    populatePhotoTemplateSelectors();
+    updatePhotoInputState();
+    if (currentMode === "employee") {
+      loadScene(employeeData.photoTemplateId);
+    }
     scheduleRender();
   });
 
@@ -2083,6 +2273,8 @@ function bindEmployeeInputs() {
       brandId: currentUser?.brandIds?.[0] ?? template.brands[0]?.id ?? null,
       values: buildDefaultFieldValues(template.fields),
     };
+    applyBrandFieldDefaults(employeeData.brandId, { replace: true });
+    syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
     photoAdjustSelection = 0;
     elements.photoInputs.forEach((input) => {
       input.value = "";
@@ -2278,6 +2470,15 @@ function bindAdminInputs() {
     saveCurrentScene();
     template.photoTemplates = template.photoTemplates.filter((item) => item.id !== activePhotoLayout);
     delete template.templateScenes[activePhotoLayout];
+    template.brands.forEach((brand) => {
+      brand.templateIds = (brand.templateIds ?? []).filter((templateId) => templateId !== removedTemplateId);
+      if (!brand.templateIds.length && template.photoTemplates[0]?.id) {
+        brand.templateIds = [template.photoTemplates[0].id];
+      }
+      if (!brand.templateIds.includes(brand.defaultTemplateId)) {
+        brand.defaultTemplateId = brand.templateIds[0] ?? null;
+      }
+    });
     activePhotoLayout = template.photoTemplates[0].id;
     if (employeeData.photoTemplateId === removedTemplateId) {
       employeeData.photoTemplateId = activePhotoLayout;
@@ -2421,6 +2622,13 @@ function bindAdminInputs() {
     scheduleRender();
   });
 
+  if (elements.brandFieldSettingsSelect) {
+    elements.brandFieldSettingsSelect.addEventListener("change", () => {
+      activeBrandSettingsId = elements.brandFieldSettingsSelect.value || template.brands[0]?.id ?? null;
+      renderEmployeeFieldAdminList();
+    });
+  }
+
   elements.removeSelected.addEventListener("click", () => {
     if (selection.type === "photo") {
       const layout = getLayoutById(selection.layout);
@@ -2477,14 +2685,16 @@ function bindAdminInputs() {
   });
 
   elements.addBrand.addEventListener("click", () => {
-    template.brands.push({
-      id: crypto.randomUUID(),
-      name: `Brand ${String(template.brands.length + 1).padStart(2, "0")}`,
-      logo: null,
-    });
+    template.brands.push(
+      createBrandProfile(
+        `Brand ${String(template.brands.length + 1).padStart(2, "0")}`,
+        template.photoTemplates
+      )
+    );
     renderBrandAdminList();
     renderUserAdminList();
     populateBrandSelect();
+    renderEmployeeFieldAdminList();
     scheduleRender();
   });
 
@@ -2528,9 +2738,11 @@ function bindAdminInputs() {
     employeeData.brandId = template.brands[0]?.id ?? null;
     employeeData.photoTemplateId = template.photoTemplates[0]?.id ?? DEFAULT_PHOTO_TEMPLATE_ID;
     employeeData.values = buildDefaultFieldValues(template.fields);
+    applyBrandFieldDefaults(employeeData.brandId, { replace: true });
     setCurrentEmployeeUser(null);
     employeeHistory = [];
     editorLayer = "blocks";
+    activeBrandSettingsId = template.brands[0]?.id ?? null;
     activePhotoLayout = template.photoTemplates[1]?.id ?? template.photoTemplates[0]?.id ?? DEFAULT_PHOTO_TEMPLATE_ID;
     loadScene(activePhotoLayout);
     selection = { type: "block", key: "header" };
@@ -2736,12 +2948,20 @@ function syncEmployeeAccess() {
   const allowedBrandIds = currentUser?.brandIds?.filter((brandId) =>
     template.brands.some((brand) => brand.id === brandId)
   ) ?? [];
+  const previousBrandId = employeeData.brandId;
 
   if (allowedBrandIds.length) {
     if (!allowedBrandIds.includes(employeeData.brandId)) {
       employeeData.brandId = allowedBrandIds[0];
     }
   }
+
+  if (employeeData.brandId !== previousBrandId) {
+    applyBrandFieldDefaults(employeeData.brandId, { replace: true });
+  }
+  syncEmployeeBrandTemplate(employeeData.brandId, {
+    forceDefault: employeeData.brandId !== previousBrandId,
+  });
 
   if (elements.employeeSessionHint) {
     elements.employeeSessionHint.textContent = currentUser
@@ -3400,7 +3620,8 @@ function renderUserAdminList() {
 
 function renderEmployeeFieldInputs() {
   elements.employeeCustomFields.innerHTML = "";
-  template.fields.forEach((field) => {
+  const fields = getEffectiveEmployeeFields(employeeData.brandId);
+  fields.forEach((field) => {
     const label = document.createElement("label");
     label.className = "field";
 
@@ -3430,7 +3651,7 @@ function renderEmployeeFieldInputs() {
       input.placeholder = field.label;
     }
 
-    input.value = employeeData.values[field.id] ?? "";
+    input.value = employeeData.values[field.id] ?? field.defaultValue ?? "";
     input.dataset.fieldId = field.id;
 
     label.append(title, input);
@@ -3440,10 +3661,35 @@ function renderEmployeeFieldInputs() {
 
 function renderEmployeeFieldAdminList() {
   elements.employeeFieldAdminList.innerHTML = "";
+  if (elements.brandFieldSettingsSelect) {
+    elements.brandFieldSettingsSelect.innerHTML = "";
+    template.brands.forEach((brand) => {
+      const option = document.createElement("option");
+      option.value = brand.id;
+      option.textContent = brand.name;
+      elements.brandFieldSettingsSelect.append(option);
+    });
+    activeBrandSettingsId =
+      template.brands.find((brand) => brand.id === activeBrandSettingsId)?.id ??
+      template.brands[0]?.id ??
+      null;
+    if (activeBrandSettingsId) {
+      elements.brandFieldSettingsSelect.value = activeBrandSettingsId;
+    }
+  }
+
+  const activeBrand = getBrandById(activeBrandSettingsId) ?? template.brands[0] ?? null;
 
   template.fields.forEach((field) => {
+    activeBrand.fieldSettings ??= {};
+    activeBrand.fieldSettings[field.id] ??= { defaultValue: "", hidden: false };
+    const brandFieldSettings = activeBrand.fieldSettings[field.id];
+
     const row = document.createElement("div");
-    row.className = "brand-row";
+    row.className = "brand-row brand-row--field";
+
+    const globalGrid = document.createElement("div");
+    globalGrid.className = "brand-row-grid";
 
     const labelInput = document.createElement("input");
     labelInput.type = "text";
@@ -3458,11 +3704,11 @@ function renderEmployeeFieldAdminList() {
     const defaultInput = document.createElement("input");
     defaultInput.type = "text";
     defaultInput.value = field.defaultValue ?? "";
-    defaultInput.placeholder = "Значение по умолчанию";
+    defaultInput.placeholder = "Глобальный дефолт";
     defaultInput.addEventListener("input", () => {
       field.defaultValue = defaultInput.value;
       if (!(field.id in employeeData.values) || employeeData.values[field.id] === "") {
-        employeeData.values[field.id] = field.defaultValue;
+        employeeData.values[field.id] = getFieldDefaultValue(field, employeeData.brandId);
         renderEmployeeFieldInputs();
       }
       scheduleRender();
@@ -3490,7 +3736,7 @@ function renderEmployeeFieldAdminList() {
       if (field.inputType === "text") {
         field.options = [];
       }
-      employeeData.values[field.id] = field.defaultValue ?? "";
+      employeeData.values[field.id] = getFieldDefaultValue(field, employeeData.brandId);
       renderEmployeeFieldInputs();
       renderEmployeeFieldAdminList();
       scheduleRender();
@@ -3512,13 +3758,61 @@ function renderEmployeeFieldAdminList() {
           field.defaultValue = field.options[0] ?? "";
           defaultInput.value = field.defaultValue;
         }
-        if (!field.options.includes(employeeData.values[field.id])) {
-          employeeData.values[field.id] = field.defaultValue;
+        if (!field.options.includes(brandFieldSettings.defaultValue)) {
+          brandFieldSettings.defaultValue = "";
         }
+        employeeData.values[field.id] = getFieldDefaultValue(field, employeeData.brandId);
         renderEmployeeFieldInputs();
+        renderEmployeeFieldAdminList();
         scheduleRender();
       }
     });
+
+    globalGrid.append(labelInput, typeSelect, defaultInput, optionsInput);
+
+    const brandPanel = document.createElement("div");
+    brandPanel.className = "brand-row-subpanel";
+
+    const brandPanelTitle = document.createElement("p");
+    brandPanelTitle.className = "brand-row-title";
+    brandPanelTitle.textContent = activeBrand
+      ? `Настройки бренда: ${activeBrand.name}`
+      : "Настройки бренда";
+
+    const brandGrid = document.createElement("div");
+    brandGrid.className = "brand-row-grid brand-row-grid--compact";
+
+    const brandDefaultInput = document.createElement("input");
+    brandDefaultInput.type = "text";
+    brandDefaultInput.value = brandFieldSettings.defaultValue ?? "";
+    brandDefaultInput.placeholder = "Дефолт этого бренда";
+    brandDefaultInput.addEventListener("input", () => {
+      brandFieldSettings.defaultValue = brandDefaultInput.value;
+      if (employeeData.brandId === activeBrand?.id) {
+        employeeData.values[field.id] = getFieldDefaultValue(field, employeeData.brandId);
+        renderEmployeeFieldInputs();
+      }
+      scheduleRender();
+    });
+
+    const hiddenLabel = document.createElement("label");
+    hiddenLabel.className = "field checkbox-field field--inline";
+    const hiddenText = document.createElement("span");
+    hiddenText.textContent = "Скрыть у бренда";
+    const hiddenInput = document.createElement("input");
+    hiddenInput.type = "checkbox";
+    hiddenInput.checked = Boolean(brandFieldSettings.hidden);
+    hiddenInput.addEventListener("change", () => {
+      brandFieldSettings.hidden = hiddenInput.checked;
+      if (employeeData.brandId === activeBrand?.id) {
+        renderEmployeeFieldInputs();
+      }
+      scheduleRender();
+    });
+    hiddenLabel.append(hiddenText, hiddenInput);
+
+    brandGrid.append(brandDefaultInput, hiddenLabel);
+    brandPanel.append(brandPanelTitle, brandGrid);
 
     const removeButton = document.createElement("button");
     removeButton.type = "button";
@@ -3526,6 +3820,9 @@ function renderEmployeeFieldAdminList() {
     removeButton.addEventListener("click", () => {
       template.fields = template.fields.filter((item) => item.id !== field.id);
       delete employeeData.values[field.id];
+      template.brands.forEach((brand) => {
+        delete brand.fieldSettings?.[field.id];
+      });
       Object.values(template.textBindings).forEach((binding) => {
         if (binding.primary === field.id) binding.primary = "";
         if (binding.secondary === field.id) binding.secondary = "";
@@ -3536,7 +3833,7 @@ function renderEmployeeFieldAdminList() {
       scheduleRender();
     });
 
-    row.append(labelInput, typeSelect, defaultInput, optionsInput, removeButton);
+    row.append(globalGrid, brandPanel, removeButton);
     elements.employeeFieldAdminList.append(row);
   });
 }
@@ -4139,12 +4436,62 @@ function detectEmployeeDoubleTap(index) {
 
   if (!isDoubleTap) return;
 
-  const input = elements.photoInputs[index];
-  if (input && !input.disabled) {
-    input.click();
-  }
+  openPhotoPickerForIndex(index);
   employeeTapState.lastIndex = null;
   employeeTapState.lastTime = 0;
+}
+
+function openPhotoPickerForIndex(index) {
+  const input = elements.photoInputs[index];
+  if (!input || input.disabled) return;
+
+  try {
+    input.value = "";
+  } catch (error) {
+    console.warn("Photo input reset failed", error);
+  }
+
+  if (typeof input.showPicker === "function") {
+    try {
+      input.showPicker();
+      return;
+    } catch (error) {
+      console.warn("showPicker failed, fallback to click()", error);
+    }
+  }
+
+  try {
+    input.click();
+    return;
+  } catch (error) {
+    console.warn("Photo input click() failed, fallback to temporary input", error);
+  }
+
+  const fallbackInput = document.createElement("input");
+  fallbackInput.type = "file";
+  fallbackInput.accept = "image/*";
+  fallbackInput.style.position = "fixed";
+  fallbackInput.style.left = "-9999px";
+  fallbackInput.style.top = "0";
+  fallbackInput.style.opacity = "0";
+  fallbackInput.style.pointerEvents = "none";
+  fallbackInput.addEventListener(
+    "change",
+    async (event) => {
+      const file = event.target.files?.[0];
+      employeeData.photos[index] = file ? await fileToDataUrl(file) : null;
+      employeeData.photoTransforms[index] = { scale: 1, offsetX: 0, offsetY: 0 };
+      photoAdjustSelection = index;
+      if (employeeData.photos[index]) {
+        await loadImage(employeeData.photos[index]);
+      }
+      fallbackInput.remove();
+      scheduleRender();
+    },
+    { once: true }
+  );
+  document.body.appendChild(fallbackInput);
+  fallbackInput.click();
 }
 
 function getOverlayPoint(event) {
