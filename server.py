@@ -28,6 +28,15 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
 
 
+def build_default_user(index: int = 0) -> dict:
+    return {
+        "id": f"user_{index + 1}",
+        "name": f"employee-{index + 1:02d}",
+        "pin": "1111",
+        "brandIds": [],
+    }
+
+
 def slugify(value: str) -> str:
     normalized = re.sub("[^a-zA-Z0-9\u0400-\u04FF]+", "-", value.strip().lower())
     normalized = normalized.strip("-")
@@ -96,6 +105,7 @@ def bootstrap_users_from_template_if_needed() -> None:
 
     template_users = payload.get("users") or []
     if not template_users:
+        save_users([build_default_user(0)])
         return
 
     save_users([normalize_user_record(user, index) for index, user in enumerate(template_users)])
@@ -120,6 +130,13 @@ def load_users() -> list[dict]:
             }
         )
     return users
+
+
+def ensure_default_users() -> list[dict]:
+    users = load_users()
+    if users:
+        return users
+    return save_users([build_default_user(0)])
 
 
 def save_users(users: list[dict]) -> list[dict]:
@@ -155,7 +172,7 @@ def write_scene_files(payload: dict) -> list[str]:
     written_files: list[str] = []
     for index, item in enumerate(photo_templates, start=1):
         template_id = item.get("id") or f"template_{index}"
-        template_name = item.get("name") or f"Шаблон {index}"
+        template_name = item.get("name") or f"\u0428\u0430\u0431\u043b\u043e\u043d {index}"
         scene_payload = {
             "id": template_id,
             "name": template_name,
@@ -498,14 +515,28 @@ class PeraHandler(SimpleHTTPRequestHandler):
             f'<body class="{body_class}" data-route="{route}">'
             f'<script>window.__PERA_ROUTE__ = "{route}";</script>'
         )
-        html = html.replace('<body class="app-state-login">', body_tag, 1)
+        html = re.sub(r"<body\b[^>]*>", body_tag, html, count=1, flags=re.IGNORECASE)
         if route == "admin":
-            html = html.replace("<h3>Сотрудник</h3>", "<h3>Администратор</h3>", 1)
-            html = html.replace('placeholder="Введите PIN"', 'placeholder="Введите PIN администратора"', 1)
-            html = html.replace(
-                'id="loginUser" class="primary" type="button">Войти</button>',
-                'id="loginUser" class="primary" type="button">Войти в админку</button>',
-                1,
+            html = re.sub(
+                r'<label class="field">\s*<span>.*?</span>\s*<select id="employeeUserSelect"></select>\s*</label>',
+                "",
+                html,
+                count=1,
+                flags=re.DOTALL,
+            )
+            html = re.sub(r"<h3>.*?</h3>", "<h3>Администратор</h3>", html, count=1, flags=re.DOTALL)
+            html = re.sub(
+                r'(<input id="employeeUserPin"[^>]*?)placeholder="[^"]*"',
+                r'\1placeholder="Введите PIN администратора"',
+                html,
+                count=1,
+            )
+            html = re.sub(
+                r'(<button id="loginUser" class="primary" type="button">).*?(</button>)',
+                r'\1Войти в админку\2',
+                html,
+                count=1,
+                flags=re.DOTALL,
             )
         payload = html.encode("utf-8")
         self.send_response(HTTPStatus.OK)
@@ -549,7 +580,7 @@ class PeraHandler(SimpleHTTPRequestHandler):
         self.wfile.write(response)
 
     def handle_get_users(self) -> None:
-        response = json.dumps({"users": load_users()}, ensure_ascii=False).encode("utf-8")
+        response = json.dumps({"users": ensure_default_users()}, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(response)))
