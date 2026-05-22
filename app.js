@@ -259,7 +259,13 @@ function isFileMode() {
 }
 
 function isAdminRoute() {
-  return !isFileMode() && /^\/admin\/?$/.test(window.location.pathname);
+  return (
+    !isFileMode() &&
+    (window.location.pathname === "/admin" ||
+      window.location.pathname === "/admin/" ||
+      document.body?.dataset?.route === "admin" ||
+      window.__PERA_ROUTE__ === "admin")
+  );
 }
 
 function goToEmployeeRoute() {
@@ -271,6 +277,7 @@ function applyAdminRouteLoginState() {
   if (!isAdminRoute()) return;
 
   document.body.classList.add("app-route-admin");
+  document.body.dataset.route = "admin";
 
   if (elements.authHeadEyebrow) {
     elements.authHeadEyebrow.textContent = "Вход";
@@ -292,6 +299,9 @@ function applyAdminRouteLoginState() {
   }
   if (elements.loginUser) {
     elements.loginUser.textContent = "Войти в админку";
+  }
+  if (elements.employeeSessionHint) {
+    elements.employeeSessionHint.textContent = "";
   }
 }
 
@@ -782,6 +792,15 @@ async function initializeUsersStorage() {
       console.error("Initial users save failed", error);
     }
   }
+}
+
+function ensureFallbackUsers() {
+  if (users.length) return false;
+  users = [createEmployeeUser(1)];
+  saveUsersToServer().catch((error) => {
+    console.error("Fallback users save failed", error);
+  });
+  return true;
 }
 
 async function loadTemplateFromServer() {
@@ -2927,6 +2946,7 @@ function createEmployeeUser(index = users.length + 1) {
 
 function populateEmployeeUserSelect() {
   if (!elements.employeeUserSelect) return;
+  ensureFallbackUsers();
   elements.employeeUserSelect.innerHTML = "";
   users.forEach((user) => {
     const option = document.createElement("option");

@@ -455,7 +455,7 @@ class PeraHandler(SimpleHTTPRequestHandler):
             self.handle_data_asset(parsed.path)
             return
         if parsed.path in {"/admin", "/admin/"}:
-            self.handle_app_shell()
+            self.handle_app_shell(route="admin")
             return
 
         super().do_GET()
@@ -490,9 +490,24 @@ class PeraHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def handle_app_shell(self) -> None:
+    def handle_app_shell(self, route: str = "employee") -> None:
         index_file = ROOT / "index.html"
-        payload = index_file.read_bytes()
+        html = index_file.read_text(encoding="utf-8")
+        body_class = "app-state-login app-route-admin" if route == "admin" else "app-state-login"
+        body_tag = (
+            f'<body class="{body_class}" data-route="{route}">'
+            f'<script>window.__PERA_ROUTE__ = "{route}";</script>'
+        )
+        html = html.replace('<body class="app-state-login">', body_tag, 1)
+        if route == "admin":
+            html = html.replace("<h3>Сотрудник</h3>", "<h3>Администратор</h3>", 1)
+            html = html.replace('placeholder="Введите PIN"', 'placeholder="Введите PIN администратора"', 1)
+            html = html.replace(
+                'id="loginUser" class="primary" type="button">Войти</button>',
+                'id="loginUser" class="primary" type="button">Войти в админку</button>',
+                1,
+            )
+        payload = html.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
