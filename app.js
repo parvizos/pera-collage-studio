@@ -1331,6 +1331,10 @@ function activateEmployeeComposeStep(step) {
     elements.employeeNextStep.style.display = step === "details" ? "" : "none";
   }
 
+  if (elements.employeeBackStep) {
+    elements.employeeBackStep.style.display = step === "collage" ? "" : "none";
+  }
+
   if (elements.downloadPng) {
     elements.downloadPng.style.display = step === "collage" ? "" : "none";
   }
