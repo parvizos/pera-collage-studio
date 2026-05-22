@@ -1467,10 +1467,13 @@ body:not(.app-state-admin) .preview-head {
   }
 
   .history-card-grid--list,
-  .history-card-grid--grid,
-  .history-card-grid--tiles,
   .history-card-grid--large {
     grid-template-columns: 1fr;
+  }
+
+  .history-card-grid--tiles,
+  .history-card-grid--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .history-card {
@@ -1485,6 +1488,44 @@ body:not(.app-state-admin) .preview-head {
   .history-card--list .history-card-preview {
     width: 100%;
     aspect-ratio: 16 / 10;
+  }
+
+  .history-card--tiles,
+  .history-card--grid {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .history-card--tiles .history-card-preview,
+  .history-card--grid .history-card-preview {
+    aspect-ratio: 1 / 1;
+  }
+
+  .history-card--tiles .history-card-title,
+  .history-card--grid .history-card-title {
+    font-size: 14px;
+  }
+
+  .history-card--tiles .history-card-subtitle,
+  .history-card--grid .history-card-subtitle,
+  .history-card--tiles .history-card-user,
+  .history-card--grid .history-card-user {
+    font-size: 11px;
+  }
+
+  .history-card--tiles .history-card-actions,
+  .history-card--grid .history-card-actions {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .history-card--tiles .history-card-actions button,
+  .history-card--tiles .history-card-actions .history-download,
+  .history-card--grid .history-card-actions button,
+  .history-card--grid .history-card-actions .history-download {
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 12px;
   }
 
   .history-card-title {
