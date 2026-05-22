@@ -56,6 +56,13 @@ body.app-state-login {
     linear-gradient(180deg, #fbf7f1 0%, #f1e7da 100%);
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), transparent 30%),
+    radial-gradient(circle at top right, rgba(246, 235, 221, 0.9), transparent 24%),
+    linear-gradient(180deg, #fbf7f1 0%, #f1e7da 100%);
+}
+
 body:not(.app-state-admin) .hero,
 body:not(.app-state-admin) .panel-header {
   display: none !important;
@@ -1283,7 +1290,25 @@ body.app-state-login .page-shell {
   padding-bottom: 32px;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .page-shell {
+  max-width: 560px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+
 body.app-state-login .hero {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .hero {
   grid-template-columns: 1fr;
   justify-items: center;
   text-align: center;
@@ -1296,6 +1321,11 @@ body.app-state-login .hero h1 {
   letter-spacing: -0.05em;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .hero h1 {
+  font-size: clamp(44px, 9vw, 64px);
+  letter-spacing: -0.05em;
+}
+
 body.app-state-login .hero-copy,
 body.app-state-login .hero-badge,
 body.app-state-login .preview-panel,
@@ -1304,7 +1334,19 @@ body.app-state-login .panel-header {
   display: none !important;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .hero-copy,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .hero-badge,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .preview-panel,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-showcase,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .panel-header {
+  display: none !important;
+}
+
 body.app-state-login .workspace {
+  grid-template-columns: 1fr;
+}
+
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .workspace {
   grid-template-columns: 1fr;
 }
 
@@ -1394,11 +1436,27 @@ body.app-state-login .panel {
     #ffffff;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .panel {
+  padding: 0;
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(249, 243, 235, 0.95)),
+    #ffffff;
+}
+
 body.app-state-login .mode-panel[data-panel="employee"] {
   padding: 22px;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .mode-panel[data-panel="employee"] {
+  padding: 22px;
+}
+
 body.app-state-login .auth-shell {
+  display: block;
+}
+
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-shell {
   display: block;
 }
 
@@ -1407,11 +1465,24 @@ body.app-state-login .auth-card {
   border-radius: 26px;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-card {
+  padding: 28px;
+  border-radius: 26px;
+}
+
 body.app-state-login .auth-head {
   margin-bottom: 20px;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-head {
+  margin-bottom: 20px;
+}
+
 body.app-state-login .auth-head h3 {
+  font-size: 32px;
+}
+
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-head h3 {
   font-size: 32px;
 }
 
@@ -1420,11 +1491,24 @@ body.app-state-login .auth-card-copy {
   font-size: 15px;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-card-copy {
+  display: block;
+  font-size: 15px;
+}
+
 body.app-state-login .auth-card .field-grid {
   grid-template-columns: 1fr;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-card .field-grid {
+  grid-template-columns: 1fr;
+}
+
 body.app-state-login .auth-card .actions {
+  margin-top: 10px;
+}
+
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-card .actions {
   margin-top: 10px;
 }
 
@@ -1434,8 +1518,19 @@ body.app-state-login #loginUser {
   font-size: 16px;
 }
 
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) #loginUser {
+  width: 100%;
+  min-height: 56px;
+  font-size: 16px;
+}
+
 body.app-state-login #logoutUser,
 body.app-state-login #employeeSessionHint {
+  display: none !important;
+}
+
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) #logoutUser,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) #employeeSessionHint {
   display: none !important;
 }
 
