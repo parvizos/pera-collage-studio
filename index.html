@@ -68,7 +68,9 @@
                 <div class="field-grid">
                   <label class="field">
                     <span>Пользователь</span>
-                    <select id="employeeUserSelect"></select>
+                    <select id="employeeUserSelect">
+                      <option value="fallback_employee_01">employee-01</option>
+                    </select>
                   </label>
                   <label class="field">
                     <span>PIN</span>
@@ -642,6 +644,51 @@
       </div>
     </div>
 
+    <script>
+      (function () {
+        const isAdminRoute = window.location.pathname === "/admin" || window.location.pathname === "/admin/";
+        window.__PERA_ROUTE__ = isAdminRoute ? "admin" : "employee";
+        document.body.dataset.route = isAdminRoute ? "admin" : "employee";
+        if (isAdminRoute) {
+          document.body.classList.add("app-route-admin");
+        }
+
+        function applyAuthFallback() {
+          const userSelect = document.getElementById("employeeUserSelect");
+          if (userSelect && !userSelect.options.length) {
+            const option = document.createElement("option");
+            option.value = "fallback_employee_01";
+            option.textContent = "employee-01";
+            userSelect.append(option);
+          }
+
+          if (!isAdminRoute) return;
+
+          const title = document.querySelector(".auth-head h3");
+          const eyebrow = document.querySelector(".auth-head .eyebrow");
+          const userField = document.getElementById("employeeUserSelect")?.closest(".field");
+          const pinField = document.getElementById("employeeUserPin")?.closest(".field");
+          const pinInput = document.getElementById("employeeUserPin");
+          const loginButton = document.getElementById("loginUser");
+
+          if (eyebrow) eyebrow.textContent = "Вход";
+          if (title) title.textContent = "Администратор";
+          if (userField) userField.style.display = "none";
+          if (pinField) {
+            const label = pinField.querySelector("span");
+            if (label) label.textContent = "PIN администратора";
+          }
+          if (pinInput) pinInput.placeholder = "Введите PIN администратора";
+          if (loginButton) loginButton.textContent = "Войти в админку";
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", applyAuthFallback, { once: true });
+        } else {
+          applyAuthFallback();
+        }
+      })();
+    </script>
     <script src="./app.js"></script>
   </body>
 </html>

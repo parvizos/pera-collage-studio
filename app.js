@@ -697,6 +697,7 @@ function bootstrapAuthShell() {
     ensureFallbackUsers();
     populateEmployeeUserSelect();
     applyAdminRouteLoginState();
+    bindEmployeeInputs();
   } catch (error) {
     console.error("Auth shell bootstrap failed", error);
   }
@@ -2015,59 +2016,73 @@ function bindSecretAdminTrigger() {
 
 function bindEmployeeInputs() {
   if (elements.loginUser) {
-    elements.loginUser.addEventListener("click", async () => {
-      if (isAdminRoute()) {
-        if (!requestAdminAccess(elements.employeeUserPin.value.trim())) {
+    if (elements.loginUser.dataset.bound !== "true") {
+      elements.loginUser.dataset.bound = "true";
+      elements.loginUser.addEventListener("click", async () => {
+        if (isAdminRoute()) {
+          if (!requestAdminAccess(elements.employeeUserPin.value.trim())) {
+            return;
+          }
+          elements.employeeUserPin.value = "";
+          activateMode("admin");
           return;
         }
+
+        let selectedUser = users.find((user) => user.id === elements.employeeUserSelect.value) ?? users[0];
+        if (!selectedUser) {
+          ensureFallbackUsers();
+          populateEmployeeUserSelect();
+          selectedUser = users.find((user) => user.id === elements.employeeUserSelect.value) ?? users[0];
+        }
+        if (!selectedUser) {
+          alert("Выбери пользователя.");
+          return;
+        }
+
+        if (elements.employeeUserPin.value !== selectedUser.pin) {
+          alert("Неверный PIN сотрудника.");
+          return;
+        }
+
+        setCurrentEmployeeUser(selectedUser.id);
         elements.employeeUserPin.value = "";
-        activateMode("admin");
-        return;
-      }
-
-      const selectedUser = users.find((user) => user.id === elements.employeeUserSelect.value);
-      if (!selectedUser) {
-        alert("Выбери пользователя.");
-        return;
-      }
-
-      if (elements.employeeUserPin.value !== selectedUser.pin) {
-        alert("Неверный PIN сотрудника.");
-        return;
-      }
-
-      setCurrentEmployeeUser(selectedUser.id);
-      elements.employeeUserPin.value = "";
-      employeeData.brandId = selectedUser.brandIds?.[0] ?? null;
-      applyBrandFieldDefaults(employeeData.brandId, { replace: true });
-      syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
-      activateEmployeeComposeStep("details");
-      activateEmployeeView("compose");
-      populateBrandSelect();
-      syncEmployeeInputs();
-      scheduleRender();
-    });
+        employeeData.brandId = selectedUser.brandIds?.[0] ?? null;
+        applyBrandFieldDefaults(employeeData.brandId, { replace: true });
+        syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
+        activateEmployeeComposeStep("details");
+        activateEmployeeView("compose");
+        populateBrandSelect();
+        syncEmployeeInputs();
+        scheduleRender();
+      });
+    }
   }
 
   if (elements.logoutUser) {
-    elements.logoutUser.addEventListener("click", () => {
-      setCurrentEmployeeUser(null);
-      elements.employeeUserPin.value = "";
-      employeeHistory = [];
-      activateEmployeeComposeStep("details");
-      syncEmployeeInputs();
-      scheduleRender();
-    });
+    if (elements.logoutUser.dataset.bound !== "true") {
+      elements.logoutUser.dataset.bound = "true";
+      elements.logoutUser.addEventListener("click", () => {
+        setCurrentEmployeeUser(null);
+        elements.employeeUserPin.value = "";
+        employeeHistory = [];
+        activateEmployeeComposeStep("details");
+        syncEmployeeInputs();
+        scheduleRender();
+      });
+    }
   }
 
   if (elements.employeeWorkspaceLogout) {
-    elements.employeeWorkspaceLogout.addEventListener("click", () => {
-      setCurrentEmployeeUser(null);
-      elements.employeeUserPin.value = "";
-      activateEmployeeComposeStep("details");
-      syncEmployeeInputs();
-      scheduleRender();
-    });
+    if (elements.employeeWorkspaceLogout.dataset.bound !== "true") {
+      elements.employeeWorkspaceLogout.dataset.bound = "true";
+      elements.employeeWorkspaceLogout.addEventListener("click", () => {
+        setCurrentEmployeeUser(null);
+        elements.employeeUserPin.value = "";
+        activateEmployeeComposeStep("details");
+        syncEmployeeInputs();
+        scheduleRender();
+      });
+    }
   }
 
   if (elements.employeeHistorySearch) {
@@ -2971,6 +2986,12 @@ function populateEmployeeUserSelect() {
     elements.employeeUserSelect.value = currentEmployeeUserId;
   } else if (users[0]) {
     elements.employeeUserSelect.value = users[0].id;
+  } else {
+    const fallbackOption = document.createElement("option");
+    fallbackOption.value = "fallback_employee_01";
+    fallbackOption.textContent = "employee-01";
+    elements.employeeUserSelect.append(fallbackOption);
+    elements.employeeUserSelect.value = fallbackOption.value;
   }
 }
 
