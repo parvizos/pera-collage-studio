@@ -646,7 +646,13 @@
 
     <script>
       (function () {
-        const isAdminRoute = window.location.pathname === "/admin" || window.location.pathname === "/admin/";
+        const bootRoute = window.__PERA_BOOT__?.route;
+        const isAdminRoute =
+          bootRoute === "admin" ||
+          window.__PERA_ROUTE__ === "admin" ||
+          window.location.pathname === "/admin" ||
+          window.location.pathname === "/admin/";
+
         window.__PERA_ROUTE__ = isAdminRoute ? "admin" : "employee";
         document.body.dataset.route = isAdminRoute ? "admin" : "employee";
         if (isAdminRoute) {

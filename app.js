@@ -253,6 +253,7 @@ let localDataRootHandle = null;
 const imageCache = new Map();
 const imagePromiseCache = new Map();
 const HISTORY_PAGE_LIMIT = 24;
+const shellBoot = window.__PERA_BOOT__ ?? null;
 
 function isFileMode() {
   return window.location.protocol === "file:";
@@ -687,8 +688,8 @@ const elements = {
   historyPreviewDownload: document.getElementById("historyPreviewDownload"),
 };
 
-elements.photoCountField = elements.photoCount.closest(".field");
-elements.brandSelectField = elements.brandSelect.closest(".field");
+elements.photoCountField = elements.photoCount?.closest(".field") ?? null;
+elements.brandSelectField = elements.brandSelect?.closest(".field") ?? null;
 
 const ctx = elements.canvas ? elements.canvas.getContext("2d") : null;
 
@@ -760,6 +761,7 @@ async function boot() {
 }
 
 async function initializeTemplateStorage() {
+  const preservedEmployeeUserId = currentEmployeeUserId;
   try {
     const savedTemplate = await loadTemplateFromServer();
     if (savedTemplate) {
@@ -785,20 +787,26 @@ async function initializeTemplateStorage() {
   activePhotoLayout = template.photoTemplates[0]?.id ?? DEFAULT_PHOTO_TEMPLATE_ID;
   currentSceneTemplateId = activePhotoLayout;
   employeeData.photoTemplateId = getBrandDefaultTemplateId(employeeData.brandId);
-  currentEmployeeUserId = null;
+  if (preservedEmployeeUserId && users.some((user) => user.id === preservedEmployeeUserId)) {
+    currentEmployeeUserId = preservedEmployeeUserId;
+  }
 }
 
 async function initializeUsersStorage() {
+  if (Array.isArray(shellBoot?.users) && shellBoot.users.length) {
+    users = shellBoot.users.map(normalizeUserRecord);
+  }
+
   try {
     const payload = await loadUsersFromServer();
     users = Array.isArray(payload?.users) ? payload.users.map(normalizeUserRecord) : [];
   } catch (error) {
     console.error("Users load failed", error);
-    users = [];
+    users = users.length ? users : [];
   }
 
   if (!users.length) {
-    users = [createEmployeeUser(1)];
+    users = [createEmployeeUser(1, { deterministic: true })];
     try {
       await saveUsersToServer();
     } catch (error) {
@@ -809,7 +817,7 @@ async function initializeUsersStorage() {
 
 function ensureFallbackUsers() {
   if (users.length) return false;
-  users = [createEmployeeUser(1)];
+  users = [createEmployeeUser(1, { deterministic: true })];
   saveUsersToServer().catch((error) => {
     console.error("Fallback users save failed", error);
   });
@@ -878,11 +886,12 @@ async function saveUsersToServer() {
 }
 
 function normalizeUserRecord(user, index = 0) {
+  const rawName = String(user?.name ?? "").trim();
   return {
-    id: user.id || `user_${index + 1}`,
-    name: user.name || `employee-${String(index + 1).padStart(2, "0")}`,
-    pin: String(user.pin ?? "1111"),
-    brandIds: Array.isArray(user.brandIds) ? user.brandIds.filter(Boolean) : [user.brandId].filter(Boolean),
+    id: user?.id || `user_${index + 1}`,
+    name: rawName || `employee-${String(index + 1).padStart(2, "0")}`,
+    pin: String(user?.pin ?? "1111"),
+    brandIds: Array.isArray(user?.brandIds) ? user.brandIds.filter(Boolean) : [user?.brandId].filter(Boolean),
   };
 }
 
@@ -1866,7 +1875,8 @@ function requestAdminAccess(providedPin) {
     return false;
   }
 
-  if (pin !== (template.security.adminPin ?? defaultTemplate.security.adminPin)) {
+  const expectedPin = String(shellBoot?.adminPin || template.security.adminPin || defaultTemplate.security.adminPin);
+  if (pin !== expectedPin) {
     alert("Неверный PIN-код.");
     return false;
   }
@@ -2024,7 +2034,13 @@ function bindEmployeeInputs() {
             return;
           }
           elements.employeeUserPin.value = "";
-          activateMode("admin");
+          try {
+            activateMode("admin");
+          } catch (error) {
+            console.error("Admin login transition failed", error);
+            currentMode = "admin";
+            syncAppStateClasses();
+          }
           return;
         }
 
@@ -2033,6 +2049,11 @@ function bindEmployeeInputs() {
           ensureFallbackUsers();
           populateEmployeeUserSelect();
           selectedUser = users.find((user) => user.id === elements.employeeUserSelect.value) ?? users[0];
+        }
+        if (!selectedUser && elements.employeeUserSelect?.value === "fallback_employee_01") {
+          selectedUser = createEmployeeUser(1, { deterministic: true });
+          users = [selectedUser];
+          populateEmployeeUserSelect();
         }
         if (!selectedUser) {
           alert("Выбери пользователя.");
@@ -2046,14 +2067,22 @@ function bindEmployeeInputs() {
 
         setCurrentEmployeeUser(selectedUser.id);
         elements.employeeUserPin.value = "";
-        employeeData.brandId = selectedUser.brandIds?.[0] ?? null;
-        applyBrandFieldDefaults(employeeData.brandId, { replace: true });
-        syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
-        activateEmployeeComposeStep("details");
-        activateEmployeeView("compose");
-        populateBrandSelect();
-        syncEmployeeInputs();
-        scheduleRender();
+        try {
+          employeeData.brandId = selectedUser.brandIds?.[0] ?? null;
+          applyBrandFieldDefaults(employeeData.brandId, { replace: true });
+          syncEmployeeBrandTemplate(employeeData.brandId, { forceDefault: true });
+          syncEmployeeAccess();
+          activateEmployeeComposeStep("details");
+          activateEmployeeView("compose");
+          populateBrandSelect();
+          syncEmployeeInputs();
+          scheduleRender();
+        } catch (error) {
+          console.error("Employee login transition failed", error);
+          syncEmployeeAccess();
+          syncAppStateClasses();
+          alert("Вход выполнен, но рабочий экран загрузился с ошибкой. Обнови страницу и попробуй ещё раз.");
+        }
       });
     }
   }
@@ -2962,9 +2991,10 @@ function renderBrandAdminList() {
   });
 }
 
-function createEmployeeUser(index = users.length + 1) {
+function createEmployeeUser(index = users.length + 1, options = {}) {
+  const deterministic = Boolean(options?.deterministic);
   return {
-    id: `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    id: deterministic ? `user_${index}` : `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     name: `employee-${String(index).padStart(2, "0")}`,
     pin: "1111",
     brandIds: [template.brands[index - 1]?.id ?? template.brands[0]?.id].filter(Boolean),
@@ -3047,11 +3077,13 @@ function syncEmployeeAccess() {
     }
   });
 
-  elements.employeeCustomFields
-    .querySelectorAll("input, select, button, textarea")
-    .forEach((element) => {
-      element.disabled = !isLoggedIn;
-    });
+  if (elements.employeeCustomFields) {
+    elements.employeeCustomFields
+      .querySelectorAll("input, select, button, textarea")
+      .forEach((element) => {
+        element.disabled = !isLoggedIn;
+      });
+  }
 
   updatePhotoInputState();
   renderEmployeeHistoryList();
