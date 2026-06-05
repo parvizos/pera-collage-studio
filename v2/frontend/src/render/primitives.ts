@@ -118,6 +118,7 @@ export interface TextConfig {
   weight: number | string;
   paddingX?: number;
   font?: string;
+  strike?: boolean;
 }
 
 export function drawTextAt(ctx: Ctx, text: string, x: number, y: number, config: TextConfig): void {
@@ -126,6 +127,27 @@ export function drawTextAt(ctx: Ctx, text: string, x: number, y: number, config:
   ctx.textBaseline = "middle";
   ctx.font = `${config.weight} ${config.size}px ${config.font ?? "Segoe UI"}`;
   ctx.fillText(text, x, y);
+
+  if (config.strike && text) {
+    const w = ctx.measureText(text).width;
+    let x0 = x;
+    let x1 = x + w;
+    if (config.align === "center") {
+      x0 = x - w / 2;
+      x1 = x + w / 2;
+    } else if (config.align === "right") {
+      x0 = x - w;
+      x1 = x;
+    }
+    ctx.save();
+    ctx.strokeStyle = config.color;
+    ctx.lineWidth = Math.max(2, config.size * 0.08);
+    ctx.beginPath();
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x1, y);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 export function drawTextBlock(ctx: Ctx, text: string, block: Block, config: TextConfig): void {

@@ -230,7 +230,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
     });
   }
 
-  function setStyle(key: string, patch: { color?: string; align?: string }) {
+  function setStyle(key: string, patch: { color?: string; align?: string; strike?: boolean }) {
     mutateSlice((slice) => {
       slice.textStyles[key] = { ...(slice.textStyles[key] ?? {}), ...patch };
     });
@@ -713,6 +713,14 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
                           </select>
                         </div>
                       </div>
+                      <label className="flex items-center gap-2 text-sm text-ink/70">
+                        <input
+                          type="checkbox"
+                          checked={!!scene.textStyles[selected!]?.strike}
+                          onChange={(e) => setStyle(selected!, { strike: e.target.checked })}
+                        />
+                        Зачёркнутый (для старой цены)
+                      </label>
                     </>
                   )}
                 </div>

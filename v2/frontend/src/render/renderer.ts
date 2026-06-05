@@ -22,10 +22,10 @@ function styleFor(
   scene: ResolvedScene,
   key: string,
   fallbackColor: string,
-): { color: string; align: CanvasTextAlign } {
+): { color: string; align: CanvasTextAlign; strike: boolean } {
   const style = scene.textStyles[key] ?? {};
   const align = (style.align as CanvasTextAlign) ?? "left";
-  return { color: style.color || fallbackColor, align };
+  return { color: style.color || fallbackColor, align, strike: !!style.strike };
 }
 
 /**
@@ -152,6 +152,7 @@ function drawFooterText(ctx: Ctx, template: Template, scene: ResolvedScene, stat
         weight: 600,
         paddingX: 0,
         font: FOOTER_FONT,
+        strike: style.strike,
       });
     }
     if (secondary) {
@@ -167,6 +168,7 @@ function drawFooterText(ctx: Ctx, template: Template, scene: ResolvedScene, stat
         size: Math.round(left.height * 0.22),
         weight: 500,
         font: FOOTER_FONT,
+        strike: style.strike,
       });
     }
   }
@@ -183,6 +185,7 @@ function drawFooterText(ctx: Ctx, template: Template, scene: ResolvedScene, stat
         weight: 500,
         paddingX: 0,
         font: FOOTER_FONT,
+        strike: style.strike,
       });
     }
   }
@@ -199,6 +202,7 @@ function drawFooterText(ctx: Ctx, template: Template, scene: ResolvedScene, stat
         weight: 500,
         paddingX: 0,
         font: FOOTER_FONT,
+        strike: style.strike,
       });
     }
   }
@@ -216,6 +220,7 @@ function drawFooterText(ctx: Ctx, template: Template, scene: ResolvedScene, stat
         weight: 700,
         paddingX: 0,
         font: FOOTER_FONT,
+        strike: style.strike,
       });
     }
   }
@@ -241,6 +246,7 @@ async function drawBrandPlate(ctx: Ctx, template: Template, scene: ResolvedScene
         weight: 600,
         paddingX: 24,
         font: FOOTER_FONT,
+        strike: style.strike,
       });
     }
     return;
@@ -287,6 +293,7 @@ async function drawCustomBlocks(ctx: Ctx, template: Template, scene: ResolvedSce
           weight: 600,
           paddingX: 16,
           font: FOOTER_FONT,
+          strike: style.strike,
         });
       }
     } else if (block.kind === "custom-image") {

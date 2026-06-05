@@ -72,6 +72,8 @@ export interface TextBinding {
 export interface TextStyle {
   color?: string;
   align?: string;
+  /** зачёркнутый текст (например, старая цена при скидке) */
+  strike?: boolean;
 }
 
 export interface SceneLayout {
