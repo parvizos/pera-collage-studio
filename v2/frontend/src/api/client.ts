@@ -108,4 +108,56 @@ export const api = {
     );
     return data.deletedIds;
   },
+
+  // ---- Storefront ----
+  async getPublishedIds(adminPin: string): Promise<string[]> {
+    const data = await asJson<{ ids: string[] }>(
+      await fetch("/api/store/published-ids", { headers: { "X-Admin-Pin": adminPin } }),
+    );
+    return data.ids;
+  },
+
+  async publishToStore(
+    record: { id: string; brandSlug?: string; userId?: string },
+    published: boolean,
+    adminPin: string,
+  ): Promise<string[]> {
+    const data = await asJson<{ ids: string[] }>(
+      await fetch("/api/store/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Pin": adminPin },
+        body: JSON.stringify({ ...record, published }),
+      }),
+    );
+    return data.ids;
+  },
+
+  async getStoreProducts(
+    params: Record<string, string> = {},
+  ): Promise<{ products: StoreProduct[]; categories: string[]; total: number }> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v) qs.set(k, v);
+    return asJson(await fetch(`/api/store/products?${qs.toString()}`));
+  },
+
+  async getStoreProduct(id: string): Promise<StoreProduct> {
+    const data = await asJson<{ product: StoreProduct }>(
+      await fetch(`/api/store/product?id=${encodeURIComponent(id)}`),
+    );
+    return data.product;
+  },
 };
+
+export interface StoreProduct {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  color: string;
+  size: string;
+  price: string;
+  brandName: string;
+  photos: string[];
+  collageImage: string;
+  createdAt?: string;
+}

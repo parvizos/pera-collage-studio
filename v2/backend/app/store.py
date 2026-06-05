@@ -22,6 +22,10 @@ HISTORY_BRANDS_DIR = config.HISTORY_BRANDS_DIR
 DB_FILE = config.DB_FILE
 STORE_IMAGE_BLOBS_IN_DB = config.STORE_IMAGE_BLOBS_IN_DB
 TEMPLATE_ROW_ID = config.TEMPLATE_ROW_ID
+STORE_DIR = config.STORE_DIR
+STORE_PUBLISHED_FILE = config.STORE_PUBLISHED_FILE
+STORE_SETTINGS_FILE = config.STORE_SETTINGS_FILE
+STORE_ORDERS_DIR = config.STORE_ORDERS_DIR
 
 
 class PayloadTooLargeError(Exception):
@@ -1070,3 +1074,118 @@ def delete_history_record(record_id: str, brand_slug: str | None = None, user_id
             path.unlink()
             deleted = True
     return deleted
+
+
+# ---------------------------------------------------------------------------
+# Storefront (public catalog)
+# ---------------------------------------------------------------------------
+
+def _load_published_entries() -> list[dict]:
+    if not STORE_PUBLISHED_FILE.exists():
+        return []
+    try:
+        data = json.loads(STORE_PUBLISHED_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    items = data.get("items") if isinstance(data, dict) else data
+    return [i for i in (items or []) if isinstance(i, dict) and i.get("id")]
+
+
+def _save_published_entries(entries: list[dict]) -> None:
+    STORE_DIR.mkdir(parents=True, exist_ok=True)
+    STORE_PUBLISHED_FILE.write_text(
+        json.dumps({"items": entries}, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def load_published_ids() -> list[str]:
+    return [e["id"] for e in _load_published_entries()]
+
+
+def set_collage_published(record_id: str, brand_slug: str | None, user_id: str | None, published: bool) -> bool:
+    if not record_id:
+        return False
+    entries = _load_published_entries()
+    entries = [e for e in entries if e.get("id") != record_id]
+    if published:
+        entries.insert(0, {"id": record_id, "brandSlug": brand_slug, "userId": user_id})
+    _save_published_entries(entries)
+    return True
+
+
+def _product_fields_from_state(state: dict) -> dict:
+    state = state or {}
+    products = state.get("products") or []
+    values = products[0].get("values") if products and isinstance(products[0], dict) else None
+    values = values or state.get("values") or {}
+    return {
+        "code": (values.get("code") or "").strip(),
+        "category": (values.get("category") or "").strip(),
+        "color": (values.get("color") or "").strip(),
+        "size": (values.get("size") or "").strip(),
+        "price": (values.get("price") or "").strip(),
+    }
+
+
+def build_store_product(entry: dict) -> dict | None:
+    record_id = entry.get("id")
+    # Look up by id + brand only — the storefront doesn't filter by employee.
+    detail = load_history_record_detail(record_id, entry.get("brandSlug"), None)
+    if not detail and entry.get("brandSlug"):
+        detail = load_history_record_detail(record_id, None, None)
+    if not detail:
+        return None
+    fields = _product_fields_from_state(detail.get("state") or {})
+    photos = [p.get("imagePath") for p in (detail.get("originalPhotos") or []) if p.get("imagePath")]
+    return {
+        "id": record_id,
+        "code": fields["code"] or detail.get("productCode") or "",
+        "name": fields["code"] or detail.get("productCode") or "Товар",
+        "category": fields["category"],
+        "color": fields["color"],
+        "size": fields["size"],
+        "price": fields["price"],
+        "brandName": detail.get("brandName") or "",
+        "photos": photos,
+        "collageImage": detail.get("imagePath") or "",
+        "createdAt": detail.get("createdAt"),
+    }
+
+
+def load_store_products(search: str = "", category: str = "") -> list[dict]:
+    products: list[dict] = []
+    for entry in _load_published_entries():
+        product = build_store_product(entry)
+        if product:
+            products.append(product)
+    normalized_search = (search or "").strip().lower()
+    if normalized_search:
+        products = [
+            p
+            for p in products
+            if normalized_search
+            in " ".join(
+                str(p.get(k) or "") for k in ("code", "name", "category", "color", "brandName")
+            ).lower()
+        ]
+    normalized_category = (category or "").strip().lower()
+    if normalized_category and normalized_category != "all":
+        products = [p for p in products if (p.get("category") or "").lower() == normalized_category]
+    return products
+
+
+def load_store_product(record_id: str) -> dict | None:
+    for entry in _load_published_entries():
+        if entry.get("id") == record_id:
+            return build_store_product(entry)
+    return None
+
+
+def store_categories() -> list[str]:
+    seen: list[str] = []
+    for entry in _load_published_entries():
+        product = build_store_product(entry)
+        cat = (product or {}).get("category")
+        if cat and cat not in seen:
+            seen.append(cat)
+    return seen

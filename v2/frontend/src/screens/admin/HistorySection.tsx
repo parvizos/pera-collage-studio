@@ -35,6 +35,32 @@ export function HistorySection({ adminPin }: Props) {
   const [sort, setSort] = useState("newest");
 
   const [lightbox, setLightbox] = useState<HistoryRecord | null>(null);
+  const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
+  const [publishing, setPublishing] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getPublishedIds(adminPin)
+      .then((ids) => setPublishedIds(new Set(ids)))
+      .catch(() => {});
+  }, [adminPin]);
+
+  async function togglePublish(record: HistoryRecord) {
+    const next = !publishedIds.has(record.id);
+    setPublishing(record.id);
+    try {
+      const ids = await api.publishToStore(
+        { id: record.id, brandSlug: record.brandSlug, userId: record.userId },
+        next,
+        adminPin,
+      );
+      setPublishedIds(new Set(ids));
+    } catch {
+      setError("Не удалось изменить публикацию");
+    } finally {
+      setPublishing(null);
+    }
+  }
 
   const fetchPage = useCallback(
     async (targetPage: number, append: boolean) => {
@@ -146,6 +172,17 @@ export function HistorySection({ adminPin }: Props) {
               <div className="p-3">
                 <div className="truncate text-sm font-semibold">{r.productCode || "—"}</div>
                 <div className="truncate text-xs text-ink/50">{r.brandName}</div>
+                <button
+                  className={`mt-2 w-full rounded-lg border py-1.5 text-xs font-semibold transition ${
+                    publishedIds.has(r.id)
+                      ? "border-green-600 bg-green-50 text-green-700"
+                      : "border-line text-ink/60 hover:border-clay/50 hover:text-clay"
+                  } ${publishing === r.id ? "opacity-50" : ""}`}
+                  onClick={() => togglePublish(r)}
+                  disabled={publishing === r.id}
+                >
+                  {publishedIds.has(r.id) ? "✓ В витрине" : "+ В витрину"}
+                </button>
                 <div className="mt-1 flex items-center justify-between text-[11px] text-ink/40">
                   <span className="truncate">{formatDate(r.createdAt)}</span>
                   <button

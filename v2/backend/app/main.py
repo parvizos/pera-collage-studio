@@ -212,6 +212,53 @@ async def delete_collages(request: Request, x_admin_pin: str | None = Header(def
 
 
 # ---------------------------------------------------------------------------
+# Storefront
+# ---------------------------------------------------------------------------
+
+@app.get("/api/store/products")
+async def store_products(search: str = Query(default=""), category: str = Query(default="")):
+    products = await run_in_threadpool(store.load_store_products, search, category)
+    categories = await run_in_threadpool(store.store_categories)
+    return json_response({"products": products, "categories": categories, "total": len(products)})
+
+
+@app.get("/api/store/product")
+async def store_product(id: str = Query(...)):
+    product = await run_in_threadpool(store.load_store_product, id)
+    if not product:
+        return json_response({"error": "not_found"}, 404)
+    return json_response({"product": product})
+
+
+@app.get("/api/store/published-ids")
+def store_published_ids(x_admin_pin: str | None = Header(default=None)):
+    if x_admin_pin != store.load_shell_admin_pin():
+        return json_response({"error": "unauthorized"}, 401)
+    return json_response({"ids": store.load_published_ids()})
+
+
+@app.post("/api/store/publish")
+async def store_publish(request: Request, x_admin_pin: str | None = Header(default=None)):
+    if x_admin_pin != store.load_shell_admin_pin():
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        payload = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    record_id = payload.get("id")
+    if not record_id:
+        return json_response({"error": "id_required"}, 400)
+    await run_in_threadpool(
+        store.set_collage_published,
+        record_id,
+        payload.get("brandSlug"),
+        payload.get("userId"),
+        bool(payload.get("published")),
+    )
+    return json_response({"ok": True, "ids": store.load_published_ids()})
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 

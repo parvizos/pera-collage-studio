@@ -17,6 +17,12 @@ HISTORY_IMAGES_DIR = HISTORY_DIR / "images"
 HISTORY_BRANDS_DIR = HISTORY_DIR / "brands"
 DB_FILE = DATA_ROOT / "pera.sqlite3"
 
+# Storefront
+STORE_DIR = DATA_ROOT / "store"
+STORE_PUBLISHED_FILE = STORE_DIR / "published.json"
+STORE_SETTINGS_FILE = STORE_DIR / "settings.json"
+STORE_ORDERS_DIR = STORE_DIR / "orders"
+
 # Built frontend (Vite output). Served as SPA when present.
 FRONTEND_DIST = (BACKEND_ROOT.parent / "frontend" / "dist").resolve()
 
