@@ -27,6 +27,17 @@ export async function recognizeLabel(
  * Эвристики заточены под наклейки PERA: код (POL-426151047), категория (MONT),
  * цвет (Kemik), размер (36-40), цена (35.0000 / SET...).
  */
+const LOW = "a-zçğıöşüâîûä";
+const UP = "A-ZÇĞİÖŞÜ";
+// Слова, которые точно не цвет (бренд/тип/служебное).
+const NOT_COLOR = new Set(
+  [
+    "PERA", "İSTANBUL", "ISTANBUL", "POLIN", "POLİN", "SETRE", "SET", "MONT", "TAKIM",
+    "BLUZ", "GÖMLEK", "GOMLEK", "ELBISE", "ETEK", "PANTOLON", "CEKET", "KABAN", "KAZAK",
+    "TUNIK", "TUNİK", "STORE",
+  ].map((s) => s.toUpperCase()),
+);
+
 export function parseLabel(raw: string): ParsedLabel {
   const out: ParsedLabel = {};
   const text = raw.replace(/\r/g, "");
@@ -35,45 +46,62 @@ export function parseLabel(raw: string): ParsedLabel {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  // КОД: POL-426151047, EXPO-533-B, ABC-1234B...
-  const codeRe = /\b([A-ZÇĞİÖŞÜ]{2,6}[-‐–]\d{2,}[A-Z0-9-]*)\b/;
-  for (const l of lines) {
-    const up = l.toUpperCase();
+  // КОД: PREFIX-XXXX, где после дефиса буквы/цифры (POL-426151047, SET-BL1634, EXPO-533-B)
+  const codeRe = new RegExp(`([${UP}]{2,5}-[A-Z0-9İ]{2,}(?:-[A-Z0-9İ]+)*)`);
+  let codeLineIdx = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    const up = lines[i].toUpperCase();
     const m = up.match(codeRe);
-    if (m) {
-      out.code = m[1].replace(/[‐–]/g, "-");
-      // КАТЕГОРИЯ: слово сразу после кода на той же строке (MONT, TAKIM...)
+    if (m && m[1] !== "İSTANBUL") {
+      out.code = m[1];
+      codeLineIdx = i;
+      // КАТЕГОРИЯ: слово сразу после кода (MONT, BLUZ, GÖMLEK...)
       const rest = up.slice(up.indexOf(m[1]) + m[1].length).trim();
-      const cat = rest.match(/^([A-ZÇĞİÖŞÜ]{2,15})/);
+      const cat = rest.match(new RegExp(`^([${UP}]{2,15})`));
       if (cat) out.category = cat[1];
       break;
     }
   }
 
-  // РАЗМЕР: 36-40, 36 - 42
-  const sizeM = text.match(/\b(\d{2})\s*[-‐–]\s*(\d{2})\b/);
-  if (sizeM) out.size = `${sizeM[1]}-${sizeM[2]}`;
+  // ЦВЕТ: строка сразу под кодом, ведущее слово (можно через дефис): Kemik, Acı-Kahve
+  const colorRe = new RegExp(`([${UP}][${LOW}]+(?:[-\\s][${UP}]?[${LOW}]+)*)`);
+  if (codeLineIdx >= 0 && codeLineIdx + 1 < lines.length) {
+    const cl = lines[codeLineIdx + 1];
+    const cm = cl.match(new RegExp(`^\\s*(${colorRe.source})`));
+    if (cm) {
+      const cand = cm[1].trim();
+      // отрезаем хвост-бренд (SETRE/POLİN), если прилип
+      const cleaned = cand.replace(new RegExp(`\\s+[${UP}]{3,}$`), "").trim();
+      if (cleaned && !NOT_COLOR.has(cleaned.toUpperCase())) out.color = cleaned;
+    }
+  }
+  if (!out.color) {
+    for (const l of lines) {
+      if (/store|www|http|insta|\+?\d[\d\s]{6,}/i.test(l)) continue;
+      const m = l.match(colorRe);
+      if (m && !NOT_COLOR.has(m[1].toUpperCase())) {
+        out.color = m[1].trim();
+        break;
+      }
+    }
+  }
 
-  // ЦЕНА: 35.0000 / 35,00 SET / 35 TL
+  // РАЗМЕР: 36-40  ИЛИ буквенные S-M-L-XL / S/M/L
+  const numSize = text.match(/\b(\d{2})\s*[-‐–]\s*(\d{2})\b/);
+  if (numSize) {
+    out.size = `${numSize[1]}-${numSize[2]}`;
+  } else {
+    const letterSize = text.match(
+      /\b((?:XS|S|M|L|XL|XXL|XXXL)(?:\s*[-/]\s*(?:XS|S|M|L|XL|XXL|XXXL)){1,6})\b/i,
+    );
+    if (letterSize) out.size = letterSize[1].toUpperCase().replace(/\s/g, "");
+  }
+
+  // ЦЕНА: 35.0000 / 44,00 SET / 42 TL
   let priceM = text.match(/(\d{1,6})[.,]0{3,}/);
   if (!priceM) priceM = text.match(/(\d{2,6})[.,]\d{2}\s*(?:SET|TL|₺)/i);
   if (!priceM) priceM = text.match(/(\d{2,6})\s*(?:TL|₺)/i);
   if (priceM) out.price = priceM[1];
-
-  // ЦВЕТ: одиночное слово с заглавной (не аббревиатура, не бренд/соцсети)
-  const blacklist = new Set(
-    ["PERA", "İSTANBUL", "ISTANBUL", "POLIN", "POLİN", "MONT", "TAKIM", "SET", out.category, out.code]
-      .filter(Boolean)
-      .map((s) => (s as string).toUpperCase()),
-  );
-  for (const l of lines) {
-    if (/store|www|http|insta|\+?\d[\d\s]{6,}/i.test(l)) continue; // соцсети/телефон
-    const m = l.match(/\b([A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,14})\b/);
-    if (m && !blacklist.has(m[1].toUpperCase())) {
-      out.color = m[1];
-      break;
-    }
-  }
 
   return out;
 }
