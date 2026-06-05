@@ -115,6 +115,8 @@ export interface Template {
   templateScenes: Record<string, TemplateScene>;
   brands: Brand[];
   multiProduct: { enabled: boolean; maxCount: number; previewCount: number; previewOnCanvas: boolean };
+  /** Сканер наклеек (бета). Пока выключен для сотрудников — только тест в админке. */
+  labelScanner?: { enabledForEmployees?: boolean };
   users?: User[];
 }
 

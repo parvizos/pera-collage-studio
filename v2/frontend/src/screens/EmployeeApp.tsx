@@ -222,14 +222,16 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
     const vals = products[index]?.values ?? state.values;
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-dashed border-clay/40 bg-clay/5 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm text-ink/70">Заполнить вручную ниже или отсканировать наклейку:</span>
-            <button className="btn-clay" onClick={() => setScannerIndex(index)}>
-              📷 Сканировать наклейку
-            </button>
+        {template.labelScanner?.enabledForEmployees && (
+          <div className="rounded-xl border border-dashed border-clay/40 bg-clay/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-ink/70">Заполнить вручную ниже или отсканировать наклейку:</span>
+              <button className="btn-clay" onClick={() => setScannerIndex(index)}>
+                📷 Сканировать наклейку
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           {template.fields.map((field) => (
           <div key={field.id}>

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Template, User } from "../api/types";
 import { api, ApiError } from "../api/client";
+import { LabelScanner } from "../components/LabelScanner";
+import type { ParsedLabel } from "../lib/scanLabel";
 import { UsersSection } from "./admin/UsersSection";
 import { BrandsSection } from "./admin/BrandsSection";
 import { FieldsSection } from "./admin/FieldsSection";
@@ -147,6 +149,29 @@ function Overview({
     kind: "idle",
   });
 
+  // Сканер наклеек (бета)
+  const [scanForEmployees, setScanForEmployees] = useState(!!template.labelScanner?.enabledForEmployees);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [testResult, setTestResult] = useState<ParsedLabel | null>(null);
+  const [scanSave, setScanSave] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({
+    kind: "idle",
+  });
+
+  async function saveScanSetting() {
+    setScanSave({ kind: "saving" });
+    try {
+      const next: Template = { ...template, labelScanner: { enabledForEmployees: scanForEmployees } };
+      await api.saveTemplate(next, adminPin);
+      onTemplateChange(next);
+      setScanSave({ kind: "ok", msg: "Сохранено" });
+    } catch (e) {
+      setScanSave({
+        kind: "error",
+        msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN)" : "Не удалось сохранить",
+      });
+    }
+  }
+
   async function saveMulti() {
     setStatus({ kind: "saving" });
     try {
@@ -241,6 +266,76 @@ function Overview({
           </p>
         )}
       </div>
+
+      {/* Сканер наклеек (бета) */}
+      <div className="card space-y-4 p-5">
+        <div className="flex items-center gap-2">
+          <h2 className="font-serif text-lg">Сканер наклеек</h2>
+          <span className="rounded-full bg-clay/10 px-2 py-0.5 text-xs font-semibold text-clay">бета</span>
+        </div>
+        <p className="text-sm text-ink/50">
+          Распознаёт код, категорию, цвет, размер и цену с наклейки. Иногда ошибается — проверь точность
+          здесь, прежде чем включать сотрудникам.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="btn-clay" onClick={() => { setTestResult(null); setScannerOpen(true); }}>
+            🧪 Проверить сканер
+          </button>
+        </div>
+
+        {testResult && (
+          <div className="rounded-lg border border-line bg-sand/50 p-3 text-sm">
+            <div className="mb-1 font-semibold">Распознано:</div>
+            <ul className="space-y-0.5 text-ink/70">
+              <li>Код: <b>{testResult.code || "—"}</b></li>
+              <li>Категория: <b>{testResult.category || "—"}</b></li>
+              <li>Цвет: <b>{testResult.color || "—"}</b></li>
+              <li>Размер: <b>{testResult.size || "—"}</b></li>
+              <li>Цена: <b>{testResult.price || "—"}</b></li>
+            </ul>
+          </div>
+        )}
+
+        <label className="flex cursor-pointer items-center gap-3">
+          <span
+            className={`relative h-6 w-11 rounded-full transition ${scanForEmployees ? "bg-ink" : "bg-line"}`}
+            onClick={() => setScanForEmployees((v) => !v)}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                scanForEmployees ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </span>
+          <span className="text-sm font-medium">Показывать сотрудникам</span>
+        </label>
+
+        <div className="flex items-center gap-3">
+          <button
+            className="btn-primary"
+            onClick={saveScanSetting}
+            disabled={scanSave.kind === "saving" || scanForEmployees === !!template.labelScanner?.enabledForEmployees}
+          >
+            {scanSave.kind === "saving" ? "Сохранение…" : "Сохранить"}
+          </button>
+          {scanSave.msg && (
+            <span className={`text-sm font-medium ${scanSave.kind === "error" ? "text-red-600" : "text-green-600"}`}>
+              {scanSave.msg}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {scannerOpen && (
+        <LabelScanner
+          onClose={() => setScannerOpen(false)}
+          onResult={(parsed) => {
+            setTestResult(parsed);
+            setScannerOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
