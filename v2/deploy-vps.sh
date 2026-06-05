@@ -29,7 +29,16 @@ git reset --hard "origin/$BRANCH"
 
 echo "[3/7] Python venv и зависимости..."
 cd "$BACKEND_DIR"
-[ -d ".venv" ] || python3 -m venv .venv
+# Требуется пакет python3-venv (на Ubuntu: python3.12-venv)
+if ! python3 -c "import ensurepip" 2>/dev/null; then
+  echo "      Ставим python3-venv..."
+  apt-get update -qq && apt-get install -y -qq python3-venv "python3.$(python3 -c 'import sys;print(sys.version_info.minor)')-venv" 2>/dev/null || apt-get install -y -qq python3-venv
+fi
+# Пересоздаём окружение, если оно битое (нет pip)
+if [ ! -x ".venv/bin/pip" ]; then
+  rm -rf .venv
+  python3 -m venv .venv
+fi
 ./.venv/bin/pip install --upgrade pip >/dev/null
 ./.venv/bin/pip install -r requirements.txt
 
