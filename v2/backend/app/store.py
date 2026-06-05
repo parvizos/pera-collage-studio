@@ -1189,3 +1189,76 @@ def store_categories() -> list[str]:
         if cat and cat not in seen:
             seen.append(cat)
     return seen
+
+
+# ---------------------------------------------------------------------------
+# Storefront orders
+# ---------------------------------------------------------------------------
+
+def save_order(payload: dict) -> dict:
+    STORE_ORDERS_DIR.mkdir(parents=True, exist_ok=True)
+    customer = payload.get("customer") or {}
+    name = str(customer.get("name") or "").strip()
+    phone = str(customer.get("phone") or "").strip()
+    if not name or not phone:
+        raise ValueError("name_and_phone_required")
+    items_in = payload.get("items") or []
+    if not items_in:
+        raise ValueError("empty_cart")
+    items = [
+        {
+            "id": str(i.get("id") or ""),
+            "code": str(i.get("code") or ""),
+            "color": str(i.get("color") or ""),
+            "size": str(i.get("size") or ""),
+            "price": str(i.get("price") or ""),
+            "qty": max(1, int(i.get("qty") or 1)),
+        }
+        for i in items_in
+        if isinstance(i, dict)
+    ]
+    created_at = datetime.now(timezone.utc).isoformat()
+    order_id = created_at.replace(":", "-").replace(".", "-").replace("+", "-")
+    order = {
+        "id": order_id,
+        "createdAt": created_at,
+        "status": "new",
+        "customer": {
+            "name": name,
+            "phone": phone,
+            "address": str(customer.get("address") or "").strip(),
+            "comment": str(customer.get("comment") or "").strip(),
+        },
+        "items": items,
+        "total": payload.get("total"),
+    }
+    (STORE_ORDERS_DIR / f"{order_id}.json").write_text(
+        json.dumps(order, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return {"id": order_id, "createdAt": created_at}
+
+
+def load_orders() -> list[dict]:
+    if not STORE_ORDERS_DIR.exists():
+        return []
+    orders: list[dict] = []
+    for file_path in STORE_ORDERS_DIR.glob("*.json"):
+        try:
+            orders.append(json.loads(file_path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            continue
+    orders.sort(key=lambda o: o.get("createdAt", ""), reverse=True)
+    return orders
+
+
+def set_order_status(order_id: str, status: str) -> bool:
+    file_path = STORE_ORDERS_DIR / f"{order_id}.json"
+    if not is_safe_path(STORE_ORDERS_DIR, file_path) or not file_path.exists():
+        return False
+    try:
+        order = json.loads(file_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    order["status"] = str(status or "new")
+    file_path.write_text(json.dumps(order, ensure_ascii=False, indent=2), encoding="utf-8")
+    return True

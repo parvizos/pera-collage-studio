@@ -258,6 +258,43 @@ async def store_publish(request: Request, x_admin_pin: str | None = Header(defau
     return json_response({"ok": True, "ids": store.load_published_ids()})
 
 
+@app.post("/api/store/order")
+async def store_order(request: Request):
+    body = await request.body()
+    if len(body) > config.MAX_REQUEST_BYTES:
+        return json_response({"error": "payload_too_large"}, 413)
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    try:
+        result = await run_in_threadpool(store.save_order, payload)
+    except ValueError as error:
+        return json_response({"error": str(error)}, 400)
+    except OSError:
+        return json_response({"error": "storage_write_failed"}, 500)
+    return json_response({"ok": True, "order": result})
+
+
+@app.get("/api/store/orders")
+def store_orders(x_admin_pin: str | None = Header(default=None)):
+    if x_admin_pin != store.load_shell_admin_pin():
+        return json_response({"error": "unauthorized"}, 401)
+    return json_response({"orders": store.load_orders()})
+
+
+@app.post("/api/store/order/status")
+async def store_order_status(request: Request, x_admin_pin: str | None = Header(default=None)):
+    if x_admin_pin != store.load_shell_admin_pin():
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        payload = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    ok = await run_in_threadpool(store.set_order_status, payload.get("id"), payload.get("status"))
+    return json_response({"ok": ok})
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------

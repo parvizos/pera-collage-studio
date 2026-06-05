@@ -146,7 +146,48 @@ export const api = {
     );
     return data.product;
   },
+
+  async placeOrder(payload: {
+    customer: { name: string; phone: string; address?: string; comment?: string };
+    items: { id: string; code: string; color: string; size: string; price: string; qty: number }[];
+    total: number;
+  }): Promise<{ id: string; createdAt: string }> {
+    const data = await asJson<{ order: { id: string; createdAt: string } }>(
+      await fetch("/api/store/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
+    return data.order;
+  },
+
+  async getStoreOrders(adminPin: string): Promise<StoreOrder[]> {
+    const data = await asJson<{ orders: StoreOrder[] }>(
+      await fetch("/api/store/orders", { headers: { "X-Admin-Pin": adminPin } }),
+    );
+    return data.orders;
+  },
+
+  async setOrderStatus(id: string, status: string, adminPin: string): Promise<void> {
+    await asJson(
+      await fetch("/api/store/order/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Pin": adminPin },
+        body: JSON.stringify({ id, status }),
+      }),
+    );
+  },
 };
+
+export interface StoreOrder {
+  id: string;
+  createdAt: string;
+  status: string;
+  customer: { name: string; phone: string; address?: string; comment?: string };
+  items: { id: string; code: string; color: string; size: string; price: string; qty: number }[];
+  total?: number;
+}
 
 export interface StoreProduct {
   id: string;
