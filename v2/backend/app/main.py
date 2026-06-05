@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from fastapi import FastAPI, Header, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
@@ -178,7 +179,9 @@ async def save_collage(
     except json.JSONDecodeError:
         return json_response({"error": "invalid_json"}, 400)
     try:
-        record = store.save_history_record(payload)
+        # Heavy work (base64 decode, file writes, sqlite) runs in a worker thread
+        # so it never blocks the event loop — keeps the server responsive under load.
+        record = await run_in_threadpool(store.save_history_record, payload)
     except ValueError as error:
         return json_response({"error": str(error)}, 400)
     except OSError as error:
@@ -194,13 +197,17 @@ async def delete_collages(request: Request, x_admin_pin: str | None = Header(def
         payload = json.loads(await request.body())
     except json.JSONDecodeError:
         return json_response({"error": "invalid_json"}, 400)
-    deleted_ids: list[str] = []
-    for record in payload.get("records") or []:
-        record_id = record.get("id")
-        if not record_id:
-            continue
-        if store.delete_history_record(record_id, record.get("brandSlug"), record.get("userId")):
-            deleted_ids.append(record_id)
+    def _delete_all() -> list[str]:
+        ids: list[str] = []
+        for record in payload.get("records") or []:
+            record_id = record.get("id")
+            if not record_id:
+                continue
+            if store.delete_history_record(record_id, record.get("brandSlug"), record.get("userId")):
+                ids.append(record_id)
+        return ids
+
+    deleted_ids = await run_in_threadpool(_delete_all)
     return json_response({"ok": True, "deletedIds": deleted_ids})
 
 
