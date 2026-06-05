@@ -1,0 +1,22 @@
+# Dependencies
+frontend/node_modules/
+backend/.venv/
+backend/venv/
+
+# Build output
+frontend/dist/
+*.tsbuildinfo
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Local sandbox data (a copy of real data — never commit)
+backend/data/
+
+# Temp / scratch
+.tmp_render.*
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal

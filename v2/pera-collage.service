@@ -1,0 +1,18 @@
+[Unit]
+Description=Pera Collage Studio (v2 FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/pera-collage-studio/v2/backend
+Environment=HOST=0.0.0.0
+Environment=PORT=8080
+Environment=PERA_DATA_DIR=/var/pera-collage-data
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/var/www/pera-collage-studio/v2/backend/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=2
+User=root
+
+[Install]
+WantedBy=multi-user.target
