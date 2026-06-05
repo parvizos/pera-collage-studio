@@ -7,11 +7,42 @@ interface Props {
 }
 
 const WHATSAPP = "905339178551"; // +90 533 917 85 51
+const CART_KEY = "pera_cart";
 
 function parsePrice(p?: string): number {
   if (!p) return 0;
   const n = parseFloat(p.replace(/[^\d.,]/g, "").replace(",", "."));
   return Number.isNaN(n) ? 0 : n;
+}
+
+const SIZE_RE = /^(XS|S|M|L|XL|XXL|XXXL)$/i;
+
+/** Если размер вида "S-M-L-XL" — список для выбора; "42-48" — единый диапазон. */
+function sizeOptions(size?: string): string[] {
+  if (!size) return [];
+  const tokens = size.split(/[-/]/).map((t) => t.trim()).filter(Boolean);
+  if (tokens.length >= 2 && tokens.every((t) => SIZE_RE.test(t))) return tokens.map((t) => t.toUpperCase());
+  return [];
+}
+
+export interface CartItem {
+  key: string;
+  id: string;
+  code: string;
+  price: string;
+  photo: string;
+  color: string;
+  size: string;
+  qty: number;
+}
+
+function loadCart(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    return raw ? (JSON.parse(raw) as CartItem[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function uniqueValues(items: StoreProduct[], key: "category" | "color" | "size"): string[] {
@@ -41,6 +72,42 @@ export function Store({ template }: Props) {
 
   const [quick, setQuick] = useState<StoreProduct | null>(null);
   const [quickPhoto, setQuickPhoto] = useState(0);
+  const [quickSize, setQuickSize] = useState("");
+
+  const [cart, setCart] = useState<CartItem[]>(() => loadCart());
+  const [cartOpen, setCartOpen] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    } catch {
+      /* ignore */
+    }
+  }, [cart]);
+
+  const cartCount = cart.reduce((n, i) => n + i.qty, 0);
+  const cartTotal = cart.reduce((sum, i) => sum + parsePrice(i.price) * i.qty, 0);
+
+  function addToCart(p: StoreProduct, size: string) {
+    const key = `${p.id}|${size}`;
+    setCart((prev) => {
+      const existing = prev.find((i) => i.key === key);
+      if (existing) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + 1 } : i));
+      return [
+        ...prev,
+        { key, id: p.id, code: p.code, price: p.price, photo: p.photos[0] || p.collageImage, color: p.color, size, qty: 1 },
+      ];
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  }
+
+  function setQty(key: string, qty: number) {
+    setCart((prev) =>
+      qty <= 0 ? prev.filter((i) => i.key !== key) : prev.map((i) => (i.key === key ? { ...i, qty } : i)),
+    );
+  }
 
   useEffect(() => {
     api
@@ -74,6 +141,8 @@ export function Store({ template }: Props) {
   function openQuick(p: StoreProduct) {
     setQuick(p);
     setQuickPhoto(0);
+    const opts = sizeOptions(p.size);
+    setQuickSize(opts.length ? "" : p.size || "");
   }
 
   function whatsappLink(p: StoreProduct): string {
@@ -99,12 +168,23 @@ export function Store({ template }: Props) {
             )}
           </a>
           <nav className="flex items-center gap-3 text-sm text-ink/60">
-            <a href={`https://instagram.com/peraistanbulstore`} target="_blank" rel="noreferrer" className="hover:text-ink">
+            <a href={`https://instagram.com/peraistanbulstore`} target="_blank" rel="noreferrer" className="hidden hover:text-ink sm:block">
               Instagram
             </a>
             <a href="/staff" className="hidden rounded-full border border-line px-3 py-1.5 font-medium hover:border-ink/40 sm:block">
               Сотрудникам
             </a>
+            <button
+              className="relative flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 font-semibold text-white"
+              onClick={() => setCartOpen(true)}
+            >
+              🛒 Корзина
+              {cartCount > 0 && (
+                <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-clay px-1 text-xs">
+                  {cartCount}
+                </span>
+              )}
+            </button>
           </nav>
         </div>
       </header>
@@ -233,7 +313,38 @@ export function Store({ template }: Props) {
                   {quick.size && <Row label="Размер" value={quick.size} />}
                 </dl>
                 {quick.price && <div className="mt-4 font-serif text-3xl">{quick.price}</div>}
+
+                {sizeOptions(quick.size).length > 0 && (
+                  <div className="mt-4">
+                    <div className="field-label">Размер</div>
+                    <div className="flex flex-wrap gap-2">
+                      {sizeOptions(quick.size).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setQuickSize(s)}
+                          className={`min-w-[44px] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                            quickSize === s ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-auto space-y-2 pt-5">
+                  <button
+                    className="btn-primary w-full"
+                    disabled={sizeOptions(quick.size).length > 0 && !quickSize}
+                    onClick={() => {
+                      addToCart(quick, quickSize);
+                      setQuick(null);
+                      setCartOpen(true);
+                    }}
+                  >
+                    {sizeOptions(quick.size).length > 0 && !quickSize ? "Выберите размер" : "В корзину"}
+                  </button>
                   <a
                     href={whatsappLink(quick)}
                     target="_blank"
@@ -242,12 +353,71 @@ export function Store({ template }: Props) {
                   >
                     Заказать в WhatsApp
                   </a>
-                  <button className="btn-ghost w-full" onClick={() => setQuick(null)}>
-                    Закрыть
-                  </button>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Added toast */}
+      {added && (
+        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+          <div className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-lg">
+            Добавлено в корзину ✓
+          </div>
+        </div>
+      )}
+
+      {/* Cart drawer */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-40 flex justify-end bg-ink/50 backdrop-blur-sm" onClick={() => setCartOpen(false)}>
+          <div className="flex h-full w-full max-w-md flex-col bg-white" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <span className="font-serif text-xl">Корзина</span>
+              <button className="rounded-full px-3 py-1 text-sm text-ink/50 hover:bg-sand" onClick={() => setCartOpen(false)}>
+                Закрыть
+              </button>
+            </div>
+
+            {cart.length === 0 ? (
+              <div className="grid flex-1 place-items-center text-ink/40">Корзина пуста</div>
+            ) : (
+              <>
+                <div className="flex-1 space-y-3 overflow-auto p-4">
+                  {cart.map((item) => (
+                    <div key={item.key} className="flex gap-3 rounded-xl border border-line p-2">
+                      <div className="h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-sand">
+                        {item.photo && <img src={item.photo} alt="" className="h-full w-full object-cover" />}
+                      </div>
+                      <div className="flex flex-1 flex-col">
+                        <div className="text-sm font-semibold">{item.code}</div>
+                        <div className="text-xs text-ink/45">
+                          {[item.color, item.size].filter(Boolean).join(" · ")}
+                        </div>
+                        <div className="mt-auto flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button className="h-7 w-7 rounded-full border border-line" onClick={() => setQty(item.key, item.qty - 1)}>−</button>
+                            <span className="w-6 text-center text-sm">{item.qty}</span>
+                            <button className="h-7 w-7 rounded-full border border-line" onClick={() => setQty(item.key, item.qty + 1)}>+</button>
+                          </div>
+                          <span className="font-semibold">{item.price}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-line p-4">
+                  <div className="mb-3 flex items-center justify-between text-lg font-semibold">
+                    <span>Итого</span>
+                    <span>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ₺` : "—"}</span>
+                  </div>
+                  <button className="btn-primary w-full" disabled title="Скоро">
+                    Оформить заказ (скоро)
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
