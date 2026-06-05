@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Template, User } from "../api/types";
+import { api, ApiError } from "../api/client";
 import { UsersSection } from "./admin/UsersSection";
 import { BrandsSection } from "./admin/BrandsSection";
 import { FieldsSection } from "./admin/FieldsSection";
@@ -78,7 +79,14 @@ export function AdminApp({
         </nav>
 
         <main className="min-w-0">
-          {section === "overview" && <Overview template={template} users={users} />}
+          {section === "overview" && (
+            <Overview
+              template={template}
+              users={users}
+              adminPin={adminPin}
+              onTemplateChange={onTemplateChange}
+            />
+          )}
           {section === "users" && (
             <UsersSection
               template={template}
@@ -115,13 +123,55 @@ export function AdminApp({
   );
 }
 
-function Overview({ template, users }: { template: Template; users: User[] }) {
+function Overview({
+  template,
+  users,
+  adminPin,
+  onTemplateChange,
+}: {
+  template: Template;
+  users: User[];
+  adminPin: string;
+  onTemplateChange: (t: Template) => void;
+}) {
   const stats = [
     { label: "Сотрудники", value: users.length },
     { label: "Бренды", value: template.brands.length },
     { label: "Шаблоны фото", value: template.photoTemplates.length },
     { label: "Поля", value: template.fields.length },
   ];
+
+  const [enabled, setEnabled] = useState(!!template.multiProduct?.enabled);
+  const [maxCount, setMaxCount] = useState(template.multiProduct?.maxCount ?? 4);
+  const [status, setStatus] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({
+    kind: "idle",
+  });
+
+  async function saveMulti() {
+    setStatus({ kind: "saving" });
+    try {
+      const next: Template = {
+        ...template,
+        multiProduct: {
+          ...(template.multiProduct ?? { previewCount: 2, previewOnCanvas: true }),
+          enabled,
+          maxCount: Math.max(2, Math.min(8, maxCount)),
+        },
+      };
+      await api.saveTemplate(next, adminPin);
+      onTemplateChange(next);
+      setStatus({ kind: "ok", msg: "Сохранено" });
+    } catch (e) {
+      setStatus({
+        kind: "error",
+        msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN)" : "Не удалось сохранить",
+      });
+    }
+  }
+
+  const dirty =
+    enabled !== !!template.multiProduct?.enabled || maxCount !== (template.multiProduct?.maxCount ?? 4);
+
   return (
     <div className="space-y-5">
       <div>
@@ -136,13 +186,60 @@ function Overview({ template, users }: { template: Template; users: User[] }) {
           </div>
         ))}
       </div>
-      <div className="card p-5">
-        <h2 className="mb-2 font-serif text-lg">Мультипродукт</h2>
-        <p className="text-sm text-ink/60">
-          {template.multiProduct?.enabled
-            ? `Включён, до ${template.multiProduct.maxCount} товаров в одном коллаже.`
-            : "Отключён."}
-        </p>
+
+      <div className="card space-y-4 p-5">
+        <div>
+          <h2 className="font-serif text-lg">Мультипродукт</h2>
+          <p className="text-sm text-ink/50">Несколько разных товаров в одном коллаже</p>
+        </div>
+
+        <label className="flex cursor-pointer items-center gap-3">
+          <span
+            className={`relative h-6 w-11 rounded-full transition ${enabled ? "bg-ink" : "bg-line"}`}
+            onClick={() => setEnabled((v) => !v)}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                enabled ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </span>
+          <span className="text-sm font-medium">{enabled ? "Включён" : "Отключён"}</span>
+        </label>
+
+        {enabled && (
+          <div className="max-w-[200px]">
+            <label className="field-label">Максимум товаров</label>
+            <select className="input" value={maxCount} onChange={(e) => setMaxCount(Number(e.target.value))}>
+              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button className="btn-primary" onClick={saveMulti} disabled={status.kind === "saving" || !dirty}>
+            {status.kind === "saving" ? "Сохранение…" : "Сохранить"}
+          </button>
+          {status.msg && (
+            <span
+              className={`text-sm font-medium ${status.kind === "error" ? "text-red-600" : "text-green-600"}`}
+            >
+              {status.msg}
+            </span>
+          )}
+        </div>
+
+        {enabled && (
+          <p className="rounded-lg bg-clay/5 p-3 text-xs text-ink/60">
+            После включения зайди в <b>Шаблоны</b> → выбери «2 товара» (или 3/4) и настрой раскладку: для
+            каждого блока-переменной укажи «Товар №». Сотрудник сможет выбирать количество товаров при
+            создании коллажа.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Block, CollageState, Template, TextBinding } from "../../api/types";
 import { CollageCanvas } from "../../components/CollageCanvas";
 import { resolveScene } from "../../render/scene";
@@ -52,6 +52,36 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+/**
+ * Converts legacy flat scenes ({blocks,...}) to the new {layouts:{single,byCount}}
+ * format so the editor can manage per-product-count layouts. Non-destructive:
+ * the single layout keeps all original blocks; rendering already supports both.
+ */
+function migrateScenes(template: Template): Template {
+  const next = structuredClone(template);
+  const scenes = next.templateScenes ?? {};
+  for (const key of Object.keys(scenes)) {
+    const sc = scenes[key] as unknown as Record<string, unknown>;
+    if (sc && !sc.layouts && sc.blocks) {
+      sc.layouts = {
+        single: {
+          blocks: sc.blocks,
+          blockOrder: sc.blockOrder ?? [],
+          textBindings: sc.textBindings ?? {},
+          textStyles: sc.textStyles ?? {},
+          canvasHeight: sc.canvasHeight ?? 0,
+        },
+        byCount: {},
+      };
+      delete sc.blocks;
+      delete sc.blockOrder;
+      delete sc.textBindings;
+      delete sc.textStyles;
+    }
+  }
+  return next;
+}
+
 interface Geom {
   x: number;
   y: number;
@@ -81,7 +111,7 @@ function contentTypeOf(binding: TextBinding | undefined): ContentType {
 }
 
 export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
-  const [draft, setDraft] = useState<Template>(() => structuredClone(template));
+  const [draft, setDraft] = useState<Template>(() => migrateScenes(template));
   const [templateId, setTemplateId] = useState<string>(
     () => template.photoTemplates[0]?.id ?? "template_1",
   );
@@ -98,6 +128,22 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
   const dragRef = useRef<DragState | null>(null);
 
   const productCount = layoutKey === "single" ? 1 : Number(layoutKey);
+
+  // When a multi-product layout (2/3/4) is opened for the first time, seed it
+  // from the single layout so the admin has a starting point to rearrange.
+  useEffect(() => {
+    if (layoutKey === "single") return;
+    setDraft((prev) => {
+      const scenes = prev.templateScenes?.[templateId];
+      if (!scenes?.layouts) return prev;
+      if (scenes.layouts.byCount?.[layoutKey]) return prev;
+      const next = structuredClone(prev);
+      const s = next.templateScenes![templateId];
+      s.layouts!.byCount = s.layouts!.byCount ?? {};
+      s.layouts!.byCount[layoutKey] = structuredClone(s.layouts!.single);
+      return next;
+    });
+  }, [templateId, layoutKey]);
 
   const previewState = useMemo<CollageState>(() => {
     const base = buildDefaultState(draft, null);
@@ -125,7 +171,20 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
 
   function blockLabel(key: string): string {
     const b = scene.blocks[key];
-    return b?.name || BLOCK_LABELS[key] || (key.startsWith("custom-") ? "Свой блок" : key);
+    if (BLOCK_LABELS[key]) return BLOCK_LABELS[key];
+    const binding = scene.textBindings[key];
+    // Field-bound variable → show the field name (+ product number in multi layouts).
+    if (binding && binding.type !== "static" && binding.primary) {
+      const f = draft.fields.find((ff) => ff.id === binding.primary);
+      if (f) {
+        const suffix = productCount > 1 ? ` (товар ${(binding.productIndex ?? 0) + 1})` : "";
+        return `${f.label}${suffix}`;
+      }
+    }
+    if (binding?.type === "static") {
+      return binding.text ? `«${binding.text.slice(0, 14)}»` : b?.name || "Текст";
+    }
+    return b?.name || (key.startsWith("custom") ? "Блок" : key);
   }
 
   function isTextual(key: string): boolean {
