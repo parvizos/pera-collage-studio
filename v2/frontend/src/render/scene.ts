@@ -34,26 +34,32 @@ export function resolveScene(template: Template, state: CollageState): ResolvedS
   const layoutKey = resolveLayoutKeyForProductCount(productCount, template);
 
   const scene = template.templateScenes?.[templateId];
+  const layouts = scene?.layouts;
   let slice: SceneLayout | undefined;
-  if (scene) {
+  if (layouts) {
+    // New format: per-count layouts.
     if (layoutKey === "single") {
-      slice = scene.layouts.single;
+      slice = layouts.single;
     } else {
-      slice = scene.layouts.byCount?.[layoutKey] ?? scene.layouts.single;
+      slice = layouts.byCount?.[layoutKey] ?? layouts.single;
     }
-    if (!sliceIsUsable(slice)) slice = scene.layouts.single;
+    if (!sliceIsUsable(slice)) slice = layouts.single;
+  } else if (scene && scene.blocks) {
+    // Legacy flat format: the scene object itself is the single layout.
+    slice = scene as unknown as SceneLayout;
   }
 
-  const blocks = sliceIsUsable(slice) ? slice.blocks : template.blocks;
-  const blockOrder = sliceIsUsable(slice) ? slice.blockOrder : template.blockOrder;
-  const textBindings = sliceIsUsable(slice) ? slice.textBindings : template.textBindings;
-  const textStyles = sliceIsUsable(slice) ? slice.textStyles : template.textStyles;
+  const usable = sliceIsUsable(slice);
+  const blocks = usable ? slice!.blocks : (template.blocks ?? {});
+  const blockOrder = usable ? (slice!.blockOrder ?? []) : (template.blockOrder ?? []);
+  const textBindings = usable ? (slice!.textBindings ?? {}) : (template.textBindings ?? {});
+  const textStyles = usable ? (slice!.textStyles ?? {}) : (template.textStyles ?? {});
 
   const photoCells = scene?.photoLayout?.length
     ? scene.photoLayout
     : (template.photoLayouts?.[templateId] ?? []);
 
-  const sliceHeight = sliceIsUsable(slice) ? slice.canvasHeight ?? 0 : 0;
+  const sliceHeight = usable ? (slice!.canvasHeight ?? 0) : 0;
   const canvasHeight = sliceHeight > 0 ? sliceHeight : template.canvas.height;
 
   return { blocks, blockOrder, textBindings, textStyles, photoCells, canvasHeight };

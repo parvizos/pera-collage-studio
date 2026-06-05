@@ -83,8 +83,15 @@ export interface SceneLayout {
 }
 
 export interface TemplateScene {
-  layouts: { single: SceneLayout; byCount?: Record<string, SceneLayout> };
+  /** New format: per-product-count layouts. */
+  layouts?: { single: SceneLayout; byCount?: Record<string, SceneLayout> };
   photoLayout: PhotoCell[];
+  /** Legacy flat format: the scene itself is the single layout. */
+  blocks?: Record<string, Block>;
+  blockOrder?: string[];
+  textBindings?: Record<string, TextBinding>;
+  textStyles?: Record<string, TextStyle>;
+  canvasHeight?: number;
 }
 
 export interface Template {

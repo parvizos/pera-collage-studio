@@ -138,7 +138,16 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
       const next = structuredClone(prev);
       const scenes = next.templateScenes?.[templateId];
       if (!scenes) return prev;
-      const slice = layoutKey === "single" ? scenes.layouts.single : scenes.layouts.byCount?.[layoutKey];
+      const layouts = scenes.layouts;
+      const slice = (
+        layouts
+          ? layoutKey === "single"
+            ? layouts.single
+            : layouts.byCount?.[layoutKey]
+          : scenes // legacy flat scene = the single layout itself
+      ) as unknown as
+        | { blocks: Record<string, Block>; blockOrder: string[]; textBindings: Record<string, TextBinding>; textStyles: Record<string, { color?: string; align?: string }> }
+        | undefined;
       if (!slice) return prev;
       slice.blocks = slice.blocks || {};
       slice.blockOrder = slice.blockOrder || [];
@@ -311,7 +320,14 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
       const next = structuredClone(prev);
       const scenes = next.templateScenes?.[templateId];
       if (!scenes) return prev;
-      const slice = layoutKey === "single" ? scenes.layouts.single : scenes.layouts.byCount?.[layoutKey];
+      const layouts = scenes.layouts;
+      const slice = (
+        layouts
+          ? layoutKey === "single"
+            ? layouts.single
+            : layouts.byCount?.[layoutKey]
+          : scenes
+      ) as unknown as { canvasHeight?: number } | undefined;
       if (!slice) return prev;
       slice.canvasHeight = height;
       return next;
