@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-vh: 100vh;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: theme("colors.sand");
+  color: theme("colors.ink");
+  font-family: theme("fontFamily.sans");
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-white hover:bg-black;
+  }
+  .btn-ghost {
+    @apply btn bg-white text-ink ring-1 ring-line hover:bg-line/40;
+  }
+  .btn-clay {
+    @apply btn bg-clay text-white hover:brightness-95;
+  }
+  .field-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink/60;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-clay focus:ring-2 focus:ring-clay/20;
+  }
+  .card {
+    @apply rounded-xl2 border border-line bg-white shadow-[0_1px_0_rgba(0,0,0,0.02),0_12px_30px_-18px_rgba(0,0,0,0.25)];
+  }
+}
