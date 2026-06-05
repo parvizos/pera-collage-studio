@@ -4,15 +4,19 @@ import type { Template, User } from "./api/types";
 import { LoginScreen } from "./screens/LoginScreen";
 import { EmployeeApp } from "./screens/EmployeeApp";
 import { AdminApp } from "./screens/AdminApp";
+import { Store } from "./screens/Store";
 
-type Route = "employee" | "admin";
+type Route = "store" | "staff" | "admin";
 type Session =
   | { kind: "none" }
   | { kind: "employee"; user: User; pin: string }
   | { kind: "admin"; pin: string };
 
 function detectRoute(): Route {
-  return window.location.pathname.replace(/\/+$/, "") === "/admin" ? "admin" : "employee";
+  const path = window.location.pathname.replace(/\/+$/, "");
+  if (path === "/admin") return "admin";
+  if (path === "/staff") return "staff";
+  return "store";
 }
 
 export default function App() {
@@ -23,25 +27,38 @@ export default function App() {
   const [session, setSession] = useState<Session>({ kind: "none" });
 
   useEffect(() => {
-    Promise.all([api.getTemplate(), api.getUsers()])
-      .then(([tpl, us]) => {
-        setTemplate(tpl);
-        setUsers(us);
-      })
-      .catch(() => setError("Не удалось загрузить данные с сервера"));
-  }, []);
+    if (route === "store") {
+      api
+        .getTemplate()
+        .then(setTemplate)
+        .catch(() => setError("Не удалось загрузить магазин"));
+    } else {
+      Promise.all([api.getTemplate(), api.getUsers()])
+        .then(([tpl, us]) => {
+          setTemplate(tpl);
+          setUsers(us);
+        })
+        .catch(() => setError("Не удалось загрузить данные с сервера"));
+    }
+  }, [route]);
 
   if (error) {
     return <CenterMessage title="Ошибка" body={error} />;
   }
   if (!template) {
-    return <CenterMessage title="Pera Collage Studio" body="Загрузка…" />;
+    return <CenterMessage title="PERA" body="Загрузка…" />;
   }
 
+  // Public storefront
+  if (route === "store") {
+    return <Store template={template} />;
+  }
+
+  // Staff / Admin: login flow
   if (session.kind === "none") {
     return (
       <LoginScreen
-        route={route}
+        route={route === "admin" ? "admin" : "employee"}
         users={users}
         onEmployee={(user, pin) => setSession({ kind: "employee", user, pin })}
         onAdmin={(pin) => setSession({ kind: "admin", pin })}
