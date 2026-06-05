@@ -155,6 +155,15 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
     return codes.length ? codes.join("-") : (state.values.code || "collage").trim();
   }
 
+  function triggerDownload(dataUrl: string) {
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `${productLabel()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   async function handleSave() {
     setSaveStatus({ kind: "saving" });
     try {
@@ -173,7 +182,9 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
         },
         { userId: user.id, pin },
       );
-      setSaveStatus({ kind: "ok", message: "Коллаж сохранён в историю" });
+      // Saved to history — also download the file automatically.
+      triggerDownload(imageDataUrl);
+      setSaveStatus({ kind: "ok", message: "Сохранено в историю и скачано" });
     } catch (e) {
       setSaveStatus({
         kind: "error",
@@ -184,11 +195,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
 
   async function handleDownload() {
     try {
-      const dataUrl = await renderToDataUrl();
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = `${productLabel()}.png`;
-      link.click();
+      triggerDownload(await renderToDataUrl());
     } catch {
       setSaveStatus({ kind: "error", message: "Не удалось подготовить файл" });
     }
@@ -353,7 +360,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
 
               <div className="card space-y-3 p-4">
                 <button className="btn-primary w-full" onClick={handleSave} disabled={saveStatus.kind === "saving"}>
-                  {saveStatus.kind === "saving" ? "Сохранение…" : "Сохранить в историю"}
+                  {saveStatus.kind === "saving" ? "Сохранение…" : "Сохранить и скачать"}
                 </button>
                 <div className="flex gap-2">
                   <button className="btn-ghost flex-1" onClick={() => setStep(1)}>
