@@ -5,6 +5,7 @@ import { CollageCanvas } from "../components/CollageCanvas";
 import { EmployeeHistory } from "./EmployeeHistory";
 import { renderCollage } from "../render/renderer";
 import { api } from "../api/client";
+import { recognizeLabel, parseLabel } from "../lib/scanLabel";
 import {
   buildDefaultFieldValues,
   buildDefaultState,
@@ -38,6 +39,36 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
   const [view, setView] = useState<"compose" | "history">("compose");
   const [step, setStep] = useState<1 | 2>(1);
   const [state, setState] = useState<CollageState>(() => buildDefaultState(template, user));
+  const [scan, setScan] = useState<{ index: number; progress: number } | null>(null);
+  const [scanError, setScanError] = useState<{ index: number; msg: string } | null>(null);
+
+  async function handleScan(index: number, file: File | undefined) {
+    if (!file) return;
+    setScanError(null);
+    setScan({ index, progress: 0 });
+    try {
+      const text = await recognizeLabel(file, (p) => setScan({ index, progress: p }));
+      const parsed = parseLabel(text);
+      const filled = Object.entries(parsed).filter(([, v]) => v);
+      if (filled.length === 0) {
+        setScanError({ index, msg: "Не удалось распознать. Сфотографируй крупнее и без бликов." });
+      } else {
+        setState((prev) => {
+          const products = (prev.products ?? []).map((p, i) => {
+            if (i !== index) return p;
+            const values = { ...p.values };
+            for (const [k, v] of filled) if (v) values[k] = v as string;
+            return { ...p, values };
+          });
+          return { ...prev, products, values: products[0]?.values ?? prev.values };
+        });
+      }
+    } catch {
+      setScanError({ index, msg: "Ошибка распознавания. Попробуй ещё раз." });
+    } finally {
+      setScan(null);
+    }
+  }
 
   function reopenRecord(record: HistoryRecord) {
     const s = record.state;
@@ -203,9 +234,34 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
 
   function renderFields(index: number) {
     const vals = products[index]?.values ?? state.values;
+    const scanning = scan?.index === index;
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        {template.fields.map((field) => (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-dashed border-clay/40 bg-clay/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm text-ink/70">Заполнить вручную ниже или отсканировать наклейку:</span>
+            <label
+              className={`btn-clay cursor-pointer ${scanning ? "pointer-events-none opacity-60" : ""}`}
+            >
+              {scanning ? `Распознаю… ${Math.round((scan?.progress ?? 0) * 100)}%` : "📷 Сканировать наклейку"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  handleScan(index, e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+          {scanError?.index === index && !scanning && (
+            <p className="mt-2 text-xs font-medium text-red-600">{scanError.msg}</p>
+          )}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {template.fields.map((field) => (
           <div key={field.id}>
             <label className="field-label">{field.label}</label>
             {field.inputType === "select" && field.options?.length ? (
@@ -229,6 +285,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
             )}
           </div>
         ))}
+        </div>
       </div>
     );
   }
