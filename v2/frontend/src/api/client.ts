@@ -189,16 +189,28 @@ export interface StoreOrder {
   total?: number;
 }
 
-export interface StoreProduct {
+export interface StoreVariation {
   id: string;
-  code: string;
-  name: string;
-  category: string;
   color: string;
   size: string;
   price: string;
+  photos: string[];
+  collageImage: string;
+}
+
+export interface StoreProduct {
+  id: string;
+  key: string;
+  code: string;
+  name: string;
+  category: string;
   brandName: string;
+  price: string;
+  priceVaries?: boolean;
+  colors: string[];
+  sizes: string[];
   photos: string[];
   collageImage: string;
   createdAt?: string;
+  variations: StoreVariation[];
 }

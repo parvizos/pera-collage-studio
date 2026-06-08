@@ -1152,40 +1152,124 @@ def build_store_product(entry: dict) -> dict | None:
     }
 
 
-def load_store_products(search: str = "", category: str = "") -> list[dict]:
-    products: list[dict] = []
+def _price_value(price: str) -> float:
+    """Parse the first number out of a price string for min/max comparison."""
+    match = re.search(r"\d+(?:[.,]\d+)?", (price or "").replace(" ", ""))
+    if not match:
+        return float("inf")
+    try:
+        return float(match.group(0).replace(",", "."))
+    except ValueError:
+        return float("inf")
+
+
+def _group_key(brand: str | None, code: str | None) -> str:
+    """Same code within the same brand = one product (variations)."""
+    return f"{(brand or '').strip().lower()}|{(code or '').strip().lower()}"
+
+
+def _build_products_grouped() -> list[dict]:
+    """Group published records into products: one product per (brand + code).
+
+    Each published record becomes a *variation* (its own color / photos /
+    size / price). Records without a code are kept as standalone products.
+    """
+    groups: dict[str, dict] = {}
+    order: list[str] = []
+    standalone = 0
     for entry in _load_published_entries():
-        product = build_store_product(entry)
-        if product:
-            products.append(product)
+        rec = build_store_product(entry)
+        if not rec:
+            continue
+        code = (rec.get("code") or "").strip()
+        if code:
+            key = _group_key(rec.get("brandName"), code)
+        else:
+            # No code → cannot group; keep this record on its own.
+            standalone += 1
+            key = f"__solo__{standalone}"
+        variation = {
+            "id": rec["id"],
+            "color": rec["color"],
+            "size": rec["size"],
+            "price": rec["price"],
+            "photos": rec["photos"],
+            "collageImage": rec["collageImage"],
+        }
+        group = groups.get(key)
+        if group is None:
+            group = {
+                "id": key,
+                "key": key,
+                "code": rec["code"],
+                "name": rec["name"],
+                "category": rec["category"],
+                "brandName": rec["brandName"],
+                "photos": rec["photos"],
+                "collageImage": rec["collageImage"],
+                "price": rec["price"],
+                "colors": [],
+                "sizes": [],
+                "createdAt": rec.get("createdAt"),
+                "variations": [],
+            }
+            groups[key] = group
+            order.append(key)
+        group["variations"].append(variation)
+        if rec["color"] and rec["color"] not in group["colors"]:
+            group["colors"].append(rec["color"])
+        if rec["size"] and rec["size"] not in group["sizes"]:
+            group["sizes"].append(rec["size"])
+
+    products = [groups[k] for k in order]
+    for group in products:
+        prices = [v["price"] for v in group["variations"] if v["price"]]
+        distinct = list(dict.fromkeys(prices))
+        if len(distinct) > 1:
+            group["price"] = min(distinct, key=_price_value)
+            group["priceVaries"] = True
+        else:
+            group["price"] = distinct[0] if distinct else group.get("price") or ""
+            group["priceVaries"] = False
+    return products
+
+
+def load_store_products(search: str = "", category: str = "") -> list[dict]:
+    products = _build_products_grouped()
     normalized_search = (search or "").strip().lower()
     if normalized_search:
-        products = [
-            p
-            for p in products
-            if normalized_search
-            in " ".join(
-                str(p.get(k) or "") for k in ("code", "name", "category", "color", "brandName")
+        def _haystack(p: dict) -> str:
+            return " ".join(
+                [
+                    str(p.get("code") or ""),
+                    str(p.get("name") or ""),
+                    str(p.get("category") or ""),
+                    str(p.get("brandName") or ""),
+                    " ".join(p.get("colors") or []),
+                    " ".join(p.get("sizes") or []),
+                ]
             ).lower()
-        ]
+
+        products = [p for p in products if normalized_search in _haystack(p)]
     normalized_category = (category or "").strip().lower()
     if normalized_category and normalized_category != "all":
         products = [p for p in products if (p.get("category") or "").lower() == normalized_category]
     return products
 
 
-def load_store_product(record_id: str) -> dict | None:
-    for entry in _load_published_entries():
-        if entry.get("id") == record_id:
-            return build_store_product(entry)
+def load_store_product(product_id: str) -> dict | None:
+    for product in _build_products_grouped():
+        if product["key"] == product_id or product["id"] == product_id:
+            return product
+        if any(v["id"] == product_id for v in product["variations"]):
+            return product
     return None
 
 
 def store_categories() -> list[str]:
     seen: list[str] = []
-    for entry in _load_published_entries():
-        product = build_store_product(entry)
-        cat = (product or {}).get("category")
+    for product in _build_products_grouped():
+        cat = product.get("category")
         if cat and cat not in seen:
             seen.append(cat)
     return seen

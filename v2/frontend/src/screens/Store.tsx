@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Template } from "../api/types";
-import { api, type StoreProduct } from "../api/client";
+import { api, type StoreProduct, type StoreVariation } from "../api/client";
 
 interface Props {
   template: Template;
@@ -45,13 +45,23 @@ function loadCart(): CartItem[] {
   }
 }
 
-function uniqueValues(items: StoreProduct[], key: "category" | "color" | "size"): string[] {
+function collect(items: StoreProduct[], pick: (p: StoreProduct) => string[]): string[] {
   const seen: string[] = [];
   for (const it of items) {
-    const v = (it[key] || "").trim();
-    if (v && !seen.includes(v)) seen.push(v);
+    for (const raw of pick(it)) {
+      const v = (raw || "").trim();
+      if (v && !seen.includes(v)) seen.push(v);
+    }
   }
   return seen;
+}
+
+function colorsLabel(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return `${n} цвет`;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return `${n} цвета`;
+  return `${n} цветов`;
 }
 
 export function Store({ template }: Props) {
@@ -74,6 +84,7 @@ export function Store({ template }: Props) {
   const [sort, setSort] = useState<"new" | "cheap" | "expensive">("new");
 
   const [quick, setQuick] = useState<StoreProduct | null>(null);
+  const [variationIdx, setVariationIdx] = useState(0);
   const [quickPhoto, setQuickPhoto] = useState(0);
   const [quickSize, setQuickSize] = useState("");
 
@@ -133,14 +144,14 @@ export function Store({ template }: Props) {
   const cartCount = cart.reduce((n, i) => n + i.qty, 0);
   const cartTotal = cart.reduce((sum, i) => sum + parsePrice(i.price) * i.qty, 0);
 
-  function addToCart(p: StoreProduct, size: string) {
-    const key = `${p.id}|${size}`;
+  function addToCart(p: StoreProduct, v: StoreVariation, size: string) {
+    const key = `${v.id}|${size}`;
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
       if (existing) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + 1 } : i));
       return [
         ...prev,
-        { key, id: p.id, code: p.code, price: p.price, photo: p.photos[0] || p.collageImage, color: p.color, size, qty: 1 },
+        { key, id: v.id, code: p.code, price: v.price, photo: v.photos[0] || v.collageImage, color: v.color, size, qty: 1 },
       ];
     });
     setAdded(true);
@@ -161,18 +172,18 @@ export function Store({ template }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  const categories = useMemo(() => uniqueValues(products, "category"), [products]);
-  const colors = useMemo(() => uniqueValues(products, "color"), [products]);
-  const sizes = useMemo(() => uniqueValues(products, "size"), [products]);
+  const categories = useMemo(() => collect(products, (p) => [p.category]), [products]);
+  const colors = useMemo(() => collect(products, (p) => p.colors || []), [products]);
+  const sizes = useMemo(() => collect(products, (p) => p.sizes || []), [products]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = products.filter((p) => {
       if (category && p.category !== category) return false;
-      if (color && p.color !== color) return false;
-      if (size && p.size !== size) return false;
+      if (color && !(p.colors || []).includes(color)) return false;
+      if (size && !(p.sizes || []).includes(size)) return false;
       if (q) {
-        const hay = `${p.code} ${p.name} ${p.category} ${p.color} ${p.brandName}`.toLowerCase();
+        const hay = `${p.code} ${p.name} ${p.category} ${(p.colors || []).join(" ")} ${p.brandName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -182,17 +193,23 @@ export function Store({ template }: Props) {
     return list;
   }, [products, search, category, color, size, sort]);
 
-  function openQuick(p: StoreProduct) {
-    setQuick(p);
+  function applyVariation(p: StoreProduct, i: number) {
+    const v = p.variations[i];
+    setVariationIdx(i);
     setQuickPhoto(0);
-    const opts = sizeOptions(p.size);
-    setQuickSize(opts.length ? "" : p.size || "");
+    const opts = sizeOptions(v?.size);
+    setQuickSize(opts.length ? "" : v?.size || "");
   }
 
-  function whatsappLink(p: StoreProduct): string {
-    const text = `Здравствуйте! Хочу заказать: ${p.code}${p.color ? `, цвет ${p.color}` : ""}${
-      p.size ? `, размер ${p.size}` : ""
-    } — ${p.price}`;
+  function openQuick(p: StoreProduct) {
+    setQuick(p);
+    applyVariation(p, 0);
+  }
+
+  function whatsappLink(p: StoreProduct, v: StoreVariation): string {
+    const text = `Здравствуйте! Хочу заказать: ${p.code}${v.color ? `, цвет ${v.color}` : ""}${
+      v.size ? `, размер ${v.size}` : ""
+    } — ${v.price}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
@@ -307,9 +324,15 @@ export function Store({ template }: Props) {
                 <div className="p-3">
                   <div className="truncate text-sm font-semibold">{p.code}</div>
                   <div className="truncate text-xs text-ink/45">
-                    {[p.category, p.color, p.size].filter(Boolean).join(" · ")}
+                    {[p.category, p.colors.length > 1 ? colorsLabel(p.colors.length) : p.colors[0]]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
-                  {p.price && <div className="mt-1 font-serif text-lg">{p.price}</div>}
+                  {p.price && (
+                    <div className="mt-1 font-serif text-lg">
+                      {p.priceVaries ? `от ${p.price}` : p.price}
+                    </div>
+                  )}
                 </div>
               </button>
             ))}
@@ -322,7 +345,12 @@ export function Store({ template }: Props) {
       </footer>
 
       {/* Quick view */}
-      {quick && (
+      {quick && (() => {
+        const variation = quick.variations[variationIdx] ?? quick.variations[0];
+        const gallery = [...variation.photos, variation.collageImage].filter(Boolean) as string[];
+        const sizes = sizeOptions(variation.size);
+        const needSize = sizes.length > 0 && !quickSize;
+        return (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/70 backdrop-blur-sm sm:items-center" onClick={() => setQuick(null)}>
           <div className="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-t-2xl bg-white sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="grid sm:grid-cols-2">
@@ -330,19 +358,18 @@ export function Store({ template }: Props) {
               <div className="bg-sand p-3">
                 <div className="aspect-[3/4] overflow-hidden rounded-lg bg-white">
                   {(() => {
-                    const all = [...quick.photos, quick.collageImage].filter(Boolean) as string[];
-                    const src = all[quickPhoto] || all[0];
+                    const src = gallery[quickPhoto] || gallery[0];
                     return src ? <img src={src} alt={quick.code} className="h-full w-full object-cover" /> : null;
                   })()}
                 </div>
                 <div className="mt-2 flex gap-2 overflow-x-auto">
-                  {[...quick.photos, quick.collageImage].filter(Boolean).map((src, i) => (
+                  {gallery.map((src, i) => (
                     <button
                       key={i}
                       onClick={() => setQuickPhoto(i)}
                       className={`h-14 w-14 shrink-0 overflow-hidden rounded border-2 ${i === quickPhoto ? "border-clay" : "border-transparent"}`}
                     >
-                      <img src={src as string} alt="" className="h-full w-full object-cover" />
+                      <img src={src} alt="" className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -353,16 +380,41 @@ export function Store({ template }: Props) {
                 {quick.brandName && <div className="text-sm text-ink/50">{quick.brandName}</div>}
                 <dl className="mt-4 space-y-1 text-sm">
                   {quick.category && <Row label="Категория" value={quick.category} />}
-                  {quick.color && <Row label="Цвет" value={quick.color} />}
-                  {quick.size && <Row label="Размер" value={quick.size} />}
+                  {variation.color && <Row label="Цвет" value={variation.color} />}
+                  {variation.size && <Row label="Размер" value={variation.size} />}
                 </dl>
-                {quick.price && <div className="mt-4 font-serif text-3xl">{quick.price}</div>}
+                {variation.price && <div className="mt-4 font-serif text-3xl">{variation.price}</div>}
 
-                {sizeOptions(quick.size).length > 0 && (
+                {quick.variations.length > 1 && (
+                  <div className="mt-4">
+                    <div className="field-label">Варианты ({quick.variations.length})</div>
+                    <div className="flex flex-wrap gap-2">
+                      {quick.variations.map((v, i) => {
+                        const thumb = v.photos[0] || v.collageImage;
+                        return (
+                          <button
+                            key={v.id}
+                            onClick={() => applyVariation(quick, i)}
+                            className={`flex items-center gap-2 rounded-lg border py-1 pl-1 pr-2.5 text-sm transition ${
+                              i === variationIdx ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
+                            }`}
+                          >
+                            <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-sand">
+                              {thumb && <img src={thumb} alt="" className="h-full w-full object-cover" />}
+                            </span>
+                            {v.color || `Вариант ${i + 1}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {sizes.length > 0 && (
                   <div className="mt-4">
                     <div className="field-label">Размер</div>
                     <div className="flex flex-wrap gap-2">
-                      {sizeOptions(quick.size).map((s) => (
+                      {sizes.map((s) => (
                         <button
                           key={s}
                           onClick={() => setQuickSize(s)}
@@ -380,17 +432,17 @@ export function Store({ template }: Props) {
                 <div className="mt-auto space-y-2 pt-5">
                   <button
                     className="btn-primary w-full"
-                    disabled={sizeOptions(quick.size).length > 0 && !quickSize}
+                    disabled={needSize}
                     onClick={() => {
-                      addToCart(quick, quickSize);
+                      addToCart(quick, variation, quickSize || variation.size);
                       setQuick(null);
                       setCartOpen(true);
                     }}
                   >
-                    {sizeOptions(quick.size).length > 0 && !quickSize ? "Выберите размер" : "В корзину"}
+                    {needSize ? "Выберите размер" : "В корзину"}
                   </button>
                   <a
-                    href={whatsappLink(quick)}
+                    href={whatsappLink(quick, variation)}
                     target="_blank"
                     rel="noreferrer"
                     className="block rounded-full bg-[#25D366] py-3 text-center font-semibold text-white"
@@ -402,7 +454,8 @@ export function Store({ template }: Props) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Added toast */}
       {added && (
