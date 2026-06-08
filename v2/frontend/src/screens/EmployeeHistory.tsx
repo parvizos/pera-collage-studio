@@ -28,6 +28,32 @@ function formatDate(iso?: string): string {
   });
 }
 
+interface ProductGroup {
+  key: string;
+  code: string;
+  cover: HistoryRecord;
+  records: HistoryRecord[];
+}
+
+/** Same product code within the same brand = one product (the rest are variations). */
+function groupRecords(records: HistoryRecord[]): ProductGroup[] {
+  const map = new Map<string, ProductGroup>();
+  const order: string[] = [];
+  let solo = 0;
+  for (const r of records) {
+    const code = (r.productCode || "").trim();
+    const key = code ? `${r.brandSlug || ""}|${code.toLowerCase()}` : `__solo__${solo++}`;
+    let g = map.get(key);
+    if (!g) {
+      g = { key, code: r.productCode || "—", cover: r, records: [] };
+      map.set(key, g);
+      order.push(key);
+    }
+    g.records.push(r);
+  }
+  return order.map((k) => map.get(k) as ProductGroup);
+}
+
 export function EmployeeHistory({ userId, onReopen }: Props) {
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -42,6 +68,16 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
 
   const [lightbox, setLightbox] = useState<HistoryRecord | null>(null);
   const [opening, setOpening] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpand(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   const fetchPage = useCallback(
     async (targetPage: number, append: boolean) => {
@@ -78,11 +114,16 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
     }
   }
 
+  const groups = groupRecords(records);
+
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-6">
       <div>
         <h1 className="font-serif text-2xl">Мои коллажи</h1>
-        <p className="text-sm text-ink/50">Всего: {total}</p>
+        <p className="text-sm text-ink/50">
+          Товаров: {groups.length}
+          <span className="text-ink/35"> · коллажей: {total}</span>
+        </p>
       </div>
 
       <div className="card space-y-3 p-4">
@@ -126,31 +167,77 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {records.map((r) => (
-            <div key={r.id} className="card overflow-hidden p-0">
-              <button
-                className="block aspect-[3/4] w-full overflow-hidden bg-sand"
-                onClick={() => setLightbox(r)}
-              >
-                {r.imagePath ? (
-                  <img src={r.imagePath} alt="" loading="lazy" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
-                )}
-              </button>
-              <div className="p-3">
-                <div className="truncate text-sm font-semibold">{r.productCode || "—"}</div>
-                <div className="text-[11px] text-ink/40">{formatDate(r.createdAt)}</div>
+          {groups.map((g) => {
+            const multi = g.records.length > 1;
+            const isOpen = expanded.has(g.key);
+            return (
+              <div key={g.key} className="card overflow-hidden p-0">
                 <button
-                  className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
-                  onClick={() => reopen(r)}
-                  disabled={opening}
+                  className="relative block aspect-[3/4] w-full overflow-hidden bg-sand"
+                  onClick={() => setLightbox(g.cover)}
                 >
-                  Открыть в редакторе
+                  {g.cover.imagePath ? (
+                    <img src={g.cover.imagePath} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
+                  )}
+                  {multi && (
+                    <span className="absolute right-2 top-2 rounded-full bg-ink/85 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      {g.records.length} вар.
+                    </span>
+                  )}
                 </button>
+                <div className="p-3">
+                  <div className="truncate text-sm font-semibold">{g.code}</div>
+                  <div className="text-[11px] text-ink/40">{formatDate(g.cover.createdAt)}</div>
+
+                  {multi ? (
+                    <>
+                      <button
+                        className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
+                        onClick={() => toggleExpand(g.key)}
+                      >
+                        {isOpen ? "Скрыть варианты" : `Варианты (${g.records.length})`}
+                      </button>
+                      {isOpen && (
+                        <div className="mt-2 space-y-1.5 border-t border-line pt-2">
+                          {g.records.map((r, i) => (
+                            <div key={r.id} className="flex items-center gap-2">
+                              <button
+                                className="h-10 w-8 shrink-0 overflow-hidden rounded bg-sand"
+                                onClick={() => setLightbox(r)}
+                              >
+                                {r.imagePath && <img src={r.imagePath} alt="" className="h-full w-full object-cover" />}
+                              </button>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-[11px] font-medium">Вариант {i + 1}</div>
+                                <div className="truncate text-[10px] text-ink/40">{formatDate(r.createdAt)}</div>
+                              </div>
+                              <button
+                                className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink/70 hover:border-ink/40"
+                                onClick={() => reopen(r)}
+                                disabled={opening}
+                              >
+                                Открыть
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
+                      onClick={() => reopen(g.cover)}
+                      disabled={opening}
+                    >
+                      Открыть в редакторе
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
