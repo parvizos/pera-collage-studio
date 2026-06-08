@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { Template } from "../api/types";
 import { api, type StoreProduct, type StoreVariation } from "../api/client";
 import { Thumb } from "../components/Thumb";
+import { useI18n } from "../i18n";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 interface Props {
   template: Template;
@@ -40,15 +42,6 @@ function seriesCount(size?: string): number {
   return 1;
 }
 
-function piecesLabel(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return `${n} штука`;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return `${n} штуки`;
-  return `${n} штук`;
-}
-
-
 export interface CartItem {
   key: string;
   id: string;
@@ -82,13 +75,6 @@ function collect(items: StoreProduct[], pick: (p: StoreProduct) => string[]): st
   return seen;
 }
 
-function colorsLabel(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return `${n} цвет`;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return `${n} цвета`;
-  return `${n} цветов`;
-}
 
 function productSlugFromPath(): string | null {
   const m = window.location.pathname.match(/^\/product\/(.+)$/);
@@ -96,6 +82,7 @@ function productSlugFromPath(): string | null {
 }
 
 export function Store({ template }: Props) {
+  const { t } = useI18n();
   const store = template.store as Record<string, unknown>;
   const title = (store.title as string) || "PERA";
   const subtitle = (store.subtitle as string) || "ISTANBUL";
@@ -178,7 +165,7 @@ export function Store({ template }: Props) {
     api
       .getStoreProducts({})
       .then((d) => setProducts(d.products))
-      .catch(() => setError("Не удалось загрузить товары"))
+      .catch(() => setError("load"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -275,21 +262,22 @@ export function Store({ template }: Props) {
 
   function cartWhatsappLink(): string {
     const lines = cart.map((i, n) => {
-      const series = i.count > 1 ? ` (серия ${i.count} шт)` : "";
+      const series = i.count > 1 ? ` (${t("wa.series", { n: i.count })})` : "";
       return `${n + 1}) ${i.code}${i.color ? `, ${i.color}` : ""}${i.size ? `, ${i.size}` : ""}${series} ×${i.qty}${
         i.price ? ` — ${i.price}` : ""
       }`;
     });
-    const total = cartTotal > 0 ? `\n\nИтого: ${money(cartTotal)}` : "";
-    const text = `Здравствуйте! Хочу заказать:\n${lines.join("\n")}${total}`;
+    const total = cartTotal > 0 ? `\n\n${t("wa.total")} ${money(cartTotal)}` : "";
+    const text = `${t("wa.greeting")}\n${lines.join("\n")}${total}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   function whatsappLink(p: StoreProduct, v: StoreVariation): string {
     const count = seriesCount(v.size);
     const series = money(parsePrice(v.price) * count);
-    const sizePart = v.size ? `, размер ${v.size}${count > 1 ? ` (серия ${count} шт)` : ""}` : "";
-    const text = `Здравствуйте! Хочу заказать: ${p.code}${v.color ? `, цвет ${v.color}` : ""}${sizePart} — ${series}`;
+    const colorPart = v.color ? `, ${t("wa.color")} ${v.color}` : "";
+    const sizePart = v.size ? `, ${t("wa.size")} ${v.size}${count > 1 ? ` (${t("wa.series", { n: count })})` : ""}` : "";
+    const text = `${t("wa.greeting")} ${p.code}${colorPart}${sizePart} — ${series}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
@@ -308,18 +296,19 @@ export function Store({ template }: Props) {
               </div>
             )}
           </a>
-          <nav className="flex items-center gap-3 text-sm text-ink/60">
+          <nav className="flex items-center gap-2 text-sm text-ink/60 sm:gap-3">
             <a href={`https://instagram.com/${instagram}`} target="_blank" rel="noreferrer" className="hidden hover:text-ink sm:block">
               Instagram
             </a>
             <a href="/staff" className="hidden rounded-full border border-line px-3 py-1.5 font-medium hover:border-ink/40 sm:block">
-              Сотрудникам
+              {t("store.staff")}
             </a>
+            <LanguageSwitcher />
             <button
               className="relative flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 font-semibold text-white"
               onClick={() => goCart()}
             >
-              🛒 Корзина
+              🛒 {t("store.cart")}
               {cartCount > 0 && (
                 <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-clay px-1 text-xs">
                   {cartCount}
@@ -336,15 +325,15 @@ export function Store({ template }: Props) {
             onClick={() => backToCatalog()}
             className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink"
           >
-            ← Продолжить покупки
+            {t("cart.continue")}
           </button>
-          <h1 className="mb-5 font-serif text-3xl">Корзина</h1>
+          <h1 className="mb-5 font-serif text-3xl">{t("cart.title")}</h1>
 
           {cart.length === 0 ? (
             <div className="card grid min-h-[220px] place-items-center gap-3 text-center text-ink/50">
-              <div>Корзина пуста</div>
+              <div>{t("cart.empty")}</div>
               <button className="btn-primary" onClick={() => backToCatalog()}>
-                Перейти в каталог
+                {t("cart.to_catalog")}
               </button>
             </div>
           ) : (
@@ -360,7 +349,7 @@ export function Store({ template }: Props) {
                       <div className="text-xs text-ink/45">{[item.color, item.size].filter(Boolean).join(" · ")}</div>
                       {item.count > 1 && (
                         <div className="text-[11px] text-ink/40">
-                          {item.unit} × {item.count} шт = {item.price}
+                          {t("cart.unit_calc", { unit: item.unit, n: item.count, total: item.price })}
                         </div>
                       )}
                       <div className="mt-auto flex items-center justify-between">
@@ -379,7 +368,7 @@ export function Store({ template }: Props) {
                     <button
                       className="self-start px-1 text-ink/35 hover:text-red-600"
                       onClick={() => setQty(item.key, 0)}
-                      title="Убрать"
+                      title={t("cart.remove")}
                     >
                       ✕
                     </button>
@@ -389,7 +378,7 @@ export function Store({ template }: Props) {
 
               <div className="mt-5 rounded-xl border border-line bg-white p-4">
                 <div className="mb-3 flex items-center justify-between text-lg font-semibold">
-                  <span>Итого</span>
+                  <span>{t("common.total")}</span>
                   <span>{cartTotal > 0 ? money(cartTotal) : "—"}</span>
                 </div>
                 <a
@@ -398,10 +387,10 @@ export function Store({ template }: Props) {
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-center font-semibold text-white"
                 >
-                  Оформить заказ в WhatsApp
+                  {t("cart.checkout_wa")}
                 </a>
                 <p className="mt-3 text-center text-xs text-ink/45">
-                  Мы проверим наличие товаров и подтвердим заказ в WhatsApp.
+                  {t("cart.stock_note")}
                 </p>
               </div>
             </>
@@ -419,7 +408,7 @@ export function Store({ template }: Props) {
               onClick={() => backToCatalog()}
               className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink"
             >
-              ← Назад в каталог
+              {t("product.back")}
             </button>
             <div className="grid gap-6 sm:grid-cols-2">
               {/* Photos */}
@@ -430,7 +419,7 @@ export function Store({ template }: Props) {
                     return src ? (
                       <img src={src} alt={quick.code} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="grid h-full place-items-center text-sm text-ink/30">нет фото</div>
+                      <div className="grid h-full place-items-center text-sm text-ink/30">{t("store.no_photo")}</div>
                     );
                   })()}
                 </div>
@@ -453,21 +442,24 @@ export function Store({ template }: Props) {
                 <h1 className="font-serif text-3xl">{quick.code}</h1>
                 {quick.brandName && <div className="mt-1 text-sm text-ink/50">{quick.brandName}</div>}
                 <dl className="mt-4 space-y-1 text-sm">
-                  {quick.category && <Row label="Категория" value={quick.category} />}
-                  {variation.color && <Row label="Цвет" value={variation.color} />}
+                  {quick.category && <Row label={t("product.category")} value={quick.category} />}
+                  {variation.color && <Row label={t("product.color")} value={variation.color} />}
                   {variation.size && (
-                    <Row label="Серия (размеры)" value={count > 1 ? `${variation.size} — ${piecesLabel(count)}` : variation.size} />
+                    <Row
+                      label={t("product.series_sizes")}
+                      value={count > 1 ? `${variation.size} — ${t("store.pcs", { n: count })}` : variation.size}
+                    />
                   )}
                 </dl>
                 {unitPrice > 0 && (
                   <div className="mt-4">
                     <div className="font-serif text-3xl">
                       {money(unitPrice)}
-                      <span className="ml-1 align-middle font-sans text-sm text-ink/40">/шт</span>
+                      <span className="ml-1 align-middle font-sans text-sm text-ink/40">{t("product.per_piece")}</span>
                     </div>
                     {count > 1 && (
                       <div className="mt-1 text-base font-semibold text-ink/80">
-                        Серия {count} шт = {series}
+                        {t("product.series_total", { n: count, total: series })}
                       </div>
                     )}
                   </div>
@@ -475,7 +467,7 @@ export function Store({ template }: Props) {
 
                 {quick.variations.length > 1 && (
                   <div className="mt-5">
-                    <div className="field-label">Варианты ({quick.variations.length})</div>
+                    <div className="field-label">{t("product.variants", { n: quick.variations.length })}</div>
                     <div className="flex flex-wrap gap-2">
                       {quick.variations.map((v, i) => {
                         const thumb = v.photos[0] || v.collageImage;
@@ -490,7 +482,7 @@ export function Store({ template }: Props) {
                             <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-sand">
                               {thumb && <Thumb src={thumb} w={120} className="h-full w-full object-cover" />}
                             </span>
-                            {v.color || `Вариант ${i + 1}`}
+                            {v.color || t("product.variant_n", { n: i + 1 })}
                           </button>
                         );
                       })}
@@ -506,7 +498,7 @@ export function Store({ template }: Props) {
                       goCart();
                     }}
                   >
-                    В корзину (серия)
+                    {t("product.add_cart")}
                   </button>
                   <a
                     href={whatsappLink(quick, variation)}
@@ -514,7 +506,7 @@ export function Store({ template }: Props) {
                     rel="noreferrer"
                     className="block rounded-full bg-[#25D366] py-3 text-center font-semibold text-white"
                   >
-                    Заказать в WhatsApp
+                    {t("product.order_wa")}
                   </a>
                 </div>
               </div>
@@ -527,12 +519,12 @@ export function Store({ template }: Props) {
         <div className="mb-6 space-y-3">
           <input
             className="input"
-            placeholder="Поиск: код, категория, цвет…"
+            placeholder={t("store.search_ph")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Chip active={!category} onClick={() => setCategory("")}>Все</Chip>
+            <Chip active={!category} onClick={() => setCategory("")}>{t("store.all")}</Chip>
             {categories.map((c) => (
               <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>
                 {c}
@@ -542,7 +534,7 @@ export function Store({ template }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             {colors.length > 0 && (
               <select className="input w-auto" value={color} onChange={(e) => setColor(e.target.value)}>
-                <option value="">Цвет: любой</option>
+                <option value="">{t("store.color_any")}</option>
                 {colors.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -550,28 +542,28 @@ export function Store({ template }: Props) {
             )}
             {sizes.length > 0 && (
               <select className="input w-auto" value={size} onChange={(e) => setSize(e.target.value)}>
-                <option value="">Размер: любой</option>
+                <option value="">{t("store.size_any")}</option>
                 {sizes.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             )}
             <select className="input ml-auto w-auto" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-              <option value="new">Сначала новые</option>
-              <option value="cheap">Сначала дешевле</option>
-              <option value="expensive">Сначала дороже</option>
+              <option value="new">{t("store.sort_new")}</option>
+              <option value="cheap">{t("store.sort_cheap")}</option>
+              <option value="expensive">{t("store.sort_expensive")}</option>
             </select>
           </div>
         </div>
 
         {/* Grid */}
         {loading ? (
-          <p className="py-20 text-center text-ink/40">Загрузка…</p>
+          <p className="py-20 text-center text-ink/40">{t("common.loading")}</p>
         ) : error ? (
-          <p className="py-20 text-center text-red-600">{error}</p>
+          <p className="py-20 text-center text-red-600">{t("common.load_failed")}</p>
         ) : filtered.length === 0 ? (
           <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-center text-ink/40">
-            {products.length === 0 ? "Товары скоро появятся" : "Ничего не найдено"}
+            {products.length === 0 ? t("store.empty_soon") : t("store.not_found")}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
@@ -590,13 +582,13 @@ export function Store({ template }: Props) {
                       className="h-full w-full object-cover transition group-hover:scale-[1.03]"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
+                    <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("store.no_photo")}</div>
                   )}
                 </div>
                 <div className="p-3">
                   <div className="truncate text-sm font-semibold">{p.code}</div>
                   <div className="truncate text-xs text-ink/45">
-                    {[p.category, p.colors.length > 1 ? colorsLabel(p.colors.length) : p.colors[0]]
+                    {[p.category, p.colors.length > 1 ? t("store.colors_n", { n: p.colors.length }) : p.colors[0]]
                       .filter(Boolean)
                       .join(" · ")}
                   </div>
@@ -614,7 +606,7 @@ export function Store({ template }: Props) {
                         </div>
                         {cnt > 1 && (
                           <div className="text-[11px] text-ink/45">
-                            × {cnt} шт = {money(unit * cnt)}
+                            {t("store.series_calc", { n: cnt, total: money(unit * cnt) })}
                           </div>
                         )}
                       </>
@@ -636,7 +628,7 @@ export function Store({ template }: Props) {
       {added && (
         <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
           <div className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-lg">
-            Добавлено в корзину ✓
+            {t("cart.added")}
           </div>
         </div>
       )}

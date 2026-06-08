@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api/client";
+import { useI18n } from "./i18n";
 import type { Template, User } from "./api/types";
 import { LoginScreen } from "./screens/LoginScreen";
 import { EmployeeApp } from "./screens/EmployeeApp";
@@ -20,6 +21,7 @@ function detectRoute(): Route {
 }
 
 export default function App() {
+  const { t } = useI18n();
   const route = detectRoute();
   const [template, setTemplate] = useState<Template | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -31,22 +33,22 @@ export default function App() {
       api
         .getTemplate()
         .then(setTemplate)
-        .catch(() => setError("Не удалось загрузить магазин"));
+        .catch(() => setError("load"));
     } else {
       Promise.all([api.getTemplate(), api.getUsers()])
         .then(([tpl, us]) => {
           setTemplate(tpl);
           setUsers(us);
         })
-        .catch(() => setError("Не удалось загрузить данные с сервера"));
+        .catch(() => setError("load"));
     }
   }, [route]);
 
   if (error) {
-    return <CenterMessage title="Ошибка" body={error} />;
+    return <CenterMessage title={t("common.error")} body={t("common.load_failed")} />;
   }
   if (!template) {
-    return <CenterMessage title="PERA" body="Загрузка…" />;
+    return <CenterMessage title="PERA" body={t("common.loading")} />;
   }
 
   // Public storefront
