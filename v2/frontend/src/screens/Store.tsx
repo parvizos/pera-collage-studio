@@ -95,49 +95,8 @@ export function Store({ template }: Props) {
   const [quickSize, setQuickSize] = useState("");
 
   const [cart, setCart] = useState<CartItem[]>(() => loadCart());
-  const [cartOpen, setCartOpen] = useState(false);
+  const [cartPage, setCartPage] = useState(false);
   const [added, setAdded] = useState(false);
-  const [checkout, setCheckout] = useState(false);
-  const [orderForm, setOrderForm] = useState({ name: "", phone: "", address: "", comment: "" });
-  const [placing, setPlacing] = useState(false);
-  const [orderDone, setOrderDone] = useState<string | null>(null);
-  const [orderError, setOrderError] = useState<string | null>(null);
-
-  function closeCart() {
-    setCartOpen(false);
-    setCheckout(false);
-    setOrderDone(null);
-    setOrderError(null);
-  }
-
-  async function submitOrder() {
-    if (!orderForm.name.trim() || !orderForm.phone.trim()) {
-      setOrderError("Укажите имя и телефон");
-      return;
-    }
-    setOrderError(null);
-    setPlacing(true);
-    try {
-      const order = await api.placeOrder({
-        customer: orderForm,
-        items: cart.map((i) => ({
-          id: i.id,
-          code: i.code,
-          color: i.color,
-          size: i.size,
-          price: i.price,
-          qty: i.qty,
-        })),
-        total: cartTotal,
-      });
-      setCart([]);
-      setOrderDone(order.id);
-    } catch {
-      setOrderError("Не удалось отправить заказ. Попробуйте ещё раз.");
-    } finally {
-      setPlacing(false);
-    }
-  }
 
   useEffect(() => {
     try {
@@ -178,6 +137,12 @@ export function Store({ template }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Initial route from the URL (cart deep link / refresh).
+  useEffect(() => {
+    if (window.location.pathname === "/cart") setCartPage(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Open the product page when the URL points at one (deep link / refresh).
   useEffect(() => {
     const slug = productSlugFromPath();
@@ -191,6 +156,12 @@ export function Store({ template }: Props) {
   // Back / forward buttons.
   useEffect(() => {
     const onPop = () => {
+      if (window.location.pathname === "/cart") {
+        setQuick(null);
+        setCartPage(true);
+        return;
+      }
+      setCartPage(false);
       const slug = productSlugFromPath();
       if (!slug) {
         setQuick(null);
@@ -235,6 +206,7 @@ export function Store({ template }: Props) {
   }
 
   function showProduct(p: StoreProduct, push: boolean) {
+    setCartPage(false);
     setQuick(p);
     applyVariation(p, 0);
     if (push) window.history.pushState({}, "", `/product/${p.slug}`);
@@ -247,7 +219,26 @@ export function Store({ template }: Props) {
 
   function backToCatalog(push = true) {
     setQuick(null);
+    setCartPage(false);
     if (push) window.history.pushState({}, "", "/");
+    window.scrollTo({ top: 0 });
+  }
+
+  function goCart() {
+    setQuick(null);
+    setCartPage(true);
+    window.history.pushState({}, "", "/cart");
+    window.scrollTo({ top: 0 });
+  }
+
+  function cartWhatsappLink(): string {
+    const lines = cart.map(
+      (i, n) =>
+        `${n + 1}) ${i.code}${i.color ? `, ${i.color}` : ""}${i.size ? `, ${i.size}` : ""} ×${i.qty}${i.price ? ` — ${i.price}` : ""}`,
+    );
+    const total = cartTotal > 0 ? `\n\nИтого: ${cartTotal.toLocaleString("ru-RU")} ${currency}` : "";
+    const text = `Здравствуйте! Хочу заказать:\n${lines.join("\n")}${total}`;
+    return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   function whatsappLink(p: StoreProduct, v: StoreVariation): string {
@@ -281,7 +272,7 @@ export function Store({ template }: Props) {
             </a>
             <button
               className="relative flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 font-semibold text-white"
-              onClick={() => setCartOpen(true)}
+              onClick={() => goCart()}
             >
               🛒 Корзина
               {cartCount > 0 && (
@@ -294,7 +285,79 @@ export function Store({ template }: Props) {
         </div>
       </header>
 
-      {quick ? (() => {
+      {cartPage ? (
+        <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+          <button
+            onClick={() => backToCatalog()}
+            className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink"
+          >
+            ← Продолжить покупки
+          </button>
+          <h1 className="mb-5 font-serif text-3xl">Корзина</h1>
+
+          {cart.length === 0 ? (
+            <div className="card grid min-h-[220px] place-items-center gap-3 text-center text-ink/50">
+              <div>Корзина пуста</div>
+              <button className="btn-primary" onClick={() => backToCatalog()}>
+                Перейти в каталог
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {cart.map((item) => (
+                  <div key={item.key} className="flex gap-3 rounded-xl border border-line bg-white p-2">
+                    <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-sand">
+                      {item.photo && <Thumb src={item.photo} w={160} className="h-full w-full object-cover" />}
+                    </div>
+                    <div className="flex flex-1 flex-col">
+                      <div className="text-sm font-semibold">{item.code}</div>
+                      <div className="text-xs text-ink/45">{[item.color, item.size].filter(Boolean).join(" · ")}</div>
+                      <div className="mt-auto flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button className="h-8 w-8 rounded-full border border-line" onClick={() => setQty(item.key, item.qty - 1)}>
+                            −
+                          </button>
+                          <span className="w-6 text-center text-sm">{item.qty}</span>
+                          <button className="h-8 w-8 rounded-full border border-line" onClick={() => setQty(item.key, item.qty + 1)}>
+                            +
+                          </button>
+                        </div>
+                        <span className="font-semibold">{item.price}</span>
+                      </div>
+                    </div>
+                    <button
+                      className="self-start px-1 text-ink/35 hover:text-red-600"
+                      onClick={() => setQty(item.key, 0)}
+                      title="Убрать"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-xl border border-line bg-white p-4">
+                <div className="mb-3 flex items-center justify-between text-lg font-semibold">
+                  <span>Итого</span>
+                  <span>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ${currency}` : "—"}</span>
+                </div>
+                <a
+                  href={cartWhatsappLink()}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-center font-semibold text-white"
+                >
+                  Оформить заказ в WhatsApp
+                </a>
+                <p className="mt-3 text-center text-xs text-ink/45">
+                  Мы проверим наличие товаров и подтвердим заказ в WhatsApp.
+                </p>
+              </div>
+            </>
+          )}
+        </main>
+      ) : quick ? (() => {
         const variation = quick.variations[variationIdx] ?? quick.variations[0];
         const gallery = [...variation.photos, variation.collageImage].filter(Boolean) as string[];
         const sizeOpts = sizeOptions(variation.size);
@@ -395,7 +458,7 @@ export function Store({ template }: Props) {
                     disabled={needSize}
                     onClick={() => {
                       addToCart(quick, variation, quickSize || variation.size);
-                      setCartOpen(true);
+                      goCart();
                     }}
                   >
                     {needSize ? "Выберите размер" : "В корзину"}
@@ -518,107 +581,6 @@ export function Store({ template }: Props) {
         </div>
       )}
 
-      {/* Cart drawer */}
-      {cartOpen && (
-        <div className="fixed inset-0 z-40 flex justify-end bg-ink/50 backdrop-blur-sm" onClick={closeCart}>
-          <div className="flex h-full w-full max-w-md flex-col bg-white" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <span className="font-serif text-xl">
-                {orderDone ? "Заказ принят" : checkout ? "Оформление" : "Корзина"}
-              </span>
-              <button className="rounded-full px-3 py-1 text-sm text-ink/50 hover:bg-sand" onClick={closeCart}>
-                Закрыть
-              </button>
-            </div>
-
-            {orderDone ? (
-              <div className="grid flex-1 place-items-center p-6 text-center">
-                <div>
-                  <div className="text-5xl">✅</div>
-                  <div className="mt-3 font-serif text-2xl">Спасибо за заказ!</div>
-                  <p className="mt-2 text-sm text-ink/55">
-                    Мы свяжемся с вами по телефону для подтверждения.
-                  </p>
-                  <button className="btn-primary mt-6" onClick={closeCart}>
-                    Готово
-                  </button>
-                </div>
-              </div>
-            ) : cart.length === 0 ? (
-              <div className="grid flex-1 place-items-center text-ink/40">Корзина пуста</div>
-            ) : checkout ? (
-              <>
-                <div className="flex-1 space-y-3 overflow-auto p-4">
-                  <div>
-                    <label className="field-label">Имя *</label>
-                    <input className="input" value={orderForm.name} onChange={(e) => setOrderForm({ ...orderForm, name: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="field-label">Телефон *</label>
-                    <input className="input" inputMode="tel" value={orderForm.phone} onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="field-label">Адрес доставки</label>
-                    <input className="input" value={orderForm.address} onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="field-label">Комментарий</label>
-                    <textarea className="input" rows={2} value={orderForm.comment} onChange={(e) => setOrderForm({ ...orderForm, comment: e.target.value })} />
-                  </div>
-                  <div className="rounded-lg bg-sand/60 p-3 text-sm text-ink/60">
-                    {cart.reduce((n, i) => n + i.qty, 0)} товаров · Итого{" "}
-                    <b>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ${currency}` : "—"}</b>
-                  </div>
-                  {orderError && <p className="text-sm font-medium text-red-600">{orderError}</p>}
-                </div>
-                <div className="space-y-2 border-t border-line p-4">
-                  <button className="btn-primary w-full" onClick={submitOrder} disabled={placing}>
-                    {placing ? "Отправка…" : "Отправить заказ"}
-                  </button>
-                  <button className="btn-ghost w-full" onClick={() => setCheckout(false)}>
-                    ← Назад в корзину
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex-1 space-y-3 overflow-auto p-4">
-                  {cart.map((item) => (
-                    <div key={item.key} className="flex gap-3 rounded-xl border border-line p-2">
-                      <div className="h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-sand">
-                        {item.photo && <Thumb src={item.photo} w={120} className="h-full w-full object-cover" />}
-                      </div>
-                      <div className="flex flex-1 flex-col">
-                        <div className="text-sm font-semibold">{item.code}</div>
-                        <div className="text-xs text-ink/45">
-                          {[item.color, item.size].filter(Boolean).join(" · ")}
-                        </div>
-                        <div className="mt-auto flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <button className="h-7 w-7 rounded-full border border-line" onClick={() => setQty(item.key, item.qty - 1)}>−</button>
-                            <span className="w-6 text-center text-sm">{item.qty}</span>
-                            <button className="h-7 w-7 rounded-full border border-line" onClick={() => setQty(item.key, item.qty + 1)}>+</button>
-                          </div>
-                          <span className="font-semibold">{item.price}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="border-t border-line p-4">
-                  <div className="mb-3 flex items-center justify-between text-lg font-semibold">
-                    <span>Итого</span>
-                    <span>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ${currency}` : "—"}</span>
-                  </div>
-                  <button className="btn-primary w-full" onClick={() => setCheckout(true)}>
-                    Оформить заказ
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

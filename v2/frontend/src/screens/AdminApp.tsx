@@ -8,7 +8,6 @@ import { BrandsSection } from "./admin/BrandsSection";
 import { FieldsSection } from "./admin/FieldsSection";
 import { HistorySection } from "./admin/HistorySection";
 import { SceneEditor } from "./admin/SceneEditor";
-import { OrdersSection } from "./admin/OrdersSection";
 
 interface Props {
   template: Template;
@@ -19,11 +18,10 @@ interface Props {
   onLogout: () => void;
 }
 
-type SectionId = "overview" | "users" | "brands" | "fields" | "history" | "templates" | "orders";
+type SectionId = "overview" | "users" | "brands" | "fields" | "history" | "templates";
 
 const NAV: { id: SectionId; label: string; ready: boolean }[] = [
   { id: "overview", label: "Обзор", ready: true },
-  { id: "orders", label: "Заказы", ready: true },
   { id: "users", label: "Сотрудники", ready: true },
   { id: "brands", label: "Бренды", ready: true },
   { id: "fields", label: "Поля", ready: true },
@@ -113,7 +111,6 @@ export function AdminApp({
               onTemplateChange={onTemplateChange}
             />
           )}
-          {section === "orders" && <OrdersSection adminPin={adminPin} />}
           {section === "history" && <HistorySection adminPin={adminPin} />}
           {section === "templates" && (
             <SceneEditor
