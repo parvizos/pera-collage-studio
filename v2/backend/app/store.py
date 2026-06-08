@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import re
 import shutil
@@ -80,6 +81,51 @@ def is_safe_path(base_dir: Path, target_path: Path) -> bool:
 
 def to_public_data_url(path: Path) -> str:
     return f"/{path.relative_to(DATA_ROOT).as_posix()}"
+
+
+THUMB_CACHE_DIR = DATA_ROOT / "cache" / "thumbs"
+
+
+def get_or_create_thumbnail(src: str, width: int) -> Path | None:
+    """Return a small WebP preview of a data image, generating + caching once.
+
+    Originals are never modified — previews live under cache/thumbs and are keyed
+    by source path + width + mtime, so they refresh automatically if the source
+    changes. Used by the storefront grid so first paint is fast without touching
+    the full-resolution originals shown on the product page.
+    """
+    if not src:
+        return None
+    target = (DATA_ROOT / src.lstrip("/")).resolve()
+    if not is_safe_path(DATA_ROOT, target) or not target.is_file():
+        return None
+    try:
+        width = max(64, min(int(width), 1400))
+    except (TypeError, ValueError):
+        width = 400
+    try:
+        mtime = int(target.stat().st_mtime)
+    except OSError:
+        return None
+    key = hashlib.sha1(f"{target}|{width}|{mtime}".encode("utf-8")).hexdigest()
+    out = THUMB_CACHE_DIR / f"{key}.webp"
+    if out.exists():
+        return out
+    try:
+        from PIL import Image
+
+        THUMB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        with Image.open(target) as im:
+            im = im.convert("RGB")
+            if im.width > width:
+                height = max(1, round(im.height * width / im.width))
+                im = im.resize((width, height), Image.LANCZOS)
+            tmp = out.with_suffix(".tmp.webp")
+            im.save(tmp, "WEBP", quality=86, method=4)
+            tmp.replace(out)
+        return out
+    except Exception:
+        return None
 
 
 def resolve_data_path(path_value: str | None) -> Path | None:

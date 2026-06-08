@@ -327,7 +327,7 @@ export function Store({ template }: Props) {
                         onClick={() => setQuickPhoto(i)}
                         className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${i === quickPhoto ? "border-clay" : "border-transparent"}`}
                       >
-                        <img src={src} alt="" className="h-full w-full object-cover" />
+                        <Thumb src={src} w={160} className="h-full w-full object-cover" />
                       </button>
                     ))}
                   </div>
@@ -359,7 +359,7 @@ export function Store({ template }: Props) {
                             }`}
                           >
                             <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-sand">
-                              {thumb && <img src={thumb} alt="" className="h-full w-full object-cover" />}
+                              {thumb && <Thumb src={thumb} w={120} className="h-full w-full object-cover" />}
                             </span>
                             {v.color || `Вариант ${i + 1}`}
                           </button>
@@ -474,10 +474,10 @@ export function Store({ template }: Props) {
               >
                 <div className="aspect-[3/4] overflow-hidden bg-sand">
                   {p.photos[0] || p.collageImage ? (
-                    <img
+                    <Thumb
                       src={p.photos[0] || p.collageImage}
+                      w={500}
                       alt={p.code}
-                      loading="lazy"
                       className="h-full w-full object-cover transition group-hover:scale-[1.03]"
                     />
                   ) : (
@@ -585,7 +585,7 @@ export function Store({ template }: Props) {
                   {cart.map((item) => (
                     <div key={item.key} className="flex gap-3 rounded-xl border border-line p-2">
                       <div className="h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-sand">
-                        {item.photo && <img src={item.photo} alt="" className="h-full w-full object-cover" />}
+                        {item.photo && <Thumb src={item.photo} w={120} className="h-full w-full object-cover" />}
                       </div>
                       <div className="flex flex-1 flex-col">
                         <div className="text-sm font-semibold">{item.code}</div>
@@ -641,5 +641,28 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="text-ink/45">{label}</dt>
       <dd className="font-medium">{value}</dd>
     </div>
+  );
+}
+
+/** Lightweight WebP preview URL for a same-origin data image (originals untouched). */
+function thumbUrl(src: string, w: number): string {
+  if (!src || /^https?:|^data:/.test(src)) return src;
+  return `/api/img/thumb?src=${encodeURIComponent(src)}&w=${w}`;
+}
+
+/** <img> that loads a small preview, falling back to the original if it fails. */
+function Thumb({ src, w, alt, className }: { src: string; w: number; alt?: string; className?: string }) {
+  const [orig, setOrig] = useState(false);
+  return (
+    <img
+      src={orig ? src : thumbUrl(src, w)}
+      alt={alt || ""}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      onError={() => {
+        if (!orig) setOrig(true);
+      }}
+    />
   );
 }

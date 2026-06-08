@@ -131,6 +131,18 @@ def collage_source_photo(id: str | None = Query(default=None), index: int = Quer
     )
 
 
+@app.get("/api/img/thumb")
+def image_thumbnail(src: str = Query(...), w: int = Query(default=400)):
+    path = store.get_or_create_thumbnail(src, w)
+    if not path:
+        return Response("Not found", status_code=404)
+    return FileResponse(
+        path,
+        media_type="image/webp",
+        headers={"Cache-Control": "public, max-age=2592000, immutable"},
+    )
+
+
 @app.get("/api/collages")
 def get_collages(
     userId: str | None = Query(default=None),
