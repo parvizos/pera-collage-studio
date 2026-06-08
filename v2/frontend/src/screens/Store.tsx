@@ -16,21 +16,60 @@ function parsePrice(p?: string): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
-const SIZE_RE = /^(XS|S|M|L|XL|XXL|XXXL)$/i;
+const LETTER_SIZE = /^\d?(XS|S|M|L|XL|XXL|XXXL)$/i;
 
-/** Если размер вида "S-M-L-XL" — список для выбора; "42-48" — единый диапазон. */
-function sizeOptions(size?: string): string[] {
-  if (!size) return [];
-  const tokens = size.split(/[-/]/).map((t) => t.trim()).filter(Boolean);
-  if (tokens.length >= 2 && tokens.every((t) => SIZE_RE.test(t))) return tokens.map((t) => t.toUpperCase());
-  return [];
+/**
+ * Оптовая серия: сколько штук в товаре, исходя из размера.
+ * - Буквы "S M L XL XXL" → число размеров (5).
+ * - Числовой диапазон "36-42" → 36,38,40,42 = 4 (шаг 2).
+ * - Явный список "36-38-40-42" → число чисел.
+ * - Один размер / непонятно → 1.
+ */
+function seriesCount(size?: string): number {
+  if (!size) return 1;
+  const tokens = size.trim().split(/[\s,/-]+/).filter(Boolean);
+  const letters = tokens.filter((t) => LETTER_SIZE.test(t));
+  if (letters.length) return letters.length;
+  const nums = (size.match(/\d+/g) || []).map(Number);
+  if (nums.length >= 3) return nums.length;
+  if (nums.length === 2) {
+    const lo = Math.min(nums[0], nums[1]);
+    const hi = Math.max(nums[0], nums[1]);
+    return hi > lo ? Math.floor((hi - lo) / 2) + 1 : 1;
+  }
+  return 1;
+}
+
+function piecesLabel(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return `${n} штука`;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return `${n} штуки`;
+  return `${n} штук`;
+}
+
+/** Форматирует число как цену, сохраняя символ валюты из образца ("$50" → "$200"). */
+function formatMoneyLike(num: number, sample: string): string {
+  const prefix = (sample.match(/^[^\d]*/) || [""])[0];
+  const suffix = (sample.match(/[^\d]*$/) || [""])[0];
+  const v = Number.isInteger(num) ? String(num) : String(Math.round(num * 100) / 100);
+  return `${prefix}${v}${suffix}`;
+}
+
+/** Цена серии = цена за штуку × количество штук. */
+function seriesTotal(unitPrice: string | undefined, count: number): string {
+  const num = parsePrice(unitPrice);
+  if (!num) return unitPrice || "";
+  return formatMoneyLike(num * count, unitPrice as string);
 }
 
 export interface CartItem {
   key: string;
   id: string;
   code: string;
-  price: string;
+  price: string; // series total (unit × count)
+  unit: string; // price per piece
+  count: number; // pieces in the series
   photo: string;
   color: string;
   size: string;
@@ -92,7 +131,6 @@ export function Store({ template }: Props) {
   const [quick, setQuick] = useState<StoreProduct | null>(null);
   const [variationIdx, setVariationIdx] = useState(0);
   const [quickPhoto, setQuickPhoto] = useState(0);
-  const [quickSize, setQuickSize] = useState("");
 
   const [cart, setCart] = useState<CartItem[]>(() => loadCart());
   const [cartPage, setCartPage] = useState(false);
@@ -109,14 +147,27 @@ export function Store({ template }: Props) {
   const cartCount = cart.reduce((n, i) => n + i.qty, 0);
   const cartTotal = cart.reduce((sum, i) => sum + parsePrice(i.price) * i.qty, 0);
 
-  function addToCart(p: StoreProduct, v: StoreVariation, size: string) {
-    const key = `${v.id}|${size}`;
+  function addToCart(p: StoreProduct, v: StoreVariation) {
+    const key = v.id;
+    const count = seriesCount(v.size);
+    const price = seriesTotal(v.price, count);
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
       if (existing) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + 1 } : i));
       return [
         ...prev,
-        { key, id: v.id, code: p.code, price: v.price, photo: v.photos[0] || v.collageImage, color: v.color, size, qty: 1 },
+        {
+          key,
+          id: v.id,
+          code: p.code,
+          price,
+          unit: v.price,
+          count,
+          photo: v.photos[0] || v.collageImage,
+          color: v.color,
+          size: v.size,
+          qty: 1,
+        },
       ];
     });
     setAdded(true);
@@ -197,12 +248,9 @@ export function Store({ template }: Props) {
     return list;
   }, [products, search, category, color, size, sort]);
 
-  function applyVariation(p: StoreProduct, i: number) {
-    const v = p.variations[i];
+  function applyVariation(_p: StoreProduct, i: number) {
     setVariationIdx(i);
     setQuickPhoto(0);
-    const opts = sizeOptions(v?.size);
-    setQuickSize(opts.length ? "" : v?.size || "");
   }
 
   function showProduct(p: StoreProduct, push: boolean) {
@@ -232,19 +280,22 @@ export function Store({ template }: Props) {
   }
 
   function cartWhatsappLink(): string {
-    const lines = cart.map(
-      (i, n) =>
-        `${n + 1}) ${i.code}${i.color ? `, ${i.color}` : ""}${i.size ? `, ${i.size}` : ""} ×${i.qty}${i.price ? ` — ${i.price}` : ""}`,
-    );
+    const lines = cart.map((i, n) => {
+      const series = i.count > 1 ? ` (серия ${i.count} шт)` : "";
+      return `${n + 1}) ${i.code}${i.color ? `, ${i.color}` : ""}${i.size ? `, ${i.size}` : ""}${series} ×${i.qty}${
+        i.price ? ` — ${i.price}` : ""
+      }`;
+    });
     const total = cartTotal > 0 ? `\n\nИтого: ${cartTotal.toLocaleString("ru-RU")} ${currency}` : "";
     const text = `Здравствуйте! Хочу заказать:\n${lines.join("\n")}${total}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   function whatsappLink(p: StoreProduct, v: StoreVariation): string {
-    const text = `Здравствуйте! Хочу заказать: ${p.code}${v.color ? `, цвет ${v.color}` : ""}${
-      v.size ? `, размер ${v.size}` : ""
-    } — ${v.price}`;
+    const count = seriesCount(v.size);
+    const series = seriesTotal(v.price, count);
+    const sizePart = v.size ? `, размер ${v.size}${count > 1 ? ` (серия ${count} шт)` : ""}` : "";
+    const text = `Здравствуйте! Хочу заказать: ${p.code}${v.color ? `, цвет ${v.color}` : ""}${sizePart} — ${series}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
@@ -313,6 +364,11 @@ export function Store({ template }: Props) {
                     <div className="flex flex-1 flex-col">
                       <div className="text-sm font-semibold">{item.code}</div>
                       <div className="text-xs text-ink/45">{[item.color, item.size].filter(Boolean).join(" · ")}</div>
+                      {item.count > 1 && (
+                        <div className="text-[11px] text-ink/40">
+                          серия {item.count} шт × {item.unit}
+                        </div>
+                      )}
                       <div className="mt-auto flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <button className="h-8 w-8 rounded-full border border-line" onClick={() => setQty(item.key, item.qty - 1)}>
@@ -360,8 +416,8 @@ export function Store({ template }: Props) {
       ) : quick ? (() => {
         const variation = quick.variations[variationIdx] ?? quick.variations[0];
         const gallery = [...variation.photos, variation.collageImage].filter(Boolean) as string[];
-        const sizeOpts = sizeOptions(variation.size);
-        const needSize = sizeOpts.length > 0 && !quickSize;
+        const count = seriesCount(variation.size);
+        const series = seriesTotal(variation.price, count);
         return (
           <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
             <button
@@ -404,9 +460,20 @@ export function Store({ template }: Props) {
                 <dl className="mt-4 space-y-1 text-sm">
                   {quick.category && <Row label="Категория" value={quick.category} />}
                   {variation.color && <Row label="Цвет" value={variation.color} />}
-                  {variation.size && <Row label="Размер" value={variation.size} />}
+                  {variation.size && (
+                    <Row label="Серия (размеры)" value={count > 1 ? `${variation.size} — ${piecesLabel(count)}` : variation.size} />
+                  )}
                 </dl>
-                {variation.price && <div className="mt-4 font-serif text-3xl">{variation.price}</div>}
+                {variation.price && (
+                  <div className="mt-4">
+                    <div className="font-serif text-3xl">{series}</div>
+                    {count > 1 && (
+                      <div className="mt-0.5 text-sm text-ink/50">
+                        серия {count} шт × {variation.price}/шт
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {quick.variations.length > 1 && (
                   <div className="mt-5">
@@ -433,35 +500,15 @@ export function Store({ template }: Props) {
                   </div>
                 )}
 
-                {sizeOpts.length > 0 && (
-                  <div className="mt-5">
-                    <div className="field-label">Размер</div>
-                    <div className="flex flex-wrap gap-2">
-                      {sizeOpts.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setQuickSize(s)}
-                          className={`min-w-[44px] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                            quickSize === s ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="mt-6 max-w-sm space-y-2">
                   <button
                     className="btn-primary w-full"
-                    disabled={needSize}
                     onClick={() => {
-                      addToCart(quick, variation, quickSize || variation.size);
+                      addToCart(quick, variation);
                       goCart();
                     }}
                   >
-                    {needSize ? "Выберите размер" : "В корзину"}
+                    В корзину (серия)
                   </button>
                   <a
                     href={whatsappLink(quick, variation)}
@@ -555,11 +602,20 @@ export function Store({ template }: Props) {
                       .filter(Boolean)
                       .join(" · ")}
                   </div>
-                  {p.price && (
-                    <div className="mt-1 font-serif text-lg">
-                      {p.priceVaries ? `от ${p.price}` : p.price}
-                    </div>
-                  )}
+                  {(() => {
+                    const totals = p.variations
+                      .map((v) => ({ n: parsePrice(v.price) * seriesCount(v.size), sample: v.price }))
+                      .filter((x) => x.n > 0);
+                    if (!totals.length) return null;
+                    const min = Math.min(...totals.map((x) => x.n));
+                    const varies = totals.some((x) => x.n !== min);
+                    const sample = totals[0].sample;
+                    return (
+                      <div className="mt-1 font-serif text-lg">
+                        {varies ? `от ${formatMoneyLike(min, sample)}` : formatMoneyLike(min, sample)}
+                      </div>
+                    );
+                  })()}
                 </div>
               </button>
             ))}
