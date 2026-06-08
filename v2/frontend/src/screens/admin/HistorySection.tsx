@@ -21,6 +21,33 @@ function formatDate(iso?: string): string {
   return d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+interface ProductGroup {
+  key: string;
+  code: string;
+  brandName: string;
+  cover: HistoryRecord;
+  records: HistoryRecord[];
+}
+
+/** Same product code within the same brand = one product (the rest are variations). */
+function groupRecords(records: HistoryRecord[]): ProductGroup[] {
+  const map = new Map<string, ProductGroup>();
+  const order: string[] = [];
+  let solo = 0;
+  for (const r of records) {
+    const code = (r.productCode || "").trim();
+    const key = code ? `${r.brandSlug || ""}|${code.toLowerCase()}` : `__solo__${solo++}`;
+    let g = map.get(key);
+    if (!g) {
+      g = { key, code: r.productCode || "—", brandName: r.brandName || "", cover: r, records: [] };
+      map.set(key, g);
+      order.push(key);
+    }
+    g.records.push(r);
+  }
+  return order.map((k) => map.get(k) as ProductGroup);
+}
+
 export function HistorySection({ adminPin }: Props) {
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -37,6 +64,31 @@ export function HistorySection({ adminPin }: Props) {
   const [lightbox, setLightbox] = useState<HistoryRecord | null>(null);
   const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpand(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function setGroupPublished(group: ProductGroup, published: boolean) {
+    setPublishing(group.key);
+    try {
+      let ids: string[] = [...publishedIds];
+      for (const r of group.records) {
+        ids = await api.publishToStore({ id: r.id, brandSlug: r.brandSlug, userId: r.userId }, published, adminPin);
+      }
+      setPublishedIds(new Set(ids));
+    } catch {
+      setError("Не удалось изменить публикацию");
+    } finally {
+      setPublishing(null);
+    }
+  }
 
   useEffect(() => {
     api
@@ -100,11 +152,18 @@ export function HistorySection({ adminPin }: Props) {
     }
   }
 
+  const groups = groupRecords(records);
+  const hasVariations = groups.some((g) => g.records.length > 1);
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="font-serif text-2xl">История</h1>
-        <p className="text-sm text-ink/50">Всего коллажей: {total}</p>
+        <p className="text-sm text-ink/50">
+          Товаров: {groups.length}
+          <span className="text-ink/35"> · коллажей: {total}</span>
+          {hasVariations && <span className="ml-2 text-ink/35">(одинаковый код = варианты одного товара)</span>}
+        </p>
       </div>
 
       <div className="card space-y-3 p-4">
@@ -152,49 +211,117 @@ export function HistorySection({ adminPin }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {records.map((r) => (
-            <div key={r.id} className="card group overflow-hidden p-0">
-              <button
-                className="block aspect-[3/4] w-full overflow-hidden bg-sand"
-                onClick={() => setLightbox(r)}
-              >
-                {r.imagePath ? (
-                  <img
-                    src={r.imagePath}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
-                )}
-              </button>
-              <div className="p-3">
-                <div className="truncate text-sm font-semibold">{r.productCode || "—"}</div>
-                <div className="truncate text-xs text-ink/50">{r.brandName}</div>
+          {groups.map((g) => {
+            const multi = g.records.length > 1;
+            const pubCount = g.records.filter((r) => publishedIds.has(r.id)).length;
+            const allPub = pubCount === g.records.length;
+            const somePub = pubCount > 0;
+            const isOpen = expanded.has(g.key);
+            const busy = publishing === g.key;
+            return (
+              <div key={g.key} className="card group overflow-hidden p-0">
                 <button
-                  className={`mt-2 w-full rounded-lg border py-1.5 text-xs font-semibold transition ${
-                    publishedIds.has(r.id)
-                      ? "border-green-600 bg-green-50 text-green-700"
-                      : "border-line text-ink/60 hover:border-clay/50 hover:text-clay"
-                  } ${publishing === r.id ? "opacity-50" : ""}`}
-                  onClick={() => togglePublish(r)}
-                  disabled={publishing === r.id}
+                  className="relative block aspect-[3/4] w-full overflow-hidden bg-sand"
+                  onClick={() => setLightbox(g.cover)}
                 >
-                  {publishedIds.has(r.id) ? "✓ В витрине" : "+ В витрину"}
+                  {g.cover.imagePath ? (
+                    <img
+                      src={g.cover.imagePath}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
+                  )}
+                  {multi && (
+                    <span className="absolute right-2 top-2 rounded-full bg-ink/85 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      {g.records.length} вар.
+                    </span>
+                  )}
                 </button>
-                <div className="mt-1 flex items-center justify-between text-[11px] text-ink/40">
-                  <span className="truncate">{formatDate(r.createdAt)}</span>
+                <div className="p-3">
+                  <div className="truncate text-sm font-semibold">{g.code}</div>
+                  <div className="truncate text-xs text-ink/50">{g.brandName}</div>
                   <button
-                    className="shrink-0 font-medium text-red-600 hover:underline"
-                    onClick={() => remove(r)}
+                    className={`mt-2 w-full rounded-lg border py-1.5 text-xs font-semibold transition ${
+                      allPub
+                        ? "border-green-600 bg-green-50 text-green-700"
+                        : somePub
+                        ? "border-amber-500 bg-amber-50 text-amber-700"
+                        : "border-line text-ink/60 hover:border-clay/50 hover:text-clay"
+                    } ${busy ? "opacity-50" : ""}`}
+                    onClick={() => setGroupPublished(g, !allPub)}
+                    disabled={busy}
                   >
-                    удалить
+                    {allPub
+                      ? `✓ В витрине${multi ? ` (${g.records.length})` : ""}`
+                      : somePub
+                      ? `± В витрине (${pubCount}/${g.records.length})`
+                      : `+ В витрину${multi ? ` (${g.records.length})` : ""}`}
                   </button>
+
+                  {multi && (
+                    <button
+                      className="mt-1 w-full rounded-lg border border-line py-1 text-[11px] font-medium text-ink/55 hover:border-ink/40"
+                      onClick={() => toggleExpand(g.key)}
+                    >
+                      {isOpen ? "Скрыть варианты" : `Варианты (${g.records.length})`}
+                    </button>
+                  )}
+
+                  {isOpen && multi ? (
+                    <div className="mt-2 space-y-1.5 border-t border-line pt-2">
+                      {g.records.map((r, i) => (
+                        <div key={r.id} className="flex items-center gap-2">
+                          <button
+                            className="h-10 w-8 shrink-0 overflow-hidden rounded bg-sand"
+                            onClick={() => setLightbox(r)}
+                          >
+                            {r.imagePath && <img src={r.imagePath} alt="" className="h-full w-full object-cover" />}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[11px] font-medium">Вариант {i + 1}</div>
+                            <div className="truncate text-[10px] text-ink/40">{formatDate(r.createdAt)}</div>
+                          </div>
+                          <button
+                            className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold ${
+                              publishedIds.has(r.id)
+                                ? "border-green-600 bg-green-50 text-green-700"
+                                : "border-line text-ink/55 hover:border-clay/50 hover:text-clay"
+                            } ${publishing === r.id ? "opacity-50" : ""}`}
+                            onClick={() => togglePublish(r)}
+                            disabled={publishing === r.id}
+                            title={publishedIds.has(r.id) ? "Убрать из витрины" : "В витрину"}
+                          >
+                            {publishedIds.has(r.id) ? "✓" : "+"}
+                          </button>
+                          <button
+                            className="shrink-0 text-[11px] font-medium text-red-600 hover:underline"
+                            onClick={() => remove(r)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-ink/40">
+                      <span className="truncate">{formatDate(g.cover.createdAt)}</span>
+                      {!multi && (
+                        <button
+                          className="shrink-0 font-medium text-red-600 hover:underline"
+                          onClick={() => remove(g.cover)}
+                        >
+                          удалить
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
