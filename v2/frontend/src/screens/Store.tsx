@@ -64,6 +64,11 @@ function colorsLabel(n: number): string {
   return `${n} цветов`;
 }
 
+function productSlugFromPath(): string | null {
+  const m = window.location.pathname.match(/^\/product\/(.+)$/);
+  return m ? decodeURIComponent(m[1].replace(/\/$/, "")) : null;
+}
+
 export function Store({ template }: Props) {
   const store = template.store as Record<string, unknown>;
   const title = (store.title as string) || "PERA";
@@ -172,6 +177,33 @@ export function Store({ template }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Open the product page when the URL points at one (deep link / refresh).
+  useEffect(() => {
+    const slug = productSlugFromPath();
+    if (!slug || quick || !products.length) return;
+    const found = products.find((p) => p.slug === slug);
+    if (found) showProduct(found, false);
+    else api.getStoreProduct(slug).then((p) => p && showProduct(p, false)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products]);
+
+  // Back / forward buttons.
+  useEffect(() => {
+    const onPop = () => {
+      const slug = productSlugFromPath();
+      if (!slug) {
+        setQuick(null);
+        return;
+      }
+      const found = products.find((p) => p.slug === slug);
+      if (found) showProduct(found, false);
+      else api.getStoreProduct(slug).then((p) => p && showProduct(p, false)).catch(() => {});
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products]);
+
   const categories = useMemo(() => collect(products, (p) => [p.category]), [products]);
   const colors = useMemo(() => collect(products, (p) => p.colors || []), [products]);
   const sizes = useMemo(() => collect(products, (p) => p.sizes || []), [products]);
@@ -201,9 +233,20 @@ export function Store({ template }: Props) {
     setQuickSize(opts.length ? "" : v?.size || "");
   }
 
-  function openQuick(p: StoreProduct) {
+  function showProduct(p: StoreProduct, push: boolean) {
     setQuick(p);
     applyVariation(p, 0);
+    if (push) window.history.pushState({}, "", `/product/${p.slug}`);
+    window.scrollTo({ top: 0 });
+  }
+
+  function openProduct(p: StoreProduct) {
+    showProduct(p, true);
+  }
+
+  function backToCatalog(push = true) {
+    setQuick(null);
+    if (push) window.history.pushState({}, "", "/");
   }
 
   function whatsappLink(p: StoreProduct, v: StoreVariation): string {
@@ -250,6 +293,126 @@ export function Store({ template }: Props) {
         </div>
       </header>
 
+      {quick ? (() => {
+        const variation = quick.variations[variationIdx] ?? quick.variations[0];
+        const gallery = [...variation.photos, variation.collageImage].filter(Boolean) as string[];
+        const sizeOpts = sizeOptions(variation.size);
+        const needSize = sizeOpts.length > 0 && !quickSize;
+        return (
+          <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+            <button
+              onClick={() => backToCatalog()}
+              className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink"
+            >
+              ← Назад в каталог
+            </button>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Photos */}
+              <div>
+                <div className="aspect-[3/4] overflow-hidden rounded-2xl bg-white shadow-sm">
+                  {(() => {
+                    const src = gallery[quickPhoto] || gallery[0];
+                    return src ? (
+                      <img src={src} alt={quick.code} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-sm text-ink/30">нет фото</div>
+                    );
+                  })()}
+                </div>
+                {gallery.length > 1 && (
+                  <div className="mt-3 flex gap-2 overflow-x-auto">
+                    {gallery.map((src, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setQuickPhoto(i)}
+                        className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${i === quickPhoto ? "border-clay" : "border-transparent"}`}
+                      >
+                        <img src={src} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Info */}
+              <div className="flex flex-col">
+                <h1 className="font-serif text-3xl">{quick.code}</h1>
+                {quick.brandName && <div className="mt-1 text-sm text-ink/50">{quick.brandName}</div>}
+                <dl className="mt-4 space-y-1 text-sm">
+                  {quick.category && <Row label="Категория" value={quick.category} />}
+                  {variation.color && <Row label="Цвет" value={variation.color} />}
+                  {variation.size && <Row label="Размер" value={variation.size} />}
+                </dl>
+                {variation.price && <div className="mt-4 font-serif text-3xl">{variation.price}</div>}
+
+                {quick.variations.length > 1 && (
+                  <div className="mt-5">
+                    <div className="field-label">Варианты ({quick.variations.length})</div>
+                    <div className="flex flex-wrap gap-2">
+                      {quick.variations.map((v, i) => {
+                        const thumb = v.photos[0] || v.collageImage;
+                        return (
+                          <button
+                            key={v.id}
+                            onClick={() => applyVariation(quick, i)}
+                            className={`flex items-center gap-2 rounded-lg border py-1 pl-1 pr-2.5 text-sm transition ${
+                              i === variationIdx ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
+                            }`}
+                          >
+                            <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-sand">
+                              {thumb && <img src={thumb} alt="" className="h-full w-full object-cover" />}
+                            </span>
+                            {v.color || `Вариант ${i + 1}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {sizeOpts.length > 0 && (
+                  <div className="mt-5">
+                    <div className="field-label">Размер</div>
+                    <div className="flex flex-wrap gap-2">
+                      {sizeOpts.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setQuickSize(s)}
+                          className={`min-w-[44px] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                            quickSize === s ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 max-w-sm space-y-2">
+                  <button
+                    className="btn-primary w-full"
+                    disabled={needSize}
+                    onClick={() => {
+                      addToCart(quick, variation, quickSize || variation.size);
+                      setCartOpen(true);
+                    }}
+                  >
+                    {needSize ? "Выберите размер" : "В корзину"}
+                  </button>
+                  <a
+                    href={whatsappLink(quick, variation)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-full bg-[#25D366] py-3 text-center font-semibold text-white"
+                  >
+                    Заказать в WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
+          </main>
+        );
+      })() : (
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         {/* Filters */}
         <div className="mb-6 space-y-3">
@@ -306,7 +469,7 @@ export function Store({ template }: Props) {
             {filtered.map((p) => (
               <button
                 key={p.id}
-                onClick={() => openQuick(p)}
+                onClick={() => openProduct(p)}
                 className="group overflow-hidden rounded-xl bg-white text-left shadow-sm transition hover:shadow-md"
               >
                 <div className="aspect-[3/4] overflow-hidden bg-sand">
@@ -339,123 +502,11 @@ export function Store({ template }: Props) {
           </div>
         )}
       </main>
+      )}
 
       <footer className="border-t border-line py-8 text-center text-sm text-ink/40">
         © {new Date().getFullYear()} {title} {subtitle}
       </footer>
-
-      {/* Quick view */}
-      {quick && (() => {
-        const variation = quick.variations[variationIdx] ?? quick.variations[0];
-        const gallery = [...variation.photos, variation.collageImage].filter(Boolean) as string[];
-        const sizes = sizeOptions(variation.size);
-        const needSize = sizes.length > 0 && !quickSize;
-        return (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/70 backdrop-blur-sm sm:items-center" onClick={() => setQuick(null)}>
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-t-2xl bg-white sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="grid sm:grid-cols-2">
-              {/* Photos */}
-              <div className="bg-sand p-3">
-                <div className="aspect-[3/4] overflow-hidden rounded-lg bg-white">
-                  {(() => {
-                    const src = gallery[quickPhoto] || gallery[0];
-                    return src ? <img src={src} alt={quick.code} className="h-full w-full object-cover" /> : null;
-                  })()}
-                </div>
-                <div className="mt-2 flex gap-2 overflow-x-auto">
-                  {gallery.map((src, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setQuickPhoto(i)}
-                      className={`h-14 w-14 shrink-0 overflow-hidden rounded border-2 ${i === quickPhoto ? "border-clay" : "border-transparent"}`}
-                    >
-                      <img src={src} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Info */}
-              <div className="flex flex-col p-5">
-                <div className="font-serif text-2xl">{quick.code}</div>
-                {quick.brandName && <div className="text-sm text-ink/50">{quick.brandName}</div>}
-                <dl className="mt-4 space-y-1 text-sm">
-                  {quick.category && <Row label="Категория" value={quick.category} />}
-                  {variation.color && <Row label="Цвет" value={variation.color} />}
-                  {variation.size && <Row label="Размер" value={variation.size} />}
-                </dl>
-                {variation.price && <div className="mt-4 font-serif text-3xl">{variation.price}</div>}
-
-                {quick.variations.length > 1 && (
-                  <div className="mt-4">
-                    <div className="field-label">Варианты ({quick.variations.length})</div>
-                    <div className="flex flex-wrap gap-2">
-                      {quick.variations.map((v, i) => {
-                        const thumb = v.photos[0] || v.collageImage;
-                        return (
-                          <button
-                            key={v.id}
-                            onClick={() => applyVariation(quick, i)}
-                            className={`flex items-center gap-2 rounded-lg border py-1 pl-1 pr-2.5 text-sm transition ${
-                              i === variationIdx ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
-                            }`}
-                          >
-                            <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-sand">
-                              {thumb && <img src={thumb} alt="" className="h-full w-full object-cover" />}
-                            </span>
-                            {v.color || `Вариант ${i + 1}`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {sizes.length > 0 && (
-                  <div className="mt-4">
-                    <div className="field-label">Размер</div>
-                    <div className="flex flex-wrap gap-2">
-                      {sizes.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setQuickSize(s)}
-                          className={`min-w-[44px] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                            quickSize === s ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-auto space-y-2 pt-5">
-                  <button
-                    className="btn-primary w-full"
-                    disabled={needSize}
-                    onClick={() => {
-                      addToCart(quick, variation, quickSize || variation.size);
-                      setQuick(null);
-                      setCartOpen(true);
-                    }}
-                  >
-                    {needSize ? "Выберите размер" : "В корзину"}
-                  </button>
-                  <a
-                    href={whatsappLink(quick, variation)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block rounded-full bg-[#25D366] py-3 text-center font-semibold text-white"
-                  >
-                    Заказать в WhatsApp
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
 
       {/* Added toast */}
       {added && (

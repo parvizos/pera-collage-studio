@@ -201,6 +201,7 @@ export interface StoreVariation {
 export interface StoreProduct {
   id: string;
   key: string;
+  slug: string;
   code: string;
   name: string;
   category: string;

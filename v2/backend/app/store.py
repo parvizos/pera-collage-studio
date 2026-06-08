@@ -1168,6 +1168,11 @@ def _group_key(brand: str | None, code: str | None) -> str:
     return f"{(brand or '').strip().lower()}|{(code or '').strip().lower()}"
 
 
+def _slugify(text: str) -> str:
+    """URL-safe slug (ASCII). Non-alphanumerics collapse to single dashes."""
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+
 def _build_products_grouped() -> list[dict]:
     """Group published records into products: one product per (brand + code).
 
@@ -1198,9 +1203,11 @@ def _build_products_grouped() -> list[dict]:
         }
         group = groups.get(key)
         if group is None:
+            slug = _slugify(f"{rec.get('brandName') or ''}-{rec.get('code') or ''}") or _slugify(key) or rec["id"]
             group = {
                 "id": key,
                 "key": key,
+                "slug": slug,
                 "code": rec["code"],
                 "name": rec["name"],
                 "category": rec["category"],
@@ -1259,7 +1266,7 @@ def load_store_products(search: str = "", category: str = "") -> list[dict]:
 
 def load_store_product(product_id: str) -> dict | None:
     for product in _build_products_grouped():
-        if product["key"] == product_id or product["id"] == product_id:
+        if product_id in (product["key"], product["id"], product.get("slug")):
             return product
         if any(v["id"] == product_id for v in product["variations"]):
             return product
