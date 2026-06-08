@@ -8,6 +8,8 @@ import { BrandsSection } from "./admin/BrandsSection";
 import { FieldsSection } from "./admin/FieldsSection";
 import { HistorySection } from "./admin/HistorySection";
 import { SceneEditor } from "./admin/SceneEditor";
+import { useI18n } from "../i18n";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 interface Props {
   template: Template;
@@ -20,13 +22,13 @@ interface Props {
 
 type SectionId = "overview" | "users" | "brands" | "fields" | "history" | "templates";
 
-const NAV: { id: SectionId; label: string; ready: boolean }[] = [
-  { id: "overview", label: "Обзор", ready: true },
-  { id: "users", label: "Сотрудники", ready: true },
-  { id: "brands", label: "Бренды", ready: true },
-  { id: "fields", label: "Поля", ready: true },
-  { id: "templates", label: "Шаблоны", ready: true },
-  { id: "history", label: "История", ready: true },
+const NAV: { id: SectionId; key: string }[] = [
+  { id: "overview", key: "adm.nav_overview" },
+  { id: "users", key: "adm.nav_users" },
+  { id: "brands", key: "adm.nav_brands" },
+  { id: "fields", key: "adm.nav_fields" },
+  { id: "templates", key: "adm.nav_templates" },
+  { id: "history", key: "adm.nav_history" },
 ];
 
 export function AdminApp({
@@ -37,6 +39,7 @@ export function AdminApp({
   onUsersChange,
   onLogout,
 }: Props) {
+  const { t } = useI18n();
   const [section, setSection] = useState<SectionId>("overview");
 
   return (
@@ -45,12 +48,15 @@ export function AdminApp({
         <div className="flex items-center gap-2">
           <span className="font-serif text-2xl">PERA</span>
           <span className="rounded-full bg-clay/10 px-2 py-0.5 text-xs font-semibold text-clay">
-            Админка
+            {t("adm.badge")}
           </span>
         </div>
-        <button className="btn-ghost" onClick={onLogout}>
-          Закрыть админку
-        </button>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <button className="btn-ghost" onClick={onLogout}>
+            {t("adm.close")}
+          </button>
+        </div>
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-6 p-6 lg:grid-cols-[200px_1fr]">
@@ -64,16 +70,7 @@ export function AdminApp({
                   }`}
                   onClick={() => setSection(item.id)}
                 >
-                  {item.label}
-                  {!item.ready && (
-                    <span
-                      className={`text-[10px] uppercase ${
-                        section === item.id ? "text-white/60" : "text-ink/30"
-                      }`}
-                    >
-                      скоро
-                    </span>
-                  )}
+                  {t(item.key)}
                 </button>
               </li>
             ))}
@@ -136,11 +133,12 @@ function Overview({
   adminPin: string;
   onTemplateChange: (t: Template) => void;
 }) {
+  const { t } = useI18n();
   const stats = [
-    { label: "Сотрудники", value: users.length },
-    { label: "Бренды", value: template.brands.length },
-    { label: "Шаблоны фото", value: template.photoTemplates.length },
-    { label: "Поля", value: template.fields.length },
+    { label: t("adm.stat_users"), value: users.length },
+    { label: t("adm.stat_brands"), value: template.brands.length },
+    { label: t("adm.stat_templates"), value: template.photoTemplates.length },
+    { label: t("adm.stat_fields"), value: template.fields.length },
   ];
 
   const [enabled, setEnabled] = useState(!!template.multiProduct?.enabled);
@@ -177,11 +175,11 @@ function Overview({
       };
       await api.saveTemplate(next, adminPin);
       onTemplateChange(next);
-      setShopSave({ kind: "ok", msg: "Сохранено" });
+      setShopSave({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
       setShopSave({
         kind: "error",
-        msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN)" : "Не удалось сохранить",
+        msg: e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail"),
       });
     }
   }
@@ -192,11 +190,11 @@ function Overview({
       const next: Template = { ...template, labelScanner: { enabledForEmployees: scanForEmployees } };
       await api.saveTemplate(next, adminPin);
       onTemplateChange(next);
-      setScanSave({ kind: "ok", msg: "Сохранено" });
+      setScanSave({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
       setScanSave({
         kind: "error",
-        msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN)" : "Не удалось сохранить",
+        msg: e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail"),
       });
     }
   }
@@ -214,11 +212,11 @@ function Overview({
       };
       await api.saveTemplate(next, adminPin);
       onTemplateChange(next);
-      setStatus({ kind: "ok", msg: "Сохранено" });
+      setStatus({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
       setStatus({
         kind: "error",
-        msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN)" : "Не удалось сохранить",
+        msg: e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail"),
       });
     }
   }
@@ -229,8 +227,8 @@ function Overview({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-serif text-2xl">Обзор</h1>
-        <p className="text-sm text-ink/50">Текущее состояние студии</p>
+        <h1 className="font-serif text-2xl">{t("adm.ov_title")}</h1>
+        <p className="text-sm text-ink/50">{t("adm.ov_sub")}</p>
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stats.map((s) => (
@@ -243,8 +241,8 @@ function Overview({
 
       <div className="card space-y-4 p-5">
         <div>
-          <h2 className="font-serif text-lg">Мультипродукт</h2>
-          <p className="text-sm text-ink/50">Несколько разных товаров в одном коллаже</p>
+          <h2 className="font-serif text-lg">{t("adm.mp_title")}</h2>
+          <p className="text-sm text-ink/50">{t("adm.mp_sub")}</p>
         </div>
 
         <label className="flex cursor-pointer items-center gap-3">
@@ -258,12 +256,12 @@ function Overview({
               }`}
             />
           </span>
-          <span className="text-sm font-medium">{enabled ? "Включён" : "Отключён"}</span>
+          <span className="text-sm font-medium">{enabled ? t("adm.mp_on") : t("adm.mp_off")}</span>
         </label>
 
         {enabled && (
           <div className="max-w-[200px]">
-            <label className="field-label">Максимум товаров</label>
+            <label className="field-label">{t("adm.mp_max")}</label>
             <select className="input" value={maxCount} onChange={(e) => setMaxCount(Number(e.target.value))}>
               {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                 <option key={n} value={n}>
@@ -276,7 +274,7 @@ function Overview({
 
         <div className="flex items-center gap-3">
           <button className="btn-primary" onClick={saveMulti} disabled={status.kind === "saving" || !dirty}>
-            {status.kind === "saving" ? "Сохранение…" : "Сохранить"}
+            {status.kind === "saving" ? t("common.saving") : t("common.save")}
           </button>
           {status.msg && (
             <span
@@ -288,23 +286,19 @@ function Overview({
         </div>
 
         {enabled && (
-          <p className="rounded-lg bg-clay/5 p-3 text-xs text-ink/60">
-            После включения зайди в <b>Шаблоны</b> → выбери «2 товара» (или 3/4) и настрой раскладку: для
-            каждого блока-переменной укажи «Товар №». Сотрудник сможет выбирать количество товаров при
-            создании коллажа.
-          </p>
+          <p className="rounded-lg bg-clay/5 p-3 text-xs text-ink/60">{t("adm.mp_hint")}</p>
         )}
       </div>
 
       {/* Контакты магазина */}
       <div className="card space-y-4 p-5">
         <div>
-          <h2 className="font-serif text-lg">Магазин — контакты</h2>
-          <p className="text-sm text-ink/50">Показываются на витрине vrapzi.com</p>
+          <h2 className="font-serif text-lg">{t("adm.shop_title")}</h2>
+          <p className="text-sm text-ink/50">{t("adm.shop_sub")}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="field-label">WhatsApp (номер)</label>
+            <label className="field-label">{t("adm.shop_wa")}</label>
             <input
               className="input"
               placeholder="905339178551"
@@ -313,7 +307,7 @@ function Overview({
             />
           </div>
           <div>
-            <label className="field-label">Instagram (логин)</label>
+            <label className="field-label">{t("adm.shop_ig")}</label>
             <input
               className="input"
               placeholder="peraistanbulstore"
@@ -322,7 +316,7 @@ function Overview({
             />
           </div>
           <div>
-            <label className="field-label">Валюта</label>
+            <label className="field-label">{t("adm.shop_cur")}</label>
             <input
               className="input"
               placeholder="₺"
@@ -333,7 +327,7 @@ function Overview({
         </div>
         <div className="flex items-center gap-3">
           <button className="btn-primary" onClick={saveShop} disabled={shopSave.kind === "saving"}>
-            {shopSave.kind === "saving" ? "Сохранение…" : "Сохранить"}
+            {shopSave.kind === "saving" ? t("common.saving") : t("common.save")}
           </button>
           {shopSave.msg && (
             <span className={`text-sm font-medium ${shopSave.kind === "error" ? "text-red-600" : "text-green-600"}`}>
@@ -346,29 +340,26 @@ function Overview({
       {/* Сканер наклеек (бета) */}
       <div className="card space-y-4 p-5">
         <div className="flex items-center gap-2">
-          <h2 className="font-serif text-lg">Сканер наклеек</h2>
-          <span className="rounded-full bg-clay/10 px-2 py-0.5 text-xs font-semibold text-clay">бета</span>
+          <h2 className="font-serif text-lg">{t("adm.scan_title")}</h2>
+          <span className="rounded-full bg-clay/10 px-2 py-0.5 text-xs font-semibold text-clay">{t("adm.beta")}</span>
         </div>
-        <p className="text-sm text-ink/50">
-          Распознаёт код, категорию, цвет, размер и цену с наклейки. Иногда ошибается — проверь точность
-          здесь, прежде чем включать сотрудникам.
-        </p>
+        <p className="text-sm text-ink/50">{t("adm.scan_sub")}</p>
 
         <div className="flex flex-wrap items-center gap-3">
           <button className="btn-clay" onClick={() => { setTestResult(null); setScannerOpen(true); }}>
-            🧪 Проверить сканер
+            {t("adm.scan_test")}
           </button>
         </div>
 
         {testResult && (
           <div className="rounded-lg border border-line bg-sand/50 p-3 text-sm">
-            <div className="mb-1 font-semibold">Распознано:</div>
+            <div className="mb-1 font-semibold">{t("adm.scan_recognized")}</div>
             <ul className="space-y-0.5 text-ink/70">
-              <li>Код: <b>{testResult.code || "—"}</b></li>
-              <li>Категория: <b>{testResult.category || "—"}</b></li>
-              <li>Цвет: <b>{testResult.color || "—"}</b></li>
-              <li>Размер: <b>{testResult.size || "—"}</b></li>
-              <li>Цена: <b>{testResult.price || "—"}</b></li>
+              <li>{t("adm.f_code")}: <b>{testResult.code || "—"}</b></li>
+              <li>{t("adm.f_category")}: <b>{testResult.category || "—"}</b></li>
+              <li>{t("adm.f_color")}: <b>{testResult.color || "—"}</b></li>
+              <li>{t("adm.f_size")}: <b>{testResult.size || "—"}</b></li>
+              <li>{t("adm.f_price")}: <b>{testResult.price || "—"}</b></li>
             </ul>
           </div>
         )}
@@ -384,7 +375,7 @@ function Overview({
               }`}
             />
           </span>
-          <span className="text-sm font-medium">Показывать сотрудникам</span>
+          <span className="text-sm font-medium">{t("adm.scan_show_emp")}</span>
         </label>
 
         <div className="flex items-center gap-3">
@@ -393,7 +384,7 @@ function Overview({
             onClick={saveScanSetting}
             disabled={scanSave.kind === "saving" || scanForEmployees === !!template.labelScanner?.enabledForEmployees}
           >
-            {scanSave.kind === "saving" ? "Сохранение…" : "Сохранить"}
+            {scanSave.kind === "saving" ? t("common.saving") : t("common.save")}
           </button>
           {scanSave.msg && (
             <span className={`text-sm font-medium ${scanSave.kind === "error" ? "text-red-600" : "text-green-600"}`}>

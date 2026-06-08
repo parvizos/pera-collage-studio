@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Template, User } from "../../api/types";
 import { api, ApiError } from "../../api/client";
+import { useI18n } from "../../i18n";
 
 interface Props {
   template: Template;
@@ -14,6 +15,7 @@ function makeUserId(): string {
 }
 
 export function UsersSection({ template, users, adminPin, onUsersChange }: Props) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<User[]>(() => users.map((u) => ({ ...u, brandIds: [...u.brandIds] })));
   const [status, setStatus] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({
     kind: "idle",
@@ -59,9 +61,9 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
       const saved = await api.saveUsers(draft, adminPin);
       onUsersChange(saved);
       setDraft(saved.map((u) => ({ ...u, brandIds: [...u.brandIds] })));
-      setStatus({ kind: "ok", msg: "Сохранено" });
+      setStatus({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
-      const msg = e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN администратора)" : "Не удалось сохранить";
+      const msg = e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail");
       setStatus({ kind: "error", msg });
     }
   }
@@ -70,11 +72,11 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-2xl">Сотрудники</h1>
-          <p className="text-sm text-ink/50">Логины, PIN-коды и доступные бренды</p>
+          <h1 className="font-serif text-2xl">{t("adm.users_title")}</h1>
+          <p className="text-sm text-ink/50">{t("adm.users_sub")}</p>
         </div>
         <button className="btn-ghost" onClick={addUser}>
-          + Добавить
+          {t("common.add")}
         </button>
       </div>
 
@@ -83,7 +85,7 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
           <div key={user.id} className="card p-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="field-label">Имя сотрудника</label>
+                <label className="field-label">{t("adm.user_name")}</label>
                 <input
                   className="input"
                   value={user.name}
@@ -91,7 +93,7 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
                 />
               </div>
               <div>
-                <label className="field-label">PIN</label>
+                <label className="field-label">{t("adm.pin")}</label>
                 <input
                   className="input tracking-[0.3em]"
                   value={user.pin}
@@ -101,9 +103,9 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
             </div>
 
             <div className="mt-4">
-              <label className="field-label">Доступные бренды</label>
+              <label className="field-label">{t("adm.user_brands")}</label>
               {template.brands.length === 0 ? (
-                <p className="text-sm text-ink/40">Сначала добавьте бренды</p>
+                <p className="text-sm text-ink/40">{t("adm.add_brands_first")}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {template.brands.map((brand) => {
@@ -131,7 +133,7 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
                 className="text-sm font-medium text-red-600 hover:underline"
                 onClick={() => removeUser(index)}
               >
-                Удалить сотрудника
+                {t("adm.user_delete")}
               </button>
             </div>
           </div>
@@ -149,7 +151,7 @@ export function UsersSection({ template, users, adminPin, onUsersChange }: Props
           </span>
         )}
         <button className="btn-primary" onClick={save} disabled={status.kind === "saving"}>
-          {status.kind === "saving" ? "Сохранение…" : "Сохранить изменения"}
+          {status.kind === "saving" ? t("common.saving") : t("common.save_changes")}
         </button>
       </div>
     </div>

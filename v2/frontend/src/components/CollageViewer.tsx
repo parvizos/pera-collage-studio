@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { HistoryRecord } from "../api/types";
 import { api } from "../api/client";
 import { downloadFile } from "../lib/download";
+import { useI18n } from "../i18n";
 
 interface Props {
   record: HistoryRecord;
@@ -32,6 +33,7 @@ function formatDate(iso?: string): string {
 }
 
 export function CollageViewer({ record, userId, onClose, actions }: Props) {
+  const { t } = useI18n();
   const [detail, setDetail] = useState<HistoryRecord | null>(null);
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -62,17 +64,17 @@ export function CollageViewer({ record, userId, onClose, actions }: Props) {
   const images = useMemo<ViewerImage[]>(() => {
     const list: ViewerImage[] = [];
     const collageSrc = detail?.imagePath || record.imagePath;
-    if (collageSrc) list.push({ key: "collage", label: "Коллаж", src: collageSrc, name: `${code}.png` });
+    if (collageSrc) list.push({ key: "collage", label: t("adm.vw_collage"), src: collageSrc, name: `${code}.png` });
     for (const p of detail?.originalPhotos ?? []) {
       list.push({
         key: `o${p.index}`,
-        label: `Исходник ${p.index + 1}`,
+        label: t("adm.vw_source", { n: p.index + 1 }),
         src: p.imagePath,
-        name: `${code}_исходник-${p.index + 1}.png`,
+        name: `${code}_src-${p.index + 1}.png`,
       });
     }
     return list;
-  }, [detail, record.imagePath, code]);
+  }, [detail, record.imagePath, code, t]);
 
   const current = images[active] ?? images[0];
 
@@ -110,7 +112,7 @@ export function CollageViewer({ record, userId, onClose, actions }: Props) {
           <button
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/50 transition hover:bg-sand hover:text-ink"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
           >
             ✕
           </button>
@@ -146,7 +148,7 @@ export function CollageViewer({ record, userId, onClose, actions }: Props) {
               </button>
             ))}
             {images.length <= 1 && (
-              <div className="px-1 py-2 text-center text-xs text-ink/30 md:mt-2">Исходники загружаются…</div>
+              <div className="px-1 py-2 text-center text-xs text-ink/30 md:mt-2">{t("adm.vw_loading_src")}</div>
             )}
           </div>
         </div>
@@ -156,19 +158,19 @@ export function CollageViewer({ record, userId, onClose, actions }: Props) {
           <div className="flex flex-wrap gap-2">
             {current && (
               <button className="btn-primary" onClick={() => downloadFile(current.src, current.name)}>
-                Скачать это
+                {t("adm.vw_download_this")}
               </button>
             )}
             {images.length > 1 && (
               <button className="btn-ghost" onClick={downloadAll} disabled={busy}>
-                {busy ? "Скачивание…" : `Скачать всё (${images.length})`}
+                {busy ? t("adm.vw_downloading") : t("adm.vw_download_all", { n: images.length })}
               </button>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
             {actions}
             <button className="btn-ghost" onClick={onClose}>
-              Закрыть
+              {t("common.close")}
             </button>
           </div>
         </div>

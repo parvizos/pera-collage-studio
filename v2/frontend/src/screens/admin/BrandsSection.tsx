@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Brand, Template } from "../../api/types";
 import { api, ApiError } from "../../api/client";
+import { useI18n } from "../../i18n";
 
 interface Props {
   template: Template;
@@ -23,6 +24,7 @@ function newBrandId(): string {
 }
 
 export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<Brand[]>(() =>
     template.brands.map((b) => ({
       ...b,
@@ -100,12 +102,9 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
       const next: Template = { ...template, brands: draft };
       await api.saveTemplate(next, adminPin);
       onTemplateChange(next);
-      setStatus({ kind: "ok", msg: "Сохранено" });
+      setStatus({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
-      const msg =
-        e instanceof ApiError && e.status === 401
-          ? "Нет доступа (PIN администратора)"
-          : "Не удалось сохранить";
+      const msg = e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail");
       setStatus({ kind: "error", msg });
     }
   }
@@ -114,11 +113,11 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-2xl">Бренды</h1>
-          <p className="text-sm text-ink/50">Логотипы, доступные шаблоны и настройки полей</p>
+          <h1 className="font-serif text-2xl">{t("adm.brands_title")}</h1>
+          <p className="text-sm text-ink/50">{t("adm.brands_sub")}</p>
         </div>
         <button className="btn-ghost" onClick={addBrand}>
-          + Добавить
+          {t("common.add")}
         </button>
       </div>
 
@@ -128,17 +127,17 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
             <div className="grid gap-4 sm:grid-cols-[120px_1fr]">
               {/* Logo */}
               <div>
-                <label className="field-label">Логотип</label>
+                <label className="field-label">{t("adm.logo")}</label>
                 <div className="relative aspect-square overflow-hidden rounded-xl border border-line bg-sand">
                   {brand.logo ? (
                     <img src={brand.logo} alt="" className="h-full w-full object-contain p-2" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-ink/40">
-                      нет логотипа
+                      {t("adm.no_logo")}
                     </div>
                   )}
                   <label className="absolute inset-x-0 bottom-0 cursor-pointer bg-black/40 py-1 text-center text-xs font-semibold text-white hover:bg-black/60">
-                    Загрузить
+                    {t("adm.upload")}
                     <input
                       type="file"
                       accept="image/*"
@@ -152,7 +151,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
                     className="mt-1 w-full text-xs text-red-600 hover:underline"
                     onClick={() => patchBrand(index, { logo: null })}
                   >
-                    Убрать логотип
+                    {t("adm.remove_logo")}
                   </button>
                 )}
               </div>
@@ -160,7 +159,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
               {/* Main */}
               <div className="space-y-4">
                 <div>
-                  <label className="field-label">Название бренда</label>
+                  <label className="field-label">{t("adm.brand_name")}</label>
                   <input
                     className="input"
                     value={brand.name}
@@ -169,7 +168,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
                 </div>
 
                 <div>
-                  <label className="field-label">Доступные шаблоны</label>
+                  <label className="field-label">{t("adm.avail_templates")}</label>
                   <div className="flex flex-wrap gap-2">
                     {template.photoTemplates.map((pt) => {
                       const active = brand.templateIds.includes(pt.id);
@@ -191,13 +190,13 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
                 </div>
 
                 <div>
-                  <label className="field-label">Шаблон по умолчанию</label>
+                  <label className="field-label">{t("adm.default_template")}</label>
                   <select
                     className="input"
                     value={brand.defaultTemplateId ?? ""}
                     onChange={(e) => patchBrand(index, { defaultTemplateId: e.target.value || null })}
                   >
-                    <option value="">— не выбран —</option>
+                    <option value="">{t("adm.not_selected")}</option>
                     {template.photoTemplates
                       .filter((pt) => brand.templateIds.includes(pt.id))
                       .map((pt) => (
@@ -212,7 +211,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
 
             {/* Field settings */}
             <div className="mt-5 border-t border-line pt-4">
-              <div className="field-label mb-2">Настройки полей для бренда</div>
+              <div className="field-label mb-2">{t("adm.brand_field_settings")}</div>
               <div className="space-y-2">
                 {template.fields.map((field) => {
                   const setting = brand.fieldSettings[field.id] ?? {};
@@ -221,7 +220,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
                       <span className="text-sm text-ink/70">{field.label}</span>
                       <input
                         className="input"
-                        placeholder="значение по умолчанию"
+                        placeholder={t("adm.default_value_ph")}
                         value={setting.defaultValue ?? ""}
                         onChange={(e) => setFieldSetting(index, field.id, { defaultValue: e.target.value })}
                       />
@@ -231,7 +230,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
                           checked={!!setting.hidden}
                           onChange={(e) => setFieldSetting(index, field.id, { hidden: e.target.checked })}
                         />
-                        скрыть
+                        {t("adm.hide")}
                       </label>
                     </div>
                   );
@@ -244,7 +243,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
                 className="text-sm font-medium text-red-600 hover:underline"
                 onClick={() => removeBrand(index)}
               >
-                Удалить бренд
+                {t("adm.brand_delete")}
               </button>
             </div>
           </div>
@@ -262,7 +261,7 @@ export function BrandsSection({ template, adminPin, onTemplateChange }: Props) {
           </span>
         )}
         <button className="btn-primary" onClick={save} disabled={status.kind === "saving"}>
-          {status.kind === "saving" ? "Сохранение…" : "Сохранить изменения"}
+          {status.kind === "saving" ? t("common.saving") : t("common.save_changes")}
         </button>
       </div>
     </div>

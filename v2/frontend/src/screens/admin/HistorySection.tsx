@@ -4,16 +4,17 @@ import { api, ApiError } from "../../api/client";
 import { CollageViewer } from "../../components/CollageViewer";
 import { VariationsModal } from "../../components/VariationsModal";
 import { Thumb } from "../../components/Thumb";
+import { useI18n } from "../../i18n";
 
 interface Props {
   adminPin: string;
 }
 
 const RANGES = [
-  { id: "all", label: "Всё время" },
-  { id: "today", label: "Сегодня" },
-  { id: "7", label: "7 дней" },
-  { id: "30", label: "30 дней" },
+  { id: "all", key: "hist.range_all" },
+  { id: "today", key: "hist.range_today" },
+  { id: "7", key: "hist.range_7" },
+  { id: "30", key: "hist.range_30" },
 ];
 
 function formatDate(iso?: string): string {
@@ -51,6 +52,7 @@ function groupRecords(records: HistoryRecord[]): ProductGroup[] {
 }
 
 export function HistorySection({ adminPin }: Props) {
+  const { t } = useI18n();
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -77,7 +79,7 @@ export function HistorySection({ adminPin }: Props) {
       }
       setPublishedIds(new Set(ids));
     } catch {
-      setError("Не удалось изменить публикацию");
+      setError(t("adm.pub_fail"));
     } finally {
       setPublishing(null);
     }
@@ -101,7 +103,7 @@ export function HistorySection({ adminPin }: Props) {
       );
       setPublishedIds(new Set(ids));
     } catch {
-      setError("Не удалось изменить публикацию");
+      setError(t("adm.pub_fail"));
     } finally {
       setPublishing(null);
     }
@@ -118,7 +120,7 @@ export function HistorySection({ adminPin }: Props) {
         setPage(res.page);
         setRecords((prev) => (append ? [...prev, ...res.records] : res.records));
       } catch {
-        setError("Не удалось загрузить историю");
+        setError(t("hist.load_fail"));
       } finally {
         setLoading(false);
       }
@@ -131,7 +133,7 @@ export function HistorySection({ adminPin }: Props) {
   }, [fetchPage]);
 
   async function remove(record: HistoryRecord) {
-    if (!window.confirm(`Удалить коллаж ${record.productCode ?? ""}?`)) return;
+    if (!window.confirm(t("adm.del_confirm", { code: record.productCode ?? "" }))) return;
     try {
       await api.deleteCollages(
         [{ id: record.id, brandSlug: record.brandSlug, userId: record.userId }],
@@ -140,7 +142,7 @@ export function HistorySection({ adminPin }: Props) {
       setRecords((prev) => prev.filter((r) => r.id !== record.id));
       setTotal((t) => Math.max(0, t - 1));
     } catch (e) {
-      const msg = e instanceof ApiError && e.status === 401 ? "Нет доступа" : "Не удалось удалить";
+      const msg = e instanceof ApiError && e.status === 401 ? t("adm.del_no_access") : t("adm.del_fail");
       setError(msg);
     }
   }
@@ -151,11 +153,11 @@ export function HistorySection({ adminPin }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-serif text-2xl">История</h1>
+        <h1 className="font-serif text-2xl">{t("adm.hist_title")}</h1>
         <p className="text-sm text-ink/50">
-          Товаров: {groups.length}
-          <span className="text-ink/35"> · коллажей: {total}</span>
-          {hasVariations && <span className="ml-2 text-ink/35">(одинаковый код = варианты одного товара)</span>}
+          {t("hist.products", { n: groups.length })}
+          <span className="text-ink/35"> · {t("hist.collages", { n: total })}</span>
+          {hasVariations && <span className="ml-2 text-ink/35">{t("adm.hist_note")}</span>}
         </p>
       </div>
 
@@ -169,12 +171,12 @@ export function HistorySection({ adminPin }: Props) {
         >
           <input
             className="input"
-            placeholder="Поиск по коду, бренду, сотруднику…"
+            placeholder={t("adm.hist_search_ph")}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
           <button type="submit" className="btn-primary shrink-0">
-            Найти
+            {t("hist.search_btn")}
           </button>
         </form>
         <div className="flex flex-wrap items-center gap-2">
@@ -186,12 +188,12 @@ export function HistorySection({ adminPin }: Props) {
                 range === r.id ? "border-ink bg-ink text-white" : "border-line text-ink/60 hover:border-ink/40"
               }`}
             >
-              {r.label}
+              {t(r.key)}
             </button>
           ))}
           <select className="input ml-auto w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="newest">Сначала новые</option>
-            <option value="oldest">Сначала старые</option>
+            <option value="newest">{t("adm.sort_new")}</option>
+            <option value="oldest">{t("adm.sort_old")}</option>
           </select>
         </div>
       </div>
@@ -200,7 +202,7 @@ export function HistorySection({ adminPin }: Props) {
 
       {records.length === 0 && !loading ? (
         <div className="card grid min-h-[200px] place-items-center p-10 text-center text-ink/40">
-          Ничего не найдено
+          {t("adm.hist_not_found")}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -223,11 +225,11 @@ export function HistorySection({ adminPin }: Props) {
                       className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
+                    <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("store.no_photo")}</div>
                   )}
                   {multi && (
                     <span className="absolute right-2 top-2 rounded-full bg-ink/85 px-2 py-0.5 text-[11px] font-semibold text-white">
-                      {g.records.length} вар.
+                      {t("hist.var_badge", { n: g.records.length })}
                     </span>
                   )}
                 </button>
@@ -246,10 +248,10 @@ export function HistorySection({ adminPin }: Props) {
                     disabled={busy}
                   >
                     {allPub
-                      ? `✓ В витрине${multi ? ` (${g.records.length})` : ""}`
+                      ? `${t("adm.pub_in")}${multi ? ` (${g.records.length})` : ""}`
                       : somePub
-                      ? `± В витрине (${pubCount}/${g.records.length})`
-                      : `+ В витрину${multi ? ` (${g.records.length})` : ""}`}
+                      ? t("adm.pub_partial", { n: pubCount, total: g.records.length })
+                      : `${t("adm.pub_add")}${multi ? ` (${g.records.length})` : ""}`}
                   </button>
 
                   {multi && (
@@ -257,7 +259,7 @@ export function HistorySection({ adminPin }: Props) {
                       className="mt-1 w-full rounded-lg border border-line py-1 text-[11px] font-medium text-ink/55 hover:border-ink/40"
                       onClick={() => setVariantsGroup(g)}
                     >
-                      Варианты ({g.records.length})
+                      {t("hist.variants", { n: g.records.length })}
                     </button>
                   )}
 
@@ -268,7 +270,7 @@ export function HistorySection({ adminPin }: Props) {
                         className="shrink-0 font-medium text-red-600 hover:underline"
                         onClick={() => remove(g.cover)}
                       >
-                        удалить
+                        {t("adm.del")}
                       </button>
                     )}
                   </div>
@@ -282,7 +284,7 @@ export function HistorySection({ adminPin }: Props) {
       {hasMore && (
         <div className="flex justify-center">
           <button className="btn-ghost" onClick={() => fetchPage(page + 1, true)} disabled={loading}>
-            {loading ? "Загрузка…" : "Загрузить ещё"}
+            {loading ? t("common.loading") : t("hist.load_more")}
           </button>
         </div>
       )}
@@ -304,14 +306,14 @@ export function HistorySection({ adminPin }: Props) {
                 } ${publishing === r.id ? "opacity-50" : ""}`}
                 onClick={() => togglePublish(r)}
                 disabled={publishing === r.id}
-                title={publishedIds.has(r.id) ? "Убрать из витрины" : "В витрину"}
+                title={publishedIds.has(r.id) ? t("adm.pub_short_in") : t("adm.pub_short_add")}
               >
-                {publishedIds.has(r.id) ? "✓ в витрине" : "+ в витрину"}
+                {publishedIds.has(r.id) ? t("adm.pub_short_in") : t("adm.pub_short_add")}
               </button>
               <button
                 className="shrink-0 text-[11px] font-medium text-red-600 hover:underline"
                 onClick={() => remove(r)}
-                title="Удалить"
+                title={t("common.delete")}
               >
                 ✕
               </button>

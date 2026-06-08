@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FieldDef, Template } from "../../api/types";
 import { api, ApiError } from "../../api/client";
+import { useI18n } from "../../i18n";
 
 interface Props {
   template: Template;
@@ -13,6 +14,7 @@ function newFieldId(): string {
 }
 
 export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<FieldDef[]>(() =>
     template.fields.map((f) => ({ ...f, options: [...(f.options ?? [])] })),
   );
@@ -62,7 +64,7 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
   function addField() {
     setDraft((prev) => [
       ...prev,
-      { id: newFieldId(), label: "Новое поле", inputType: "text", defaultValue: "", options: [] },
+      { id: newFieldId(), label: t("adm.new_field"), inputType: "text", defaultValue: "", options: [] },
     ]);
     setStatus({ kind: "idle" });
   }
@@ -83,12 +85,9 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
       await api.saveTemplate(next, adminPin);
       onTemplateChange(next);
       setDraft(cleaned.map((f) => ({ ...f, options: [...f.options] })));
-      setStatus({ kind: "ok", msg: "Сохранено" });
+      setStatus({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
-      const msg =
-        e instanceof ApiError && e.status === 401
-          ? "Нет доступа (PIN администратора)"
-          : "Не удалось сохранить";
+      const msg = e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail");
       setStatus({ kind: "error", msg });
     }
   }
@@ -97,11 +96,11 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-2xl">Поля товара</h1>
-          <p className="text-sm text-ink/50">Названия, тип ввода и варианты выбора</p>
+          <h1 className="font-serif text-2xl">{t("adm.fields_title")}</h1>
+          <p className="text-sm text-ink/50">{t("adm.fields_sub")}</p>
         </div>
         <button className="btn-ghost" onClick={addField}>
-          + Добавить
+          {t("common.add")}
         </button>
       </div>
 
@@ -130,7 +129,7 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="field-label">Название</label>
+                <label className="field-label">{t("adm.f_name")}</label>
                 <input
                   className="input"
                   value={field.label}
@@ -138,18 +137,18 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
                 />
               </div>
               <div>
-                <label className="field-label">Тип</label>
+                <label className="field-label">{t("adm.f_type")}</label>
                 <select
                   className="input"
                   value={field.inputType}
                   onChange={(e) => patch(index, { inputType: e.target.value })}
                 >
-                  <option value="text">Текст</option>
-                  <option value="select">Список</option>
+                  <option value="text">{t("adm.f_type_text")}</option>
+                  <option value="select">{t("adm.f_type_select")}</option>
                 </select>
               </div>
               <div>
-                <label className="field-label">Значение по умолчанию</label>
+                <label className="field-label">{t("adm.f_default")}</label>
                 <input
                   className="input"
                   value={field.defaultValue}
@@ -160,7 +159,7 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
 
             {field.inputType === "select" && (
               <div className="mt-4">
-                <label className="field-label">Варианты выбора</label>
+                <label className="field-label">{t("adm.f_options")}</label>
                 <div className="space-y-2">
                   {field.options.map((opt, optIndex) => (
                     <div key={optIndex} className="flex items-center gap-2">
@@ -178,7 +177,7 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
                     </div>
                   ))}
                   <button className="text-sm font-medium text-ink/60 hover:underline" onClick={() => addOption(index)}>
-                    + Вариант
+                    {t("adm.f_add_option")}
                   </button>
                 </div>
               </div>
@@ -189,7 +188,7 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
                 className="text-sm font-medium text-red-600 hover:underline"
                 onClick={() => removeField(index)}
               >
-                Удалить поле
+                {t("adm.field_delete")}
               </button>
             </div>
           </div>
@@ -207,7 +206,7 @@ export function FieldsSection({ template, adminPin, onTemplateChange }: Props) {
           </span>
         )}
         <button className="btn-primary" onClick={save} disabled={status.kind === "saving"}>
-          {status.kind === "saving" ? "Сохранение…" : "Сохранить изменения"}
+          {status.kind === "saving" ? t("common.saving") : t("common.save_changes")}
         </button>
       </div>
     </div>
