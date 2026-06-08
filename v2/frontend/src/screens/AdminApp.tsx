@@ -8,6 +8,7 @@ import { BrandsSection } from "./admin/BrandsSection";
 import { FieldsSection } from "./admin/FieldsSection";
 import { HistorySection } from "./admin/HistorySection";
 import { SceneEditor } from "./admin/SceneEditor";
+import { OrdersSection } from "./admin/OrdersSection";
 
 interface Props {
   template: Template;
@@ -18,10 +19,11 @@ interface Props {
   onLogout: () => void;
 }
 
-type SectionId = "overview" | "users" | "brands" | "fields" | "history" | "templates";
+type SectionId = "overview" | "users" | "brands" | "fields" | "history" | "templates" | "orders";
 
 const NAV: { id: SectionId; label: string; ready: boolean }[] = [
   { id: "overview", label: "Обзор", ready: true },
+  { id: "orders", label: "Заказы", ready: true },
   { id: "users", label: "Сотрудники", ready: true },
   { id: "brands", label: "Бренды", ready: true },
   { id: "fields", label: "Поля", ready: true },
@@ -111,6 +113,7 @@ export function AdminApp({
               onTemplateChange={onTemplateChange}
             />
           )}
+          {section === "orders" && <OrdersSection adminPin={adminPin} />}
           {section === "history" && <HistorySection adminPin={adminPin} />}
           {section === "templates" && (
             <SceneEditor
@@ -156,6 +159,35 @@ function Overview({
   const [scanSave, setScanSave] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({
     kind: "idle",
   });
+
+  // Контакты магазина
+  const store0 = template.store as Record<string, unknown>;
+  const [shop, setShop] = useState({
+    whatsapp: (store0.whatsapp as string) || "",
+    instagram: (store0.instagram as string) || "",
+    currency: (store0.currency as string) || "₺",
+  });
+  const [shopSave, setShopSave] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({
+    kind: "idle",
+  });
+
+  async function saveShop() {
+    setShopSave({ kind: "saving" });
+    try {
+      const next: Template = {
+        ...template,
+        store: { ...(template.store as Record<string, unknown>), ...shop },
+      };
+      await api.saveTemplate(next, adminPin);
+      onTemplateChange(next);
+      setShopSave({ kind: "ok", msg: "Сохранено" });
+    } catch (e) {
+      setShopSave({
+        kind: "error",
+        msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN)" : "Не удалось сохранить",
+      });
+    }
+  }
 
   async function saveScanSetting() {
     setScanSave({ kind: "saving" });
@@ -265,6 +297,53 @@ function Overview({
             создании коллажа.
           </p>
         )}
+      </div>
+
+      {/* Контакты магазина */}
+      <div className="card space-y-4 p-5">
+        <div>
+          <h2 className="font-serif text-lg">Магазин — контакты</h2>
+          <p className="text-sm text-ink/50">Показываются на витрине vrapzi.com</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="field-label">WhatsApp (номер)</label>
+            <input
+              className="input"
+              placeholder="905339178551"
+              value={shop.whatsapp}
+              onChange={(e) => setShop({ ...shop, whatsapp: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="field-label">Instagram (логин)</label>
+            <input
+              className="input"
+              placeholder="peraistanbulstore"
+              value={shop.instagram}
+              onChange={(e) => setShop({ ...shop, instagram: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="field-label">Валюта</label>
+            <input
+              className="input"
+              placeholder="₺"
+              value={shop.currency}
+              onChange={(e) => setShop({ ...shop, currency: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="btn-primary" onClick={saveShop} disabled={shopSave.kind === "saving"}>
+            {shopSave.kind === "saving" ? "Сохранение…" : "Сохранить"}
+          </button>
+          {shopSave.msg && (
+            <span className={`text-sm font-medium ${shopSave.kind === "error" ? "text-red-600" : "text-green-600"}`}>
+              {shopSave.msg}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Сканер наклеек (бета) */}

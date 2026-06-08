@@ -59,6 +59,9 @@ export function Store({ template }: Props) {
   const title = (store.title as string) || "PERA";
   const subtitle = (store.subtitle as string) || "ISTANBUL";
   const logo = store.logo as string | null;
+  const whatsapp = ((store.whatsapp as string) || WHATSAPP).replace(/[^\d]/g, "");
+  const instagram = (store.instagram as string) || "peraistanbulstore";
+  const currency = (store.currency as string) || "₺";
 
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,7 +193,7 @@ export function Store({ template }: Props) {
     const text = `Здравствуйте! Хочу заказать: ${p.code}${p.color ? `, цвет ${p.color}` : ""}${
       p.size ? `, размер ${p.size}` : ""
     } — ${p.price}`;
-    return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   return (
@@ -209,7 +212,7 @@ export function Store({ template }: Props) {
             )}
           </a>
           <nav className="flex items-center gap-3 text-sm text-ink/60">
-            <a href={`https://instagram.com/peraistanbulstore`} target="_blank" rel="noreferrer" className="hidden hover:text-ink sm:block">
+            <a href={`https://instagram.com/${instagram}`} target="_blank" rel="noreferrer" className="hidden hover:text-ink sm:block">
               Instagram
             </a>
             <a href="/staff" className="hidden rounded-full border border-line px-3 py-1.5 font-medium hover:border-ink/40 sm:block">
@@ -459,7 +462,7 @@ export function Store({ template }: Props) {
                   </div>
                   <div className="rounded-lg bg-sand/60 p-3 text-sm text-ink/60">
                     {cart.reduce((n, i) => n + i.qty, 0)} товаров · Итого{" "}
-                    <b>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ₺` : "—"}</b>
+                    <b>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ${currency}` : "—"}</b>
                   </div>
                   {orderError && <p className="text-sm font-medium text-red-600">{orderError}</p>}
                 </div>
@@ -500,7 +503,7 @@ export function Store({ template }: Props) {
                 <div className="border-t border-line p-4">
                   <div className="mb-3 flex items-center justify-between text-lg font-semibold">
                     <span>Итого</span>
-                    <span>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ₺` : "—"}</span>
+                    <span>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ${currency}` : "—"}</span>
                   </div>
                   <button className="btn-primary w-full" onClick={() => setCheckout(true)}>
                     Оформить заказ
