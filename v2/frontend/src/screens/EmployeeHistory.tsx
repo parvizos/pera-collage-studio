@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { HistoryRecord } from "../api/types";
 import { api } from "../api/client";
 import { CollageViewer } from "../components/CollageViewer";
+import { VariationsModal } from "../components/VariationsModal";
 
 interface Props {
   userId: string;
@@ -68,16 +69,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
 
   const [lightbox, setLightbox] = useState<HistoryRecord | null>(null);
   const [opening, setOpening] = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  function toggleExpand(key: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
+  const [variantsGroup, setVariantsGroup] = useState<ProductGroup | null>(null);
 
   const fetchPage = useCallback(
     async (targetPage: number, append: boolean) => {
@@ -169,7 +161,6 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {groups.map((g) => {
             const multi = g.records.length > 1;
-            const isOpen = expanded.has(g.key);
             return (
               <div key={g.key} className="card overflow-hidden p-0">
                 <button
@@ -192,39 +183,12 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                   <div className="text-[11px] text-ink/40">{formatDate(g.cover.createdAt)}</div>
 
                   {multi ? (
-                    <>
-                      <button
-                        className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
-                        onClick={() => toggleExpand(g.key)}
-                      >
-                        {isOpen ? "Скрыть варианты" : `Варианты (${g.records.length})`}
-                      </button>
-                      {isOpen && (
-                        <div className="mt-2 space-y-1.5 border-t border-line pt-2">
-                          {g.records.map((r, i) => (
-                            <div key={r.id} className="flex items-center gap-2">
-                              <button
-                                className="h-10 w-8 shrink-0 overflow-hidden rounded bg-sand"
-                                onClick={() => setLightbox(r)}
-                              >
-                                {r.imagePath && <img src={r.imagePath} alt="" className="h-full w-full object-cover" />}
-                              </button>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-[11px] font-medium">Вариант {i + 1}</div>
-                                <div className="truncate text-[10px] text-ink/40">{formatDate(r.createdAt)}</div>
-                              </div>
-                              <button
-                                className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink/70 hover:border-ink/40"
-                                onClick={() => reopen(r)}
-                                disabled={opening}
-                              >
-                                Открыть
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
+                    <button
+                      className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
+                      onClick={() => setVariantsGroup(g)}
+                    >
+                      Варианты ({g.records.length})
+                    </button>
                   ) : (
                     <button
                       className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
@@ -247,6 +211,18 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
             {loading ? "Загрузка…" : "Загрузить ещё"}
           </button>
         </div>
+      )}
+
+      {variantsGroup && (
+        <VariationsModal
+          code={variantsGroup.code}
+          records={variantsGroup.records}
+          onClose={() => setVariantsGroup(null)}
+          onOpen={(r) => {
+            setVariantsGroup(null);
+            reopen(r);
+          }}
+        />
       )}
 
       {lightbox && (

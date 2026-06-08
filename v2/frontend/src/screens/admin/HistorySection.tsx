@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { HistoryRecord } from "../../api/types";
 import { api, ApiError } from "../../api/client";
 import { CollageViewer } from "../../components/CollageViewer";
+import { VariationsModal } from "../../components/VariationsModal";
 
 interface Props {
   adminPin: string;
@@ -64,16 +65,7 @@ export function HistorySection({ adminPin }: Props) {
   const [lightbox, setLightbox] = useState<HistoryRecord | null>(null);
   const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  function toggleExpand(key: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
+  const [variantsGroup, setVariantsGroup] = useState<ProductGroup | null>(null);
 
   async function setGroupPublished(group: ProductGroup, published: boolean) {
     setPublishing(group.key);
@@ -216,7 +208,6 @@ export function HistorySection({ adminPin }: Props) {
             const pubCount = g.records.filter((r) => publishedIds.has(r.id)).length;
             const allPub = pubCount === g.records.length;
             const somePub = pubCount > 0;
-            const isOpen = expanded.has(g.key);
             const busy = publishing === g.key;
             return (
               <div key={g.key} className="card group overflow-hidden p-0">
@@ -264,60 +255,23 @@ export function HistorySection({ adminPin }: Props) {
                   {multi && (
                     <button
                       className="mt-1 w-full rounded-lg border border-line py-1 text-[11px] font-medium text-ink/55 hover:border-ink/40"
-                      onClick={() => toggleExpand(g.key)}
+                      onClick={() => setVariantsGroup(g)}
                     >
-                      {isOpen ? "Скрыть варианты" : `Варианты (${g.records.length})`}
+                      Варианты ({g.records.length})
                     </button>
                   )}
 
-                  {isOpen && multi ? (
-                    <div className="mt-2 space-y-1.5 border-t border-line pt-2">
-                      {g.records.map((r, i) => (
-                        <div key={r.id} className="flex items-center gap-2">
-                          <button
-                            className="h-10 w-8 shrink-0 overflow-hidden rounded bg-sand"
-                            onClick={() => setLightbox(r)}
-                          >
-                            {r.imagePath && <img src={r.imagePath} alt="" className="h-full w-full object-cover" />}
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-[11px] font-medium">Вариант {i + 1}</div>
-                            <div className="truncate text-[10px] text-ink/40">{formatDate(r.createdAt)}</div>
-                          </div>
-                          <button
-                            className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold ${
-                              publishedIds.has(r.id)
-                                ? "border-green-600 bg-green-50 text-green-700"
-                                : "border-line text-ink/55 hover:border-clay/50 hover:text-clay"
-                            } ${publishing === r.id ? "opacity-50" : ""}`}
-                            onClick={() => togglePublish(r)}
-                            disabled={publishing === r.id}
-                            title={publishedIds.has(r.id) ? "Убрать из витрины" : "В витрину"}
-                          >
-                            {publishedIds.has(r.id) ? "✓" : "+"}
-                          </button>
-                          <button
-                            className="shrink-0 text-[11px] font-medium text-red-600 hover:underline"
-                            onClick={() => remove(r)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-ink/40">
-                      <span className="truncate">{formatDate(g.cover.createdAt)}</span>
-                      {!multi && (
-                        <button
-                          className="shrink-0 font-medium text-red-600 hover:underline"
-                          onClick={() => remove(g.cover)}
-                        >
-                          удалить
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-ink/40">
+                    <span className="truncate">{formatDate(g.cover.createdAt)}</span>
+                    {!multi && (
+                      <button
+                        className="shrink-0 font-medium text-red-600 hover:underline"
+                        onClick={() => remove(g.cover)}
+                      >
+                        удалить
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -331,6 +285,39 @@ export function HistorySection({ adminPin }: Props) {
             {loading ? "Загрузка…" : "Загрузить ещё"}
           </button>
         </div>
+      )}
+
+      {variantsGroup && (
+        <VariationsModal
+          code={variantsGroup.code}
+          brandName={variantsGroup.brandName}
+          records={variantsGroup.records}
+          onClose={() => setVariantsGroup(null)}
+          onOpen={(r) => setLightbox(r)}
+          renderActions={(r) => (
+            <>
+              <button
+                className={`rounded border px-2 py-0.5 text-[11px] font-semibold transition ${
+                  publishedIds.has(r.id)
+                    ? "border-green-600 bg-green-50 text-green-700"
+                    : "border-line text-ink/55 hover:border-clay/50 hover:text-clay"
+                } ${publishing === r.id ? "opacity-50" : ""}`}
+                onClick={() => togglePublish(r)}
+                disabled={publishing === r.id}
+                title={publishedIds.has(r.id) ? "Убрать из витрины" : "В витрину"}
+              >
+                {publishedIds.has(r.id) ? "✓ в витрине" : "+ в витрину"}
+              </button>
+              <button
+                className="shrink-0 text-[11px] font-medium text-red-600 hover:underline"
+                onClick={() => remove(r)}
+                title="Удалить"
+              >
+                ✕
+              </button>
+            </>
+          )}
+        />
       )}
 
       {lightbox && <CollageViewer record={lightbox} onClose={() => setLightbox(null)} />}
