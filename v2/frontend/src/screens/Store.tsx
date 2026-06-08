@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Template } from "../api/types";
 import { api, type StoreProduct, type StoreVariation } from "../api/client";
+import { Thumb } from "../components/Thumb";
 
 interface Props {
   template: Template;
@@ -644,25 +645,3 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Lightweight WebP preview URL for a same-origin data image (originals untouched). */
-function thumbUrl(src: string, w: number): string {
-  if (!src || /^https?:|^data:/.test(src)) return src;
-  return `/api/img/thumb?src=${encodeURIComponent(src)}&w=${w}`;
-}
-
-/** <img> that loads a small preview, falling back to the original if it fails. */
-function Thumb({ src, w, alt, className }: { src: string; w: number; alt?: string; className?: string }) {
-  const [orig, setOrig] = useState(false);
-  return (
-    <img
-      src={orig ? src : thumbUrl(src, w)}
-      alt={alt || ""}
-      loading="lazy"
-      decoding="async"
-      className={className}
-      onError={() => {
-        if (!orig) setOrig(true);
-      }}
-    />
-  );
-}

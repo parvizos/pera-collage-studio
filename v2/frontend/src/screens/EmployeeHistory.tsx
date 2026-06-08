@@ -3,6 +3,7 @@ import type { HistoryRecord } from "../api/types";
 import { api } from "../api/client";
 import { CollageViewer } from "../components/CollageViewer";
 import { VariationsModal } from "../components/VariationsModal";
+import { Thumb } from "../components/Thumb";
 
 interface Props {
   userId: string;
@@ -168,7 +169,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                   onClick={() => setLightbox(g.cover)}
                 >
                   {g.cover.imagePath ? (
-                    <img src={g.cover.imagePath} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    <Thumb src={g.cover.imagePath} w={400} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
                   )}

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { HistoryRecord } from "../api/types";
+import { Thumb } from "./Thumb";
 
 interface Props {
   code: string;
@@ -45,7 +46,7 @@ export function VariationsModal({ code, brandName, records, onClose, onOpen, ren
                 title="Открыть"
               >
                 {r.imagePath ? (
-                  <img src={r.imagePath} alt="" loading="lazy" className="h-full w-full object-cover transition hover:scale-[1.03]" />
+                  <Thumb src={r.imagePath} w={300} className="h-full w-full object-cover transition hover:scale-[1.03]" />
                 ) : (
                   <div className="grid h-full place-items-center text-xs text-ink/30">нет фото</div>
                 )}

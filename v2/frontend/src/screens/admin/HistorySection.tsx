@@ -3,6 +3,7 @@ import type { HistoryRecord } from "../../api/types";
 import { api, ApiError } from "../../api/client";
 import { CollageViewer } from "../../components/CollageViewer";
 import { VariationsModal } from "../../components/VariationsModal";
+import { Thumb } from "../../components/Thumb";
 
 interface Props {
   adminPin: string;
@@ -216,10 +217,9 @@ export function HistorySection({ adminPin }: Props) {
                   onClick={() => setLightbox(g.cover)}
                 >
                   {g.cover.imagePath ? (
-                    <img
+                    <Thumb
                       src={g.cover.imagePath}
-                      alt=""
-                      loading="lazy"
+                      w={400}
                       className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                     />
                   ) : (
