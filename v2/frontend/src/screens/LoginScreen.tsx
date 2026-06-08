@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { User } from "../api/types";
+import { useI18n } from "../i18n";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 interface Props {
   route: "employee" | "admin";
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<"employee" | "admin">(route);
   const [userId, setUserId] = useState(users[0]?.id ?? "");
   const [pin, setPin] = useState("");
@@ -24,15 +27,15 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
     try {
       if (mode === "admin") {
         const ok = await api.verifyAdmin(pin.trim());
-        if (!ok) throw new Error("Неверный PIN администратора");
+        if (!ok) throw new Error(t("login.err_pin_admin"));
         onAdmin(pin.trim());
       } else {
-        if (!selectedUser) throw new Error("Выберите сотрудника");
-        if (selectedUser.pin !== pin.trim()) throw new Error("Неверный PIN");
+        if (!selectedUser) throw new Error(t("login.err_select"));
+        if (selectedUser.pin !== pin.trim()) throw new Error(t("login.err_pin"));
         onEmployee(selectedUser, pin.trim());
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Ошибка входа");
+      setErr(e instanceof Error ? e.message : t("login.err_generic"));
     } finally {
       setBusy(false);
     }
@@ -41,6 +44,9 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
   return (
     <div className="grid min-h-screen place-items-center bg-gradient-to-b from-sand to-[#efe7da] p-6">
       <div className="card w-full max-w-md p-8">
+        <div className="mb-2 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <div className="mb-6 text-center">
           <div className="font-serif text-5xl leading-none tracking-tight">PERA</div>
           <div className="mt-1 text-xs font-semibold uppercase tracking-[0.4em] text-ink/50">
@@ -56,7 +62,7 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
               setErr(null);
             }}
           >
-            Сотрудник
+            {t("login.employee")}
           </button>
           <button
             className={`rounded-full py-2 transition ${mode === "admin" ? "bg-white shadow" : "text-ink/50"}`}
@@ -65,7 +71,7 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
               setErr(null);
             }}
           >
-            Администратор
+            {t("login.admin")}
           </button>
         </div>
 
@@ -78,7 +84,7 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
         >
           {mode === "employee" && (
             <div>
-              <label className="field-label">Сотрудник</label>
+              <label className="field-label">{t("login.employee_label")}</label>
               <select className="input" value={userId} onChange={(e) => setUserId(e.target.value)}>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -91,7 +97,7 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
 
           <div>
             <label className="field-label">
-              {mode === "admin" ? "PIN администратора" : "PIN"}
+              {mode === "admin" ? t("login.pin_admin") : t("login.pin")}
             </label>
             <input
               className="input tracking-[0.3em]"
@@ -100,14 +106,14 @@ export function LoginScreen({ route, users, onEmployee, onAdmin }: Props) {
               autoFocus
               value={pin}
               onChange={(e) => setPin(e.target.value)}
-              placeholder={mode === "admin" ? "Введите PIN администратора" : "Введите PIN"}
+              placeholder={mode === "admin" ? t("login.pin_admin_ph") : t("login.pin_ph")}
             />
           </div>
 
           {err && <p className="text-sm font-medium text-red-600">{err}</p>}
 
           <button type="submit" className="btn-primary w-full" disabled={busy}>
-            {busy ? "Проверка…" : mode === "admin" ? "Войти в админку" : "Войти"}
+            {busy ? t("login.checking") : mode === "admin" ? t("login.enter_admin") : t("login.enter")}
           </button>
         </form>
       </div>

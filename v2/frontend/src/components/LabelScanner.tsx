@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { parseLabel, recognizeLabel, type ParsedLabel } from "../lib/scanLabel";
+import { useI18n } from "../i18n";
 
 interface Props {
   onResult: (parsed: ParsedLabel) => void;
@@ -13,13 +14,14 @@ function score(p: ParsedLabel): number {
 }
 
 export function LabelScanner({ onResult, onClose }: Props) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const runningRef = useRef(true);
   const busyRef = useRef(false);
 
-  const [status, setStatus] = useState("Запуск камеры…");
+  const [status, setStatus] = useState(() => t("scan.starting"));
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -39,20 +41,20 @@ export function LabelScanner({ onResult, onClose }: Props) {
           await video.play().catch(() => {});
         }
       } catch {
-        setError("Камера недоступна. Разреши доступ к камере в браузере или загрузи фото.");
+        setError(t("scan.cam_fail"));
         return;
       }
 
-      setStatus("Загрузка распознавания…");
+      setStatus(t("scan.loading_ocr"));
       try {
         const { createWorker } = await import("tesseract.js");
         workerRef.current = (await createWorker("tur+eng")) as unknown as Worker;
       } catch {
-        setError("Не удалось загрузить распознавание. Попробуй позже или загрузи фото.");
+        setError(t("scan.ocr_fail"));
         return;
       }
       setReady(true);
-      setStatus("Наведите на наклейку…");
+      setStatus(t("scan.aim"));
       loop();
     })();
 
@@ -121,7 +123,7 @@ export function LabelScanner({ onResult, onClose }: Props) {
 
   async function captureNow() {
     if (busyRef.current) return;
-    setStatus("Распознаю…");
+    setStatus(t("scan.recognizing"));
     busyRef.current = true;
     try {
       const worker = workerRef.current;
@@ -134,7 +136,7 @@ export function LabelScanner({ onResult, onClose }: Props) {
           return;
         }
       }
-      setStatus("Не распозналось — наведи ближе и ровнее, без бликов.");
+      setStatus(t("scan.no_match"));
     } finally {
       busyRef.current = false;
     }
@@ -143,22 +145,22 @@ export function LabelScanner({ onResult, onClose }: Props) {
   async function onFile(file: File | undefined) {
     if (!file) return;
     runningRef.current = false;
-    setStatus("Распознаю фото…");
+    setStatus(t("scan.recognizing_photo"));
     try {
       const parsed = parseLabel(await recognizeLabel(file));
       if (score(parsed) >= 1) finish(parsed);
-      else setStatus("Не распозналось. Сфотографируй крупнее и без бликов.");
+      else setStatus(t("scan.no_match_photo"));
     } catch {
-      setStatus("Ошибка распознавания.");
+      setStatus(t("scan.err"));
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       <div className="flex items-center justify-between px-4 py-3 text-white">
-        <span className="font-semibold">Сканер наклейки</span>
+        <span className="font-semibold">{t("scan.title")}</span>
         <button className="rounded-full px-3 py-1 text-sm hover:bg-white/10" onClick={onClose}>
-          Закрыть
+          {t("common.close")}
         </button>
       </div>
 
@@ -183,7 +185,7 @@ export function LabelScanner({ onResult, onClose }: Props) {
             <div>
               <p className="mb-4">{error}</p>
               <label className="btn-clay inline-block cursor-pointer">
-                Загрузить фото
+                {t("scan.upload")}
                 <input
                   type="file"
                   accept="image/*"
@@ -206,10 +208,10 @@ export function LabelScanner({ onResult, onClose }: Props) {
               onClick={captureNow}
               disabled={!ready}
             >
-              Снять сейчас
+              {t("scan.capture")}
             </button>
             <label className="btn-ghost cursor-pointer bg-white">
-              Из галереи
+              {t("scan.gallery")}
               <input
                 type="file"
                 accept="image/*"
@@ -218,7 +220,7 @@ export function LabelScanner({ onResult, onClose }: Props) {
               />
             </label>
           </div>
-          <p className="text-xs text-white/50">Держи ровно, наклейка в рамке, без бликов</p>
+          <p className="text-xs text-white/50">{t("scan.tip")}</p>
         </div>
       )}
     </div>

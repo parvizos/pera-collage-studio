@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { HistoryRecord } from "../api/types";
 import { Thumb } from "./Thumb";
+import { useI18n } from "../i18n";
 
 interface Props {
   code: string;
@@ -15,6 +16,7 @@ interface Props {
 
 /** Clean popup gallery of a product's variations (instead of a long inline list). */
 export function VariationsModal({ code, brandName, records, onClose, onOpen, renderActions }: Props) {
+  const { t } = useI18n();
   return (
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-ink/70 backdrop-blur-sm sm:items-center"
@@ -28,12 +30,12 @@ export function VariationsModal({ code, brandName, records, onClose, onOpen, ren
           <div>
             <div className="font-serif text-lg">{code}</div>
             <div className="text-xs text-ink/45">
-              {records.length} {records.length === 1 ? "вариант" : "вариантов"}
+              {t("modal.options_n", { n: records.length })}
               {brandName ? ` · ${brandName}` : ""}
             </div>
           </div>
           <button className="rounded-full px-3 py-1 text-sm text-ink/50 hover:bg-sand" onClick={onClose}>
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
 
@@ -43,12 +45,12 @@ export function VariationsModal({ code, brandName, records, onClose, onOpen, ren
               <button
                 className="relative block aspect-[3/4] w-full overflow-hidden bg-sand"
                 onClick={() => onOpen(r)}
-                title="Открыть"
+                title={t("common.open")}
               >
                 {r.imagePath ? (
                   <Thumb src={r.imagePath} w={300} className="h-full w-full object-cover transition hover:scale-[1.03]" />
                 ) : (
-                  <div className="grid h-full place-items-center text-xs text-ink/30">нет фото</div>
+                  <div className="grid h-full place-items-center text-xs text-ink/30">{t("store.no_photo")}</div>
                 )}
                 <span className="absolute left-1.5 top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-ink/80 px-1 text-[11px] font-semibold text-white">
                   {i + 1}

@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { CollageViewer } from "../components/CollageViewer";
 import { VariationsModal } from "../components/VariationsModal";
 import { Thumb } from "../components/Thumb";
+import { useI18n } from "../i18n";
 
 interface Props {
   userId: string;
@@ -11,10 +12,10 @@ interface Props {
 }
 
 const RANGES = [
-  { id: "all", label: "Всё время" },
-  { id: "today", label: "Сегодня" },
-  { id: "7", label: "7 дней" },
-  { id: "30", label: "30 дней" },
+  { id: "all", key: "hist.range_all" },
+  { id: "today", key: "hist.range_today" },
+  { id: "7", key: "hist.range_7" },
+  { id: "30", key: "hist.range_30" },
 ];
 
 function formatDate(iso?: string): string {
@@ -57,6 +58,7 @@ function groupRecords(records: HistoryRecord[]): ProductGroup[] {
 }
 
 export function EmployeeHistory({ userId, onReopen }: Props) {
+  const { t } = useI18n();
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -83,7 +85,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
         setPage(res.page);
         setRecords((prev) => (append ? [...prev, ...res.records] : res.records));
       } catch {
-        setError("Не удалось загрузить историю");
+        setError(t("hist.load_fail"));
       } finally {
         setLoading(false);
       }
@@ -101,7 +103,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
       const detail = await api.getCollage(record.id, { brandSlug: record.brandSlug, userId });
       onReopen(detail);
     } catch {
-      setError("Не удалось открыть коллаж");
+      setError(t("hist.open_fail"));
     } finally {
       setOpening(false);
     }
@@ -112,10 +114,10 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-6">
       <div>
-        <h1 className="font-serif text-2xl">Мои коллажи</h1>
+        <h1 className="font-serif text-2xl">{t("hist.my")}</h1>
         <p className="text-sm text-ink/50">
-          Товаров: {groups.length}
-          <span className="text-ink/35"> · коллажей: {total}</span>
+          {t("hist.products", { n: groups.length })}
+          <span className="text-ink/35"> · {t("hist.collages", { n: total })}</span>
         </p>
       </div>
 
@@ -129,12 +131,12 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
         >
           <input
             className="input"
-            placeholder="Поиск по коду…"
+            placeholder={t("hist.search_ph")}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
           <button type="submit" className="btn-primary shrink-0">
-            Найти
+            {t("hist.search_btn")}
           </button>
         </form>
         <div className="flex flex-wrap gap-2">
@@ -146,7 +148,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                 range === r.id ? "border-ink bg-ink text-white" : "border-line text-ink/60 hover:border-ink/40"
               }`}
             >
-              {r.label}
+              {t(r.key)}
             </button>
           ))}
         </div>
@@ -156,7 +158,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
 
       {records.length === 0 && !loading ? (
         <div className="card grid min-h-[200px] place-items-center p-10 text-center text-ink/40">
-          Пока нет сохранённых коллажей
+          {t("hist.empty")}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -171,11 +173,11 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                   {g.cover.imagePath ? (
                     <Thumb src={g.cover.imagePath} w={400} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-ink/30">нет фото</div>
+                    <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("store.no_photo")}</div>
                   )}
                   {multi && (
                     <span className="absolute right-2 top-2 rounded-full bg-ink/85 px-2 py-0.5 text-[11px] font-semibold text-white">
-                      {g.records.length} вар.
+                      {t("hist.var_badge", { n: g.records.length })}
                     </span>
                   )}
                 </button>
@@ -188,7 +190,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                       className="mt-2 w-full rounded-lg border border-line py-1 text-xs font-semibold text-ink/70 hover:border-ink/40"
                       onClick={() => setVariantsGroup(g)}
                     >
-                      Варианты ({g.records.length})
+                      {t("hist.variants", { n: g.records.length })}
                     </button>
                   ) : (
                     <button
@@ -196,7 +198,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                       onClick={() => reopen(g.cover)}
                       disabled={opening}
                     >
-                      Открыть в редакторе
+                      {t("hist.open_editor")}
                     </button>
                   )}
                 </div>
@@ -209,7 +211,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
       {hasMore && (
         <div className="flex justify-center">
           <button className="btn-ghost" onClick={() => fetchPage(page + 1, true)} disabled={loading}>
-            {loading ? "Загрузка…" : "Загрузить ещё"}
+            {loading ? t("common.loading") : t("hist.load_more")}
           </button>
         </div>
       )}
@@ -241,7 +243,7 @@ export function EmployeeHistory({ userId, onReopen }: Props) {
                 reopen(rec);
               }}
             >
-              Открыть в редакторе
+              {t("hist.open_editor")}
             </button>
           }
         />

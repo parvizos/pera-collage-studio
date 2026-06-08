@@ -7,6 +7,8 @@ import { renderCollage } from "../render/renderer";
 import { api } from "../api/client";
 import { LabelScanner } from "../components/LabelScanner";
 import type { ParsedLabel } from "../lib/scanLabel";
+import { useI18n } from "../i18n";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import {
   buildDefaultFieldValues,
   buildDefaultState,
@@ -36,6 +38,7 @@ function makeProductId(): string {
 }
 
 export function EmployeeApp({ template, user, pin, onLogout }: Props) {
+  const { t } = useI18n();
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ kind: "idle" });
   const [view, setView] = useState<"compose" | "history">("compose");
   const [step, setStep] = useState<1 | 2>(1);
@@ -201,11 +204,11 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
       );
       // Saved to history — also download the file automatically.
       triggerDownload(imageDataUrl);
-      setSaveStatus({ kind: "ok", message: "Сохранено в историю и скачано" });
+      setSaveStatus({ kind: "ok", message: t("emp.saved_ok") });
     } catch (e) {
       setSaveStatus({
         kind: "error",
-        message: e instanceof Error ? e.message : "Не удалось сохранить",
+        message: e instanceof Error ? e.message : t("emp.save_fail"),
       });
     }
   }
@@ -214,7 +217,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
     try {
       triggerDownload(await renderToDataUrl());
     } catch {
-      setSaveStatus({ kind: "error", message: "Не удалось подготовить файл" });
+      setSaveStatus({ kind: "error", message: t("emp.prep_fail") });
     }
   }
 
@@ -225,9 +228,9 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
         {template.labelScanner?.enabledForEmployees && (
           <div className="rounded-xl border border-dashed border-clay/40 bg-clay/5 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm text-ink/70">Заполнить вручную ниже или отсканировать наклейку:</span>
+              <span className="text-sm text-ink/70">{t("emp.scan_hint")}</span>
               <button className="btn-clay" onClick={() => setScannerIndex(index)}>
-                📷 Сканировать наклейку
+                {t("emp.scan_btn")}
               </button>
             </div>
           </div>
@@ -275,14 +278,15 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
               }`}
               onClick={() => setView(v)}
             >
-              {v === "compose" ? "Создать" : "История"}
+              {v === "compose" ? t("emp.create") : t("emp.history")}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="hidden text-ink/60 sm:inline">{user.name}</span>
+          <LanguageSwitcher />
           <button className="btn-ghost" onClick={onLogout}>
-            Выйти
+            {t("common.logout")}
           </button>
         </div>
       </header>
@@ -298,7 +302,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
               onClick={() => setStep(1)}
             >
               <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${step === 1 ? "bg-white text-ink" : "bg-ink/10"}`}>1</span>
-              Данные
+              {t("emp.step_data")}
             </button>
             <div className="h-px w-8 bg-line" />
             <button
@@ -306,7 +310,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
               onClick={() => setStep(2)}
             >
               <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${step === 2 ? "bg-white text-ink" : "bg-ink/10"}`}>2</span>
-              Фото
+              {t("emp.step_photo")}
             </button>
           </div>
 
@@ -314,11 +318,11 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
             <div className="grid gap-6 lg:grid-cols-[1fr_minmax(300px,360px)]">
               <section className="space-y-6">
                 <div className="card p-5">
-                  <h2 className="mb-4 font-serif text-xl">Параметры</h2>
+                  <h2 className="mb-4 font-serif text-xl">{t("emp.params")}</h2>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {allowedBrands.length > 0 && (
                       <div>
-                        <label className="field-label">Бренд</label>
+                        <label className="field-label">{t("emp.brand")}</label>
                         <select className="input" value={state.brandId ?? ""} onChange={(e) => changeBrand(e.target.value)}>
                           {allowedBrands.map((b) => (
                             <option key={b.id} value={b.id}>{b.name}</option>
@@ -327,7 +331,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
                       </div>
                     )}
                     <div>
-                      <label className="field-label">Шаблон</label>
+                      <label className="field-label">{t("emp.template")}</label>
                       <select className="input" value={state.photoTemplateId} onChange={(e) => changeTemplate(e.target.value)}>
                         {availableTemplates.map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
@@ -338,7 +342,7 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
 
                   {multiEnabled && maxCount > 1 && (
                     <div className="mt-4">
-                      <label className="field-label">Количество товаров</label>
+                      <label className="field-label">{t("emp.count")}</label>
                       <div className="inline-flex rounded-full border border-line bg-sand p-1">
                         {Array.from({ length: maxCount }, (_, i) => i + 1).map((n) => (
                           <button key={n} className={`h-9 w-10 rounded-full text-sm font-semibold transition ${productCount === n ? "bg-ink text-white shadow" : "text-ink/60 hover:text-ink"}`} onClick={() => setProductCount(n)}>
@@ -352,14 +356,14 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
 
                 {!isMulti ? (
                   <div className="card p-5">
-                    <h2 className="mb-4 font-serif text-xl">Данные товара</h2>
+                    <h2 className="mb-4 font-serif text-xl">{t("emp.product_data")}</h2>
                     {renderFields(0)}
                   </div>
                 ) : (
                   <div className="space-y-5">
                     {products.map((product, index) => (
                       <div key={product.id} className="card p-5">
-                        <h2 className="mb-4 font-serif text-xl">Товар {index + 1}</h2>
+                        <h2 className="mb-4 font-serif text-xl">{t("emp.product_n", { n: index + 1 })}</h2>
                         {renderFields(index)}
                       </div>
                     ))}
@@ -367,14 +371,14 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
                 )}
 
                 <button className="btn-primary w-full sm:w-auto" onClick={() => setStep(2)}>
-                  Далее: фото →
+                  {t("emp.next_photo")}
                 </button>
               </section>
 
               <aside className="lg:sticky lg:top-24 lg:self-start">
                 <div className="card overflow-hidden p-3">
                   <CollageCanvas template={template} state={state} className="rounded-lg" />
-                  <p className="mt-2 text-center text-xs text-ink/40">Предпросмотр</p>
+                  <p className="mt-2 text-center text-xs text-ink/40">{t("emp.preview")}</p>
                 </div>
               </aside>
             </div>
@@ -383,20 +387,20 @@ export function EmployeeApp({ template, user, pin, onLogout }: Props) {
               <div className="card overflow-hidden p-3">
                 <CollageEditor template={template} state={state} onChange={setState} onUploadPhoto={(i, f) => uploadPhoto(i, f)} />
                 <p className="mt-2 text-center text-xs text-ink/40">
-                  Дважды нажмите на отсек — загрузить фото · перетаскивайте — двигать · колесо — масштаб
+                  {t("emp.editor_hint")}
                 </p>
               </div>
 
               <div className="card space-y-3 p-4">
                 <button className="btn-primary w-full" onClick={handleSave} disabled={saveStatus.kind === "saving"}>
-                  {saveStatus.kind === "saving" ? "Сохранение…" : "Сохранить и скачать"}
+                  {saveStatus.kind === "saving" ? t("emp.saving") : t("emp.save_download")}
                 </button>
                 <div className="flex gap-2">
                   <button className="btn-ghost flex-1" onClick={() => setStep(1)}>
-                    ← Назад
+                    {t("common.back")}
                   </button>
                   <button className="btn-ghost flex-1" onClick={handleDownload}>
-                    Скачать PNG
+                    {t("emp.download_png")}
                   </button>
                 </div>
                 {saveStatus.message && (
