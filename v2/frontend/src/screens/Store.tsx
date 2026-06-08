@@ -366,7 +366,7 @@ export function Store({ template }: Props) {
                       <div className="text-xs text-ink/45">{[item.color, item.size].filter(Boolean).join(" · ")}</div>
                       {item.count > 1 && (
                         <div className="text-[11px] text-ink/40">
-                          серия {item.count} шт × {item.unit}
+                          {item.unit} × {item.count} шт = {item.price}
                         </div>
                       )}
                       <div className="mt-auto flex items-center justify-between">
@@ -466,10 +466,13 @@ export function Store({ template }: Props) {
                 </dl>
                 {variation.price && (
                   <div className="mt-4">
-                    <div className="font-serif text-3xl">{series}</div>
+                    <div className="font-serif text-3xl">
+                      {variation.price}
+                      <span className="ml-1 align-middle font-sans text-sm text-ink/40">/шт</span>
+                    </div>
                     {count > 1 && (
-                      <div className="mt-0.5 text-sm text-ink/50">
-                        серия {count} шт × {variation.price}/шт
+                      <div className="mt-1 text-base font-semibold text-ink/80">
+                        Серия {count} шт = {series}
                       </div>
                     )}
                   </div>
@@ -603,17 +606,22 @@ export function Store({ template }: Props) {
                       .join(" · ")}
                   </div>
                   {(() => {
-                    const totals = p.variations
-                      .map((v) => ({ n: parsePrice(v.price) * seriesCount(v.size), sample: v.price }))
-                      .filter((x) => x.n > 0);
-                    if (!totals.length) return null;
-                    const min = Math.min(...totals.map((x) => x.n));
-                    const varies = totals.some((x) => x.n !== min);
-                    const sample = totals[0].sample;
+                    const vs = p.variations.filter((v) => parsePrice(v.price) > 0);
+                    if (!vs.length) return null;
+                    const cheapest = vs.reduce((a, b) => (parsePrice(a.price) <= parsePrice(b.price) ? a : b));
+                    const unitVaries = vs.some((v) => parsePrice(v.price) !== parsePrice(cheapest.price));
+                    const cnt = seriesCount(cheapest.size);
                     return (
-                      <div className="mt-1 font-serif text-lg">
-                        {varies ? `от ${formatMoneyLike(min, sample)}` : formatMoneyLike(min, sample)}
-                      </div>
+                      <>
+                        <div className="mt-1 font-serif text-lg">
+                          {unitVaries ? `от ${cheapest.price}` : cheapest.price}
+                        </div>
+                        {cnt > 1 && (
+                          <div className="text-[11px] text-ink/45">
+                            × {cnt} шт = {seriesTotal(cheapest.price, cnt)}
+                          </div>
+                        )}
+                      </>
                     );
                   })()}
                 </div>
