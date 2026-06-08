@@ -48,20 +48,6 @@ function piecesLabel(n: number): string {
   return `${n} штук`;
 }
 
-/** Форматирует число как цену, сохраняя символ валюты из образца ("$50" → "$200"). */
-function formatMoneyLike(num: number, sample: string): string {
-  const prefix = (sample.match(/^[^\d]*/) || [""])[0];
-  const suffix = (sample.match(/[^\d]*$/) || [""])[0];
-  const v = Number.isInteger(num) ? String(num) : String(Math.round(num * 100) / 100);
-  return `${prefix}${v}${suffix}`;
-}
-
-/** Цена серии = цена за штуку × количество штук. */
-function seriesTotal(unitPrice: string | undefined, count: number): string {
-  const num = parsePrice(unitPrice);
-  if (!num) return unitPrice || "";
-  return formatMoneyLike(num * count, unitPrice as string);
-}
 
 export interface CartItem {
   key: string;
@@ -118,6 +104,12 @@ export function Store({ template }: Props) {
   const instagram = (store.instagram as string) || "peraistanbulstore";
   const currency = (store.currency as string) || "₺";
 
+  /** Любую цену всегда приводим к валюте магазина (игнорируя символ, что ввёл сотрудник). */
+  const money = (num: number) => {
+    const v = Number.isInteger(num) ? String(num) : String(Math.round(num * 100) / 100);
+    return currency ? `${v} ${currency}` : v;
+  };
+
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +142,9 @@ export function Store({ template }: Props) {
   function addToCart(p: StoreProduct, v: StoreVariation) {
     const key = v.id;
     const count = seriesCount(v.size);
-    const price = seriesTotal(v.price, count);
+    const unitNum = parsePrice(v.price);
+    const price = money(unitNum * count);
+    const unit = money(unitNum);
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
       if (existing) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + 1 } : i));
@@ -161,7 +155,7 @@ export function Store({ template }: Props) {
           id: v.id,
           code: p.code,
           price,
-          unit: v.price,
+          unit,
           count,
           photo: v.photos[0] || v.collageImage,
           color: v.color,
@@ -286,14 +280,14 @@ export function Store({ template }: Props) {
         i.price ? ` — ${i.price}` : ""
       }`;
     });
-    const total = cartTotal > 0 ? `\n\nИтого: ${cartTotal.toLocaleString("ru-RU")} ${currency}` : "";
+    const total = cartTotal > 0 ? `\n\nИтого: ${money(cartTotal)}` : "";
     const text = `Здравствуйте! Хочу заказать:\n${lines.join("\n")}${total}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   function whatsappLink(p: StoreProduct, v: StoreVariation): string {
     const count = seriesCount(v.size);
-    const series = seriesTotal(v.price, count);
+    const series = money(parsePrice(v.price) * count);
     const sizePart = v.size ? `, размер ${v.size}${count > 1 ? ` (серия ${count} шт)` : ""}` : "";
     const text = `Здравствуйте! Хочу заказать: ${p.code}${v.color ? `, цвет ${v.color}` : ""}${sizePart} — ${series}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
@@ -396,7 +390,7 @@ export function Store({ template }: Props) {
               <div className="mt-5 rounded-xl border border-line bg-white p-4">
                 <div className="mb-3 flex items-center justify-between text-lg font-semibold">
                   <span>Итого</span>
-                  <span>{cartTotal > 0 ? `${cartTotal.toLocaleString("ru-RU")} ${currency}` : "—"}</span>
+                  <span>{cartTotal > 0 ? money(cartTotal) : "—"}</span>
                 </div>
                 <a
                   href={cartWhatsappLink()}
@@ -417,7 +411,8 @@ export function Store({ template }: Props) {
         const variation = quick.variations[variationIdx] ?? quick.variations[0];
         const gallery = [...variation.photos, variation.collageImage].filter(Boolean) as string[];
         const count = seriesCount(variation.size);
-        const series = seriesTotal(variation.price, count);
+        const unitPrice = parsePrice(variation.price);
+        const series = money(unitPrice * count);
         return (
           <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
             <button
@@ -464,10 +459,10 @@ export function Store({ template }: Props) {
                     <Row label="Серия (размеры)" value={count > 1 ? `${variation.size} — ${piecesLabel(count)}` : variation.size} />
                   )}
                 </dl>
-                {variation.price && (
+                {unitPrice > 0 && (
                   <div className="mt-4">
                     <div className="font-serif text-3xl">
-                      {variation.price}
+                      {money(unitPrice)}
                       <span className="ml-1 align-middle font-sans text-sm text-ink/40">/шт</span>
                     </div>
                     {count > 1 && (
@@ -609,16 +604,17 @@ export function Store({ template }: Props) {
                     const vs = p.variations.filter((v) => parsePrice(v.price) > 0);
                     if (!vs.length) return null;
                     const cheapest = vs.reduce((a, b) => (parsePrice(a.price) <= parsePrice(b.price) ? a : b));
-                    const unitVaries = vs.some((v) => parsePrice(v.price) !== parsePrice(cheapest.price));
+                    const unit = parsePrice(cheapest.price);
+                    const unitVaries = vs.some((v) => parsePrice(v.price) !== unit);
                     const cnt = seriesCount(cheapest.size);
                     return (
                       <>
                         <div className="mt-1 font-serif text-lg">
-                          {unitVaries ? `от ${cheapest.price}` : cheapest.price}
+                          {unitVaries ? `от ${money(unit)}` : money(unit)}
                         </div>
                         {cnt > 1 && (
                           <div className="text-[11px] text-ink/45">
-                            × {cnt} шт = {seriesTotal(cheapest.price, cnt)}
+                            × {cnt} шт = {money(unit * cnt)}
                           </div>
                         )}
                       </>
