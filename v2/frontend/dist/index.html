@@ -17,12 +17,16 @@
     />
     <title>PERA</title>
     <script>
-      // Two installable apps from one site: customer (default) and staff.
-      // Switch the manifest + icon + title when on the staff/admin routes.
+      // Two installable apps: customer (vrapzi.com) and staff (staff.vrapzi.com).
+      // The staff app lives on its own subdomain so it installs as a separate
+      // icon without clashing with the customer app's root scope.
       (function () {
+        var host = location.hostname || "";
         var p = location.pathname || "";
-        if (p.indexOf("/staff") === 0 || p.indexOf("/admin") === 0) {
-          var apply = function () {
+        var staffHost = host.indexOf("staff.") === 0;
+        var staffLook = staffHost || p.indexOf("/staff") === 0 || p.indexOf("/admin") === 0;
+        var apply = function () {
+          if (staffHost) {
             var l = document.querySelector('link[rel="manifest"]');
             if (!l) {
               l = document.createElement("link");
@@ -30,6 +34,8 @@
               document.head.appendChild(l);
             }
             l.href = "/staff.webmanifest";
+          }
+          if (staffLook) {
             var ti = document.querySelector('link[rel="apple-touch-icon"]');
             if (ti) ti.href = "/icons/staff-apple-180.png";
             var tt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
@@ -37,13 +43,15 @@
             var th = document.querySelector('meta[name="theme-color"]');
             if (th) th.content = "#1a1816";
             document.title = "PERA Staff";
-          };
+          }
+        };
+        if (staffLook) {
           apply();
           document.addEventListener("DOMContentLoaded", apply);
         }
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-C_NdMIL0.js"></script>
+    <script type="module" crossorigin src="/assets/index-B33eo0jY.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DodA_1UG.css">
   <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body>

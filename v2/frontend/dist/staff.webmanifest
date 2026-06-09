@@ -1,9 +1,9 @@
 {
-  "id": "/staff",
+  "id": "/",
   "name": "PERA Staff",
   "short_name": "PERA Staff",
   "description": "PERA — staff workspace",
-  "start_url": "/staff",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

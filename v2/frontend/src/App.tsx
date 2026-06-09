@@ -14,6 +14,9 @@ type Session =
   | { kind: "admin"; pin: string };
 
 function detectRoute(): Route {
+  // Staff subdomain (staff.vrapzi.com) → the staff workspace (login has both
+  // Employee and Administrator tabs).
+  if (window.location.hostname.startsWith("staff.")) return "staff";
   const path = window.location.pathname.replace(/\/+$/, "");
   if (path === "/admin") return "admin";
   if (path === "/staff") return "staff";
