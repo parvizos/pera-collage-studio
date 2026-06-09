@@ -4,6 +4,7 @@ import { CollageCanvas } from "../../components/CollageCanvas";
 import { resolveScene } from "../../render/scene";
 import { buildDefaultState, buildDefaultFieldValues } from "../../render/state";
 import { api, ApiError } from "../../api/client";
+import { useI18n } from "../../i18n";
 
 interface Props {
   template: Template;
@@ -12,36 +13,32 @@ interface Props {
 }
 
 const BLOCK_LABELS: Record<string, string> = {
-  header: "Шапка (фон)",
-  footer: "Подвал (фон)",
-  headerLogo: "Логотип / название",
-  leftBadge: "Бейдж слева",
-  rightBadge: "Бейдж справа",
-  brandPlate: "Плашка бренда",
-  textLeft: "Текст слева",
-  textCenterTop: "Текст центр (верх)",
-  textCenterBottom: "Текст центр (низ)",
-  priceBox: "Цена",
+  header: "se.blk_header",
+  footer: "se.blk_footer",
+  headerLogo: "se.blk_logo",
+  leftBadge: "se.blk_left",
+  rightBadge: "se.blk_right",
+  brandPlate: "se.blk_brand",
+  textLeft: "se.blk_text_left",
+  textCenterTop: "se.blk_text_ct",
+  textCenterBottom: "se.blk_text_cb",
+  priceBox: "se.blk_price",
 };
 
 const STRUCTURAL = new Set(["header", "footer", "headerLogo", "leftBadge", "rightBadge"]);
 const TEXT_KEYS = new Set(["textLeft", "textCenterTop", "textCenterBottom", "priceBox"]);
 
 const THEME_FIELDS: { key: string; label: string }[] = [
-  { key: "headerBackground", label: "Фон шапки" },
-  { key: "footerBackground", label: "Фон подвала" },
-  { key: "storeTextColor", label: "Текст магазина" },
-  { key: "brandTextColor", label: "Текст бренда" },
-  { key: "footerTextColor", label: "Текст подвала" },
-  { key: "priceTextColor", label: "Текст цены" },
+  { key: "headerBackground", label: "se.th_header_bg" },
+  { key: "footerBackground", label: "se.th_footer_bg" },
+  { key: "storeTextColor", label: "se.th_store_text" },
+  { key: "brandTextColor", label: "se.th_brand_text" },
+  { key: "footerTextColor", label: "se.th_footer_text" },
+  { key: "priceTextColor", label: "se.th_price_text" },
 ];
 
 const LAYOUT_KEYS = ["single", "2", "3", "4"] as const;
 type LayoutKey = (typeof LAYOUT_KEYS)[number];
-
-function layoutLabel(k: LayoutKey): string {
-  return k === "single" ? "1 товар" : `${k} товара`;
-}
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -111,6 +108,8 @@ function contentTypeOf(binding: TextBinding | undefined): ContentType {
 }
 
 export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
+  const { t } = useI18n();
+  const layoutLabel = (k: LayoutKey): string => (k === "single" ? t("se.one_product") : t("se.n_products", { n: k }));
   const [draft, setDraft] = useState<Template>(() => migrateScenes(template));
   const [templateId, setTemplateId] = useState<string>(
     () => template.photoTemplates[0]?.id ?? "template_1",
@@ -153,7 +152,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
       photoTemplateId: templateId,
       products: Array.from({ length: productCount }, (_, i) => ({
         id: `p${i}`,
-        values: { ...values, code: `${values.code || "КОД"}-${i + 1}` },
+        values: { ...values, code: `${values.code || "CODE"}-${i + 1}` },
       })),
     };
   }, [draft, templateId, productCount]);
@@ -171,20 +170,20 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
 
   function blockLabel(key: string): string {
     const b = scene.blocks[key];
-    if (BLOCK_LABELS[key]) return BLOCK_LABELS[key];
+    if (BLOCK_LABELS[key]) return t(BLOCK_LABELS[key]);
     const binding = scene.textBindings[key];
     // Field-bound variable → show the field name (+ product number in multi layouts).
     if (binding && binding.type !== "static" && binding.primary) {
       const f = draft.fields.find((ff) => ff.id === binding.primary);
       if (f) {
-        const suffix = productCount > 1 ? ` (товар ${(binding.productIndex ?? 0) + 1})` : "";
+        const suffix = productCount > 1 ? ` (${t("se.product_suffix", { n: (binding.productIndex ?? 0) + 1 })})` : "";
         return `${f.label}${suffix}`;
       }
     }
     if (binding?.type === "static") {
-      return binding.text ? `«${binding.text.slice(0, 14)}»` : b?.name || "Текст";
+      return binding.text ? `«${binding.text.slice(0, 14)}»` : b?.name || t("se.name_text");
     }
-    return b?.name || (key.startsWith("custom") ? "Блок" : key);
+    return b?.name || (key.startsWith("custom") ? t("se.name_block") : key);
   }
 
   function isTextual(key: string): boolean {
@@ -247,7 +246,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
         const prev = slice.textBindings[key] ?? {};
         slice.textBindings[key] =
           type === "static"
-            ? { type: "static", text: prev.text ?? "Текст" }
+            ? { type: "static", text: prev.text ?? t("se.name_text") }
             : { type: "field", primary: prev.primary || draft.fields[0]?.id || "", productIndex: prev.productIndex ?? 0 };
       }
     });
@@ -278,12 +277,12 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
         fill: kind === "shape" ? "#d47516" : "#111111",
         radius: 12,
         kind: kind === "shape" ? "custom-shape" : kind === "image" ? "custom-image" : "custom-text",
-        name: kind === "field" ? "Переменная" : kind === "static" ? "Текст" : kind === "shape" ? "Фигура" : "Картинка",
+        name: kind === "field" ? t("se.name_var") : kind === "static" ? t("se.name_text") : kind === "shape" ? t("se.name_shape") : t("se.name_image"),
         background: false,
         ...(kind === "image" ? { imageSrc: null } : {}),
       };
       slice.blockOrder.push(key);
-      if (kind === "static") slice.textBindings[key] = { type: "static", text: "Текст" };
+      if (kind === "static") slice.textBindings[key] = { type: "static", text: t("se.name_text") };
       if (kind === "field")
         slice.textBindings[key] = { type: "field", primary: draft.fields[0]?.id || "", productIndex: 0 };
       if (kind === "static" || kind === "field") slice.textStyles[key] = { color: "#ffffff", align: "center" };
@@ -302,7 +301,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
         x: Math.min(canvasW - src.width, src.x + 24),
         y: Math.min(canvasH - src.height, src.y + 24),
         kind: src.kind?.startsWith("custom") ? src.kind : "custom-text",
-        name: `${blockLabel(key)} (копия)`,
+        name: `${blockLabel(key)} (${t("se.copy_suffix")})`,
       };
       slice.blockOrder.push(newKey);
       if (slice.textBindings[key]) slice.textBindings[newKey] = structuredClone(slice.textBindings[key]);
@@ -320,7 +319,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
     const id = `field_${Date.now()}`;
     setDraft((prev) => ({
       ...prev,
-      fields: [...prev.fields, { id, label: label || "Новое поле", inputType: "text", defaultValue: "", options: [] }],
+      fields: [...prev.fields, { id, label: label || t("adm.new_field"), inputType: "text", defaultValue: "", options: [] }],
     }));
     return id;
   }
@@ -473,9 +472,9 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
     try {
       await api.saveTemplate(draft, adminPin);
       onTemplateChange(draft);
-      setStatus({ kind: "ok", msg: "Сохранено" });
+      setStatus({ kind: "ok", msg: t("common.saved") });
     } catch (e) {
-      setStatus({ kind: "error", msg: e instanceof ApiError && e.status === 401 ? "Нет доступа (PIN администратора)" : "Не удалось сохранить" });
+      setStatus({ kind: "error", msg: e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail") });
     }
   }
 
@@ -485,8 +484,8 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-2xl">Шаблоны</h1>
-          <p className="text-sm text-ink/50">Соберите коллаж из блоков. Любой блок можно сделать переменной.</p>
+          <h1 className="font-serif text-2xl">{t("se.title")}</h1>
+          <p className="text-sm text-ink/50">{t("se.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select className="input w-auto" value={templateId} onChange={(e) => { setTemplateId(e.target.value); setSelected(null); setSelectedCell(null); }}>
@@ -504,7 +503,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
 
       {productCount > 1 && (
         <div className="rounded-xl border border-clay/30 bg-clay/5 p-3 text-sm text-ink/70">
-          Это макет для <b>{productCount} товаров</b>. Для каждого блока-переменной выберите «Товар №», чтобы он показывал данные нужного товара. Кнопка «Дублировать» поможет быстро размножить блок.
+          {t("se.multi_hint", { count: productCount })}
         </div>
       )}
 
@@ -512,19 +511,19 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
         <div className="inline-flex rounded-full border border-line bg-white p-1 text-sm font-semibold">
           {(["blocks", "photos"] as const).map((l) => (
             <button key={l} className={`rounded-full px-4 py-1.5 transition ${editLayer === l ? "bg-ink text-white" : "text-ink/60"}`} onClick={() => { setEditLayer(l); setSelected(null); setSelectedCell(null); }}>
-              {l === "blocks" ? "Блоки" : "Фото товара"}
+              {l === "blocks" ? t("se.layer_blocks") : t("se.layer_photos")}
             </button>
           ))}
         </div>
         {editLayer === "blocks" ? (
           <div className="flex flex-wrap gap-2">
-            <button className="btn-ghost" onClick={() => addBlock("field")}>+ Переменная</button>
-            <button className="btn-ghost" onClick={() => addBlock("static")}>+ Текст</button>
-            <button className="btn-ghost" onClick={() => addBlock("shape")}>+ Фигура</button>
-            <button className="btn-ghost" onClick={() => addBlock("image")}>+ Картинка</button>
+            <button className="btn-ghost" onClick={() => addBlock("field")}>{t("se.add_var")}</button>
+            <button className="btn-ghost" onClick={() => addBlock("static")}>{t("se.add_text")}</button>
+            <button className="btn-ghost" onClick={() => addBlock("shape")}>{t("se.add_shape")}</button>
+            <button className="btn-ghost" onClick={() => addBlock("image")}>{t("se.add_image")}</button>
           </div>
         ) : (
-          <button className="btn-ghost" onClick={addCell}>+ Фото товара</button>
+          <button className="btn-ghost" onClick={addCell}>{t("se.add_cell")}</button>
         )}
       </div>
 
@@ -563,7 +562,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
                 })}
             </div>
           </div>
-          <p className="mt-2 text-center text-xs text-ink/40">Кликните блок, тяните для перемещения, угол — для размера</p>
+          <p className="mt-2 text-center text-xs text-ink/40">{t("se.canvas_hint")}</p>
 
           {/* Block list */}
           {editLayer === "blocks" && (
@@ -573,8 +572,8 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
                   className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm ${selected === key ? "bg-ink text-white" : "hover:bg-sand"}`}>
                   <span className="truncate">{blockLabel(key)}</span>
                   <span className={`ml-2 shrink-0 text-xs ${selected === key ? "text-white/60" : "text-ink/30"}`}>
-                    {isTextual(key) ? (contentTypeOf(scene.textBindings[key]) === "field" ? "перем." : contentTypeOf(scene.textBindings[key]) === "static" ? "текст" : "") : block.kind === "custom-image" ? "карт." : ""}
-                    {block.hidden ? " скрыт" : ""}
+                    {isTextual(key) ? (contentTypeOf(scene.textBindings[key]) === "field" ? t("se.tag_var") : contentTypeOf(scene.textBindings[key]) === "static" ? t("se.tag_text") : "") : block.kind === "custom-image" ? t("se.tag_img") : ""}
+                    {block.hidden ? ` ${t("se.tag_hidden")}` : ""}
                   </span>
                 </button>
               ))}
@@ -586,10 +585,10 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
         <div className="space-y-4">
           {editLayer === "photos" ? (
             !cell ? (
-              <div className="card p-5 text-sm text-ink/50">Выберите фото товара на холсте</div>
+              <div className="card p-5 text-sm text-ink/50">{t("se.select_cell")}</div>
             ) : (
               <div className="card space-y-4 p-5">
-                <div className="text-sm font-semibold">Фото товара {selectedCell! + 1}</div>
+                <div className="text-sm font-semibold">{t("se.cell_title", { n: selectedCell! + 1 })}</div>
                 <div className="grid grid-cols-2 gap-2">
                   {(["x", "y", "width", "height"] as const).map((prop) => (
                     <div key={prop}>
@@ -600,28 +599,28 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="field-label">Рамка (px)</label>
+                    <label className="field-label">{t("se.border_px")}</label>
                     <input type="number" className="input" value={Math.round(cell.borderWidth ?? 0)} onChange={(e) => updateCell(selectedCell!, { borderWidth: Number(e.target.value) })} />
                   </div>
                   <div>
-                    <label className="field-label">Скругление</label>
+                    <label className="field-label">{t("se.radius")}</label>
                     <input type="number" className="input" value={Math.round(cell.radius ?? 0)} onChange={(e) => updateCell(selectedCell!, { radius: Number(e.target.value) })} />
                   </div>
                   <div>
-                    <label className="field-label">Цвет рамки</label>
+                    <label className="field-label">{t("se.border_color")}</label>
                     <input type="color" className="h-9 w-full rounded border border-line" value={cell.stroke || "#d6c5b3"} onChange={(e) => updateCell(selectedCell!, { stroke: e.target.value })} />
                   </div>
                 </div>
-                <button className="text-sm font-medium text-red-600 hover:underline" onClick={() => removeCell(selectedCell!)}>Удалить фото</button>
+                <button className="text-sm font-medium text-red-600 hover:underline" onClick={() => removeCell(selectedCell!)}>{t("se.delete_photo")}</button>
               </div>
             )
           ) : !selectedBlock ? (
-            <div className="card p-5 text-sm text-ink/50">Выберите блок на холсте или в списке</div>
+            <div className="card p-5 text-sm text-ink/50">{t("se.select_block")}</div>
           ) : (
             <div className="card space-y-4 p-5">
               <div>
-                <label className="field-label">Название блока</label>
-                <input className="input" value={selectedBlock.name ?? BLOCK_LABELS[selected!] ?? ""} placeholder={blockLabel(selected!)} onChange={(e) => renameBlock(selected!, e.target.value)} />
+                <label className="field-label">{t("se.block_name")}</label>
+                <input className="input" value={selectedBlock.name ?? ""} placeholder={blockLabel(selected!)} onChange={(e) => renameBlock(selected!, e.target.value)} />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -635,57 +634,57 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="field-label">Заливка</label>
+                  <label className="field-label">{t("se.fill")}</label>
                   <input type="color" className="h-9 w-full rounded border border-line" value={selectedBlock.fill || "#ffffff"} onChange={(e) => updateBlock(selected!, { fill: e.target.value })} />
                 </div>
                 <div>
-                  <label className="field-label">Скругление</label>
+                  <label className="field-label">{t("se.radius")}</label>
                   <input type="number" className="input" value={Math.round(selectedBlock.radius ?? 0)} onChange={(e) => updateBlock(selected!, { radius: Number(e.target.value) })} />
                 </div>
               </div>
 
               <label className="flex items-center gap-2 text-sm text-ink/70">
                 <input type="checkbox" checked={!!selectedBlock.hidden} onChange={(e) => updateBlock(selected!, { hidden: e.target.checked })} />
-                Скрыть блок
+                {t("se.hide_block")}
               </label>
 
               {/* Content */}
               {(isTextual(selected!) || selectedBlock.kind?.startsWith("custom")) && !STRUCTURAL.has(selected!) && (
                 <div className="space-y-3 border-t border-line pt-3">
                   <div>
-                    <label className="field-label">Содержимое</label>
+                    <label className="field-label">{t("se.content")}</label>
                     <select className="input" value={contentType} onChange={(e) => setContentType(selected!, e.target.value as ContentType)}>
-                      <option value="none">Без текста (фон/фигура)</option>
-                      <option value="static">Статичный текст</option>
-                      <option value="field">Переменная (поле товара)</option>
+                      <option value="none">{t("se.content_none")}</option>
+                      <option value="static">{t("se.content_static")}</option>
+                      <option value="field">{t("se.content_field")}</option>
                     </select>
                   </div>
 
                   {contentType === "static" && (
-                    <input className="input" placeholder="Введите текст" value={selectedBinding?.text ?? ""} onChange={(e) => setBinding(selected!, { type: "static", text: e.target.value })} />
+                    <input className="input" placeholder={t("se.enter_text")} value={selectedBinding?.text ?? ""} onChange={(e) => setBinding(selected!, { type: "static", text: e.target.value })} />
                   )}
 
                   {contentType === "field" && (
                     <>
                       <div>
-                        <label className="field-label">Поле (переменная)</label>
+                        <label className="field-label">{t("se.field_var")}</label>
                         <select className="input" value={selectedBinding?.primary ?? ""} onChange={(e) => setBinding(selected!, { type: "field", primary: e.target.value })}>
-                          <option value="">— выберите —</option>
+                          <option value="">{t("se.choose")}</option>
                           {draft.fields.map((f) => (
                             <option key={f.id} value={f.id}>{f.label}</option>
                           ))}
                         </select>
                       </div>
                       <div className="flex gap-2">
-                        <input className="input" placeholder="новое поле…" value={newFieldLabel} onChange={(e) => setNewFieldLabel(e.target.value)} />
-                        <button className="btn-ghost shrink-0" onClick={() => { if (!newFieldLabel.trim()) return; const id = addField(newFieldLabel.trim()); setBinding(selected!, { type: "field", primary: id }); setNewFieldLabel(""); }}>+ поле</button>
+                        <input className="input" placeholder={t("se.new_field_ph")} value={newFieldLabel} onChange={(e) => setNewFieldLabel(e.target.value)} />
+                        <button className="btn-ghost shrink-0" onClick={() => { if (!newFieldLabel.trim()) return; const id = addField(newFieldLabel.trim()); setBinding(selected!, { type: "field", primary: id }); setNewFieldLabel(""); }}>{t("se.add_field_btn")}</button>
                       </div>
                       {productCount > 1 && (
                         <div>
-                          <label className="field-label">Товар №</label>
+                          <label className="field-label">{t("se.product_num")}</label>
                           <select className="input" value={selectedBinding?.productIndex ?? 0} onChange={(e) => setBinding(selected!, { productIndex: Number(e.target.value) })}>
                             {Array.from({ length: productCount }, (_, i) => (
-                              <option key={i} value={i}>Товар {i + 1}</option>
+                              <option key={i} value={i}>{t("se.product_n", { n: i + 1 })}</option>
                             ))}
                           </select>
                         </div>
@@ -697,19 +696,19 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
                     <>
                       <label className="flex items-center gap-2 text-sm text-ink/70">
                         <input type="checkbox" checked={!!selectedBlock.background} onChange={(e) => updateBlock(selected!, { background: e.target.checked })} />
-                        Подложка (фон под текстом)
+                        {t("se.backplate")}
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="field-label">Цвет текста</label>
+                          <label className="field-label">{t("se.text_color")}</label>
                           <input type="color" className="h-9 w-full rounded border border-line" value={scene.textStyles[selected!]?.color || "#121212"} onChange={(e) => setStyle(selected!, { color: e.target.value })} />
                         </div>
                         <div>
-                          <label className="field-label">Выравнивание</label>
+                          <label className="field-label">{t("se.align")}</label>
                           <select className="input" value={scene.textStyles[selected!]?.align || "left"} onChange={(e) => setStyle(selected!, { align: e.target.value })}>
-                            <option value="left">Слева</option>
-                            <option value="center">По центру</option>
-                            <option value="right">Справа</option>
+                            <option value="left">{t("se.align_left")}</option>
+                            <option value="center">{t("se.align_center")}</option>
+                            <option value="right">{t("se.align_right")}</option>
                           </select>
                         </div>
                       </div>
@@ -719,7 +718,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
                           checked={!!scene.textStyles[selected!]?.strike}
                           onChange={(e) => setStyle(selected!, { strike: e.target.checked })}
                         />
-                        Зачёркнутый (для старой цены)
+                        {t("se.strike")}
                       </label>
                     </>
                   )}
@@ -728,15 +727,15 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
 
               {selectedBlock.kind === "custom-image" && (
                 <div className="space-y-2 border-t border-line pt-3">
-                  <div className="text-xs font-semibold uppercase text-ink/40">Картинка</div>
+                  <div className="text-xs font-semibold uppercase text-ink/40">{t("se.image")}</div>
                   <div className="relative aspect-video overflow-hidden rounded-lg border border-line bg-sand">
                     {selectedBlock.imageSrc ? (
                       <img src={selectedBlock.imageSrc} alt="" className="h-full w-full object-contain p-1" />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-xs text-ink/30">нет картинки</div>
+                      <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("se.no_image")}</div>
                     )}
                     <label className="absolute inset-x-0 bottom-0 cursor-pointer bg-black/40 py-0.5 text-center text-xs font-semibold text-white hover:bg-black/60">
-                      Загрузить
+                      {t("se.upload")}
                       <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadCustomImage(selected!, e.target.files?.[0])} />
                     </label>
                   </div>
@@ -744,8 +743,8 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
               )}
 
               <div className="flex items-center justify-between border-t border-line pt-3">
-                <button className="text-sm font-medium text-ink/60 hover:underline" onClick={() => duplicateBlock(selected!)}>Дублировать</button>
-                <button className="text-sm font-medium text-red-600 hover:underline" onClick={() => deleteBlock(selected!)}>Удалить блок</button>
+                <button className="text-sm font-medium text-ink/60 hover:underline" onClick={() => duplicateBlock(selected!)}>{t("se.duplicate")}</button>
+                <button className="text-sm font-medium text-red-600 hover:underline" onClick={() => deleteBlock(selected!)}>{t("se.delete_block")}</button>
               </div>
             </div>
           )}
@@ -755,7 +754,7 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
               <span className={`text-sm font-medium ${status.kind === "error" ? "text-red-600" : "text-green-600"}`}>{status.msg}</span>
             )}
             <button className="btn-primary ml-auto" onClick={save} disabled={status.kind === "saving"}>
-              {status.kind === "saving" ? "Сохранение…" : "Сохранить"}
+              {status.kind === "saving" ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </div>
@@ -764,40 +763,40 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
       {/* Studio */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="card space-y-3 p-5">
-          <h2 className="font-serif text-lg">Магазин</h2>
+          <h2 className="font-serif text-lg">{t("se.store_title")}</h2>
           <div>
-            <label className="field-label">Название</label>
+            <label className="field-label">{t("se.store_name")}</label>
             <input className="input" value={(store.title as string) ?? ""} onChange={(e) => setStore({ title: e.target.value })} />
           </div>
           <div>
-            <label className="field-label">Подпись</label>
+            <label className="field-label">{t("se.store_caption")}</label>
             <input className="input" value={(store.subtitle as string) ?? ""} onChange={(e) => setStore({ subtitle: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="field-label">Размер названия</label>
+              <label className="field-label">{t("se.name_size")}</label>
               <input type="number" className="input" value={Number(store.titleSize ?? 74)} onChange={(e) => setStore({ titleSize: Number(e.target.value) })} />
             </div>
             <div>
-              <label className="field-label">Размер подписи</label>
+              <label className="field-label">{t("se.caption_size")}</label>
               <input type="number" className="input" value={Number(store.subtitleSize ?? 26)} onChange={(e) => setStore({ subtitleSize: Number(e.target.value) })} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(["logo", "leftBadge", "rightBadge"] as const).map((field) => {
-              const label = field === "logo" ? "Логотип" : field === "leftBadge" ? "Бейдж слева" : "Бейдж справа";
+              const label = field === "logo" ? t("se.blk_logo") : field === "leftBadge" ? t("se.blk_left") : t("se.blk_right");
               const value = store[field] as string | null;
               return (
                 <div key={field}>
                   <label className="field-label">{label}</label>
                   <div className="relative aspect-square overflow-hidden rounded-lg border border-line bg-sand">
-                    {value ? <img src={value} alt="" className="h-full w-full object-contain p-1" /> : <div className="flex h-full items-center justify-center text-[10px] text-ink/30">нет</div>}
+                    {value ? <img src={value} alt="" className="h-full w-full object-contain p-1" /> : <div className="flex h-full items-center justify-center text-[10px] text-ink/30">{t("se.none_short")}</div>}
                     <label className="absolute inset-x-0 bottom-0 cursor-pointer bg-black/40 py-0.5 text-center text-[10px] font-semibold text-white hover:bg-black/60">
-                      файл
+                      {t("se.file")}
                       <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadStoreAsset(field, e.target.files?.[0])} />
                     </label>
                   </div>
-                  {value && <button className="mt-1 w-full text-[10px] text-red-600 hover:underline" onClick={() => setStore({ [field]: null })}>убрать</button>}
+                  {value && <button className="mt-1 w-full text-[10px] text-red-600 hover:underline" onClick={() => setStore({ [field]: null })}>{t("se.remove_short")}</button>}
                 </div>
               );
             })}
@@ -805,29 +804,29 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
         </div>
 
         <div className="card space-y-3 p-5">
-          <h2 className="font-serif text-lg">Тема оформления</h2>
+          <h2 className="font-serif text-lg">{t("se.theme_title")}</h2>
           {THEME_FIELDS.map((tf) => (
             <div key={tf.key} className="flex items-center justify-between">
-              <span className="text-sm text-ink/70">{tf.label}</span>
+              <span className="text-sm text-ink/70">{t(tf.label)}</span>
               <input type="color" className="h-8 w-14 rounded border border-line" value={theme[tf.key] || "#ffffff"} onChange={(e) => setTheme({ [tf.key]: e.target.value })} />
             </div>
           ))}
         </div>
 
         <div className="card space-y-3 p-5">
-          <h2 className="font-serif text-lg">Холст</h2>
+          <h2 className="font-serif text-lg">{t("se.canvas_title")}</h2>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-ink/70">Цвет фона</span>
+            <span className="text-sm text-ink/70">{t("se.bg_color")}</span>
             <input type="color" className="h-8 w-14 rounded border border-line" value={draft.canvas.backgroundColor || "#ffffff"} onChange={(e) => setCanvas({ backgroundColor: e.target.value })} />
           </div>
           <div>
-            <label className="field-label">Ширина холста</label>
+            <label className="field-label">{t("se.canvas_width")}</label>
             <input type="number" className="input" value={draft.canvas.width} onChange={(e) => setCanvas({ width: Number(e.target.value) })} />
           </div>
           <div>
-            <label className="field-label">Высота этого макета</label>
+            <label className="field-label">{t("se.layout_height")}</label>
             <input type="number" className="input" value={Math.round(scene.canvasHeight)} onChange={(e) => setSliceHeight(Number(e.target.value))} />
-            <p className="mt-1 text-xs text-ink/40">Для «{layoutLabel(layoutKey)}»</p>
+            <p className="mt-1 text-xs text-ink/40">{t("se.for_layout", { layout: layoutLabel(layoutKey) })}</p>
           </div>
         </div>
       </div>
@@ -835,14 +834,14 @@ export function SceneEditor({ template, adminPin, onTemplateChange }: Props) {
       {/* Photo template management */}
       <div className="card space-y-3 p-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-serif text-lg">Шаблоны фото</h2>
-          <button className="btn-ghost" onClick={addPhotoTemplate}>+ Добавить шаблон</button>
+          <h2 className="font-serif text-lg">{t("se.photo_templates")}</h2>
+          <button className="btn-ghost" onClick={addPhotoTemplate}>{t("se.add_template")}</button>
         </div>
         <div className="space-y-2">
           {draft.photoTemplates.map((pt) => (
             <div key={pt.id} className="flex items-center gap-2">
               <input className="input" value={pt.name} onChange={(e) => renamePhotoTemplate(pt.id, e.target.value)} />
-              <button className="shrink-0 rounded px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-30" onClick={() => removePhotoTemplate(pt.id)} disabled={draft.photoTemplates.length <= 1}>Удалить</button>
+              <button className="shrink-0 rounded px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-30" onClick={() => removePhotoTemplate(pt.id)} disabled={draft.photoTemplates.length <= 1}>{t("se.delete_short")}</button>
             </div>
           ))}
         </div>
