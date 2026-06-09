@@ -9,6 +9,14 @@ interface Props {
   onTemplateChange: (t: Template) => void;
 }
 
+interface HomeItem {
+  image?: string;
+  title?: string;
+  text?: string;
+  link?: string;
+  button?: string;
+}
+
 interface HomeSection {
   id: string;
   type: string;
@@ -18,6 +26,7 @@ interface HomeSection {
   text?: string;
   link?: string;
   button?: string;
+  items?: HomeItem[];
 }
 
 const FONT_OPTS = [
@@ -45,7 +54,12 @@ const TYPE_KEY: Record<string, string> = {
   catalog: "store.catalog",
   custom: "adm.custom_block",
   strip: "adm.strip",
+  duo: "adm.duo",
+  slider: "adm.slider",
+  richtext: "adm.richtext",
 };
+
+const BUILTIN = new Set(["categories", "sale", "new", "brands", "colors", "catalog"]);
 
 type Status = { kind: "idle" | "saving" | "ok" | "error"; msg?: string };
 
@@ -80,14 +94,19 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
   const [heroButton, setHeroButton] = useState((hero0.button as string) || "");
   const [heroHeight, setHeroHeight] = useState((hero0.height as string) || "m");
   const [heroAlign, setHeroAlign] = useState((hero0.align as string) || "center");
+  const [heroOverlay, setHeroOverlay] = useState((hero0.overlay as string) || "1");
+  const [heroTextColor, setHeroTextColor] = useState((hero0.textColor as string) || "light");
 
   const [sections, setSections] = useState<HomeSection[]>(sections0);
 
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [previewKey, setPreviewKey] = useState(0);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [wrapW, setWrapW] = useState(0);
   useEffect(() => {
     const el = previewRef.current;
@@ -103,6 +122,27 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
   const FH = device === "desktop" ? 820 : 760;
   const scale = wrapW ? Math.min(1, wrapW / FW) : 0.3;
 
+  function currentHome() {
+    return {
+      branding: { accent, bg, font },
+      hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign, overlay: heroOverlay, textColor: heroTextColor },
+      sections,
+    };
+  }
+  function postPreview() {
+    try {
+      iframeRef.current?.contentWindow?.postMessage({ type: "pera-home-preview", home: currentHome() }, "*");
+    } catch {
+      /* ignore */
+    }
+  }
+  // Live preview: push the unsaved config into the iframe as the admin edits (debounced).
+  useEffect(() => {
+    const id = setTimeout(postPreview, 250);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, device]);
+
   function patchSection(id: string, patch: Partial<HomeSection>) {
     setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }
@@ -115,14 +155,68 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
       return next;
     });
   }
-  function addBlock(type: "custom" | "strip") {
-    setSections((prev) => [
-      ...prev,
-      { id: `${type}_${Date.now()}`, type, enabled: true, title: "", text: "", button: "", link: "" },
-    ]);
+  function onDrop(target: number) {
+    setSections((prev) => {
+      if (dragIndex === null || dragIndex === target) return prev;
+      const next = [...prev];
+      const [m] = next.splice(dragIndex, 1);
+      next.splice(target, 0, m);
+      return next;
+    });
+    setDragIndex(null);
+    setOverIndex(null);
+  }
+  function addBlock(type: string) {
+    const base: HomeSection = { id: `${type}_${Date.now()}`, type, enabled: true };
+    if (type === "duo") base.items = [{}, {}];
+    else if (type === "slider") base.items = [{}];
+    setSections((prev) => [...prev, base]);
+  }
+  function duplicate(id: string) {
+    setSections((prev) => {
+      const i = prev.findIndex((s) => s.id === id);
+      if (i < 0) return prev;
+      const copy: HomeSection = JSON.parse(JSON.stringify(prev[i]));
+      copy.id = `${copy.type}_${Date.now()}`;
+      const next = [...prev];
+      next.splice(i + 1, 0, copy);
+      return next;
+    });
   }
   function removeBlock(id: string) {
     setSections((prev) => prev.filter((s) => s.id !== id));
+  }
+  function applyPreset(name: string) {
+    if (name === "market") {
+      setSections(DEFAULT_SECTIONS.map((s) => ({ ...s })));
+    } else if (name === "minimal") {
+      setSections([
+        { id: "new", type: "new", enabled: true },
+        { id: "catalog", type: "catalog", enabled: true },
+      ]);
+    } else if (name === "promo") {
+      setSections([
+        { id: `strip_${Date.now()}`, type: "strip", enabled: true, text: "", button: "" },
+        { id: "sale", type: "sale", enabled: true },
+        { id: "new", type: "new", enabled: true },
+        { id: "catalog", type: "catalog", enabled: true },
+      ]);
+    }
+  }
+  // ---- items (duo / slider) ----
+  function patchItem(secId: string, idx: number, patch: Partial<HomeItem>) {
+    setSections((prev) =>
+      prev.map((s) => (s.id === secId ? { ...s, items: (s.items || []).map((it, i) => (i === idx ? { ...it, ...patch } : it)) } : s)),
+    );
+  }
+  function addItem(secId: string) {
+    setSections((prev) => prev.map((s) => (s.id === secId ? { ...s, items: [...(s.items || []), {}] } : s)));
+  }
+  function removeItem(secId: string, idx: number) {
+    setSections((prev) => prev.map((s) => (s.id === secId ? { ...s, items: (s.items || []).filter((_, i) => i !== idx) } : s)));
+  }
+  async function uploadItem(secId: string, idx: number, file?: File) {
+    if (file) patchItem(secId, idx, { image: await fileToDataUrl(file) });
   }
   async function uploadHero(file?: File) {
     if (file) setHeroImage(await fileToDataUrl(file));
@@ -141,7 +235,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
           home: {
             ...home0,
             branding: { accent, bg, font },
-            hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign },
+            hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign, overlay: heroOverlay, textColor: heroTextColor },
             sections,
           },
         },
@@ -163,6 +257,38 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
       {status.kind === "saving" ? t("common.saving") : t("common.save")}
     </button>
   );
+
+  // ---- item editor (used by duo & slider) ----
+  function itemEditor(sec: HomeSection) {
+    const items = sec.items || [];
+    return (
+      <div className="mt-3 space-y-2 border-t border-line pt-3">
+        {items.map((it, idx) => (
+          <div key={idx} className="rounded-lg bg-sand/60 p-2">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-ink/60">{t("adm.item")} {idx + 1}</span>
+              <button className="text-xs text-red-600 hover:underline" onClick={() => removeItem(sec.id, idx)}>{t("common.delete")}</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative h-12 w-20 overflow-hidden rounded border border-line bg-white">
+                {it.image && <img src={it.image} alt="" className="h-full w-full object-cover" />}
+              </div>
+              <label className="btn-ghost cursor-pointer text-xs">
+                {t("adm.upload")}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadItem(sec.id, idx, e.target.files?.[0])} />
+              </label>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <input className="input" placeholder={t("adm.hero_heading")} value={it.title || ""} onChange={(e) => patchItem(sec.id, idx, { title: e.target.value })} />
+              <input className="input" placeholder={t("adm.block_btn")} value={it.button || ""} onChange={(e) => patchItem(sec.id, idx, { button: e.target.value })} />
+            </div>
+            <input className="input mt-2" placeholder={t("adm.block_link")} value={it.link || ""} onChange={(e) => patchItem(sec.id, idx, { link: e.target.value })} />
+          </div>
+        ))}
+        <button className="btn-ghost w-full text-sm" onClick={() => addItem(sec.id)}>{t("adm.add_item")}</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -248,7 +374,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
                   <label className="field-label">{t("adm.hero_sub")}</label>
                   <input className="input" value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <label className="field-label">{t("adm.hero_height")}</label>
                     <select className="input" value={heroHeight} onChange={(e) => setHeroHeight(e.target.value)}>
@@ -264,34 +390,79 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
                       <option value="left">{t("se.align_left")}</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="field-label">{t("adm.hero_overlay")}</label>
+                    <select className="input" value={heroOverlay} onChange={(e) => setHeroOverlay(e.target.value)}>
+                      <option value="0">{t("adm.ov_0")}</option>
+                      <option value="1">{t("adm.ov_1")}</option>
+                      <option value="2">{t("adm.ov_2")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">{t("adm.hero_textcolor")}</label>
+                    <select className="input" value={heroTextColor} onChange={(e) => setHeroTextColor(e.target.value)}>
+                      <option value="light">{t("adm.text_light")}</option>
+                      <option value="dark">{t("adm.text_dark")}</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Presets */}
+          <div className="card space-y-2 p-5">
+            <h2 className="font-serif text-lg">{t("adm.presets")}</h2>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-ghost" onClick={() => applyPreset("market")}>{t("adm.preset_market")}</button>
+              <button className="btn-ghost" onClick={() => applyPreset("minimal")}>{t("adm.preset_minimal")}</button>
+              <button className="btn-ghost" onClick={() => applyPreset("promo")}>{t("adm.preset_promo")}</button>
+            </div>
+            <p className="text-xs text-ink/40">{t("adm.preset_hint")}</p>
+          </div>
+
           {/* Sections */}
           <div className="card space-y-3 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-serif text-lg">{t("adm.sections_title")}</h2>
-              <div className="flex gap-2">
-                <button className="btn-ghost" onClick={() => addBlock("custom")}>{t("adm.add_block")}</button>
-                <button className="btn-ghost" onClick={() => addBlock("strip")}>{t("adm.add_strip")}</button>
-              </div>
+            <h2 className="font-serif text-lg">{t("adm.sections_title")}</h2>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-ghost" onClick={() => addBlock("custom")}>{t("adm.add_block")}</button>
+              <button className="btn-ghost" onClick={() => addBlock("duo")}>{t("adm.add_duo")}</button>
+              <button className="btn-ghost" onClick={() => addBlock("slider")}>{t("adm.add_slider")}</button>
+              <button className="btn-ghost" onClick={() => addBlock("strip")}>{t("adm.add_strip")}</button>
+              <button className="btn-ghost" onClick={() => addBlock("richtext")}>{t("adm.add_text")}</button>
             </div>
+            <p className="text-xs text-ink/40">{t("adm.drag_hint")}</p>
             <div className="space-y-2">
               {sections.map((s, i) => {
+                const builtin = BUILTIN.has(s.type);
                 const custom = s.type === "custom";
                 const strip = s.type === "strip";
+                const richtext = s.type === "richtext";
+                const hasItems = s.type === "duo" || s.type === "slider";
                 return (
-                  <div key={s.id} className="rounded-xl border border-line p-3">
+                  <div
+                    key={s.id}
+                    onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
+                    onDrop={() => onDrop(i)}
+                    className={`rounded-xl border p-3 transition ${overIndex === i && dragIndex !== null ? "border-clay bg-clay/5" : "border-line"} ${dragIndex === i ? "opacity-50" : ""}`}
+                  >
                     <div className="flex items-center gap-2">
+                      <span
+                        draggable
+                        onDragStart={() => setDragIndex(i)}
+                        onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+                        className="cursor-grab select-none px-1 text-ink/40 active:cursor-grabbing"
+                        title={t("adm.drag_hint")}
+                      >
+                        ⠿
+                      </span>
                       <div className="flex flex-col">
                         <button className="px-1 text-xs text-ink/50 hover:text-ink disabled:opacity-30" onClick={() => move(i, -1)} disabled={i === 0}>▲</button>
                         <button className="px-1 text-xs text-ink/50 hover:text-ink disabled:opacity-30" onClick={() => move(i, 1)} disabled={i === sections.length - 1}>▼</button>
                       </div>
                       <span className="flex-1 truncate text-sm font-semibold">
-                        {custom || strip ? s.title || s.text || t(TYPE_KEY[s.type]) : t(TYPE_KEY[s.type] || s.type)}
-                        {(custom || strip) && (
+                        {builtin ? t(TYPE_KEY[s.type] || s.type) : s.title || s.text || t(TYPE_KEY[s.type])}
+                        {!builtin && (
                           <span className="ml-2 rounded-full bg-clay/10 px-2 py-0.5 text-[11px] font-normal text-clay">{t(TYPE_KEY[s.type])}</span>
                         )}
                       </span>
@@ -299,13 +470,16 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
                         <input type="checkbox" checked={s.enabled !== false} onChange={(e) => patchSection(s.id, { enabled: e.target.checked })} />
                         {t("adm.show")}
                       </label>
-                      {(custom || strip) && (
-                        <button className="shrink-0 text-sm text-red-600 hover:underline" onClick={() => removeBlock(s.id)}>{t("common.delete")}</button>
+                      {!builtin && (
+                        <>
+                          <button className="shrink-0 text-xs text-ink/50 hover:text-ink hover:underline" onClick={() => duplicate(s.id)}>{t("adm.duplicate")}</button>
+                          <button className="shrink-0 text-sm text-red-600 hover:underline" onClick={() => removeBlock(s.id)}>{t("common.delete")}</button>
+                        </>
                       )}
                     </div>
 
                     {/* Built-in: optional custom heading */}
-                    {!custom && !strip && (
+                    {builtin && (
                       <input
                         className="input mt-3"
                         placeholder={`${t("adm.section_heading")} — ${t(TYPE_KEY[s.type])}`}
@@ -346,6 +520,31 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
                         </div>
                       </div>
                     )}
+
+                    {/* Rich text block */}
+                    {richtext && (
+                      <div className="mt-3 space-y-2 border-t border-line pt-3">
+                        <input className="input" placeholder={t("adm.hero_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+                        <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input className="input" placeholder={t("adm.block_btn")} value={s.button || ""} onChange={(e) => patchSection(s.id, { button: e.target.value })} />
+                          <input className="input" placeholder={t("adm.block_link")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Duo / Slider with items */}
+                    {hasItems && (
+                      <>
+                        <input
+                          className="input mt-3"
+                          placeholder={t("adm.section_heading")}
+                          value={s.title || ""}
+                          onChange={(e) => patchSection(s.id, { title: e.target.value })}
+                        />
+                        {itemEditor(s)}
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -359,7 +558,12 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
         <div className="lg:sticky lg:top-20 lg:self-start">
           <div className="card space-y-3 p-3">
             <div className="flex items-center justify-between">
-              <div className="field-label mb-0">{t("adm.preview")}</div>
+              <div className="flex items-center gap-2">
+                <div className="field-label mb-0">{t("adm.preview")}</div>
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />{t("adm.live")}
+                </span>
+              </div>
               <div className="inline-flex rounded-full border border-line bg-sand p-0.5 text-xs font-semibold">
                 <button
                   className={`rounded-full px-3 py-1 transition ${device === "desktop" ? "bg-ink text-white" : "text-ink/60"}`}
@@ -379,8 +583,10 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
               <div className="mx-auto overflow-hidden" style={{ width: Math.round(FW * scale), height: Math.round(FH * scale) }}>
                 <iframe
                   key={previewKey}
+                  ref={iframeRef}
                   src="/"
                   title="preview"
+                  onLoad={postPreview}
                   style={{ width: FW, height: FH, border: 0, transform: `scale(${scale})`, transformOrigin: "top left" }}
                 />
               </div>

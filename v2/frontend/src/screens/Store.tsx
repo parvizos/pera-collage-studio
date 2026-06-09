@@ -131,7 +131,18 @@ export function Store({ template }: Props) {
   const instagram = (store.instagram as string) || "peraistanbulstore";
   const currency = (store.currency as string) || "₺";
 
-  const home = (store.home as Record<string, unknown>) || {};
+  // Live preview: the admin homepage editor posts an unsaved config via postMessage.
+  const [liveHome, setLiveHome] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      const d = e.data as { type?: string; home?: Record<string, unknown> } | null;
+      if (d && d.type === "pera-home-preview" && d.home) setLiveHome(d.home);
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const home = liveHome || (store.home as Record<string, unknown>) || {};
   const branding = (home.branding as Record<string, string>) || {};
   const rootStyle: React.CSSProperties = {};
   const accRgb = hexToRgbTriplet(branding.accent);
@@ -481,8 +492,20 @@ export function Store({ template }: Props) {
   const heroAlign = (heroCfg.align as string) || "center";
   const heroPad = heroHeight === "s" ? "py-8 sm:py-10" : heroHeight === "l" ? "py-24 sm:py-36" : "py-14 sm:py-20";
   const heroAlignCls = heroAlign === "left" ? "items-start text-left" : "items-center text-center";
+  const heroOverlay = (heroCfg.overlay as string) || (heroImage ? "1" : "0");
+  const overlayCls = heroImage
+    ? heroOverlay === "2"
+      ? "bg-gradient-to-br from-black/60 to-black/80"
+      : heroOverlay === "0"
+        ? "bg-gradient-to-br from-black/10 to-black/25"
+        : "bg-gradient-to-br from-black/40 to-black/55"
+    : "bg-gradient-to-br from-white/15 to-black/25";
+  const heroText = (heroCfg.textColor as string) || "light";
+  const heroTextCls = heroText === "dark" ? "text-ink" : "text-white";
+  const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
 
-  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string };
+  type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
+  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[] };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
     { id: "sale", type: "sale" },
@@ -582,6 +605,74 @@ export function Store({ template }: Props) {
             </div>
           </section>
         );
+      case "richtext":
+        if (!sec.title && !sec.text) return null;
+        return (
+          <section key={sec.id} className="text-center">
+            {sec.title && <h2 className="font-serif text-3xl">{sec.title}</h2>}
+            {sec.text && <p className="mx-auto mt-3 max-w-2xl text-ink/70">{sec.text}</p>}
+            {sec.button && (
+              <button onClick={() => goLink(sec.link)} className="mt-4 rounded-full bg-clay px-6 py-2.5 text-sm font-semibold text-white">
+                {sec.button}
+              </button>
+            )}
+          </section>
+        );
+      case "duo": {
+        const items = (sec.items || []).slice(0, 2);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {items.map((it, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => goLink(it.link)}
+                  className={`relative overflow-hidden rounded-2xl bg-ink text-white shadow-sm ${it.link ? "cursor-pointer" : ""}`}
+                >
+                  {it.image ? <img src={it.image} alt="" className="h-48 w-full object-cover sm:h-60" /> : <div className="h-48 w-full bg-clay sm:h-60" />}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-black/10" />
+                  <div className="absolute inset-0 flex flex-col justify-end gap-1 p-5">
+                    {it.title && <h3 className="font-serif text-2xl drop-shadow">{it.title}</h3>}
+                    {it.text && <p className="text-sm text-white/90 drop-shadow">{it.text}</p>}
+                    {it.button && <span className="mt-1 inline-block w-fit rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-ink">{it.button}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "slider": {
+        const items = (sec.items || []).filter((it) => it.image);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+              {items.map((it, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => goLink(it.link)}
+                  className={`relative aspect-[16/9] w-[85%] shrink-0 snap-center overflow-hidden rounded-2xl bg-ink sm:w-[60%] ${it.link ? "cursor-pointer" : ""}`}
+                >
+                  <img src={it.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  {(it.title || it.button) && (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-5 text-white">
+                        {it.title && <h3 className="font-serif text-2xl drop-shadow">{it.title}</h3>}
+                        {it.button && <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-ink">{it.button}</span>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
       case "custom":
         return (
           <section key={sec.id}>
@@ -1013,13 +1104,13 @@ export function Store({ template }: Props) {
       <>
         {/* Hero */}
         {heroEnabled && (
-          <section className="relative overflow-hidden bg-clay text-white">
+          <section className={`relative overflow-hidden bg-clay ${heroTextCls}`}>
             {heroImage && <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-            <div className={`pointer-events-none absolute inset-0 ${heroImage ? "bg-gradient-to-br from-black/45 to-black/60" : "bg-gradient-to-br from-white/15 to-black/25"}`} />
+            <div className={`pointer-events-none absolute inset-0 ${overlayCls}`} />
             <div className={`relative mx-auto flex max-w-6xl flex-col ${heroAlignCls} px-4 ${heroPad} sm:px-6`}>
               {!heroImage && logo && <img src={logo} alt={title} className="mb-4 h-14 w-auto" />}
               <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{heroTitle}</h1>
-              {heroSubtitle && <p className="mt-3 max-w-xl text-sm text-white/90 sm:text-base">{heroSubtitle}</p>}
+              {heroSubtitle && <p className={`mt-3 max-w-xl text-sm sm:text-base ${heroSubCls}`}>{heroSubtitle}</p>}
               <div className="mt-7 flex w-full max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
                 <input
                   className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
