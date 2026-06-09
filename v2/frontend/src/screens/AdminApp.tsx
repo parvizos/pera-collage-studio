@@ -161,6 +161,7 @@ function Overview({
     whatsapp: (store0.whatsapp as string) || "",
     instagram: (store0.instagram as string) || "",
     currency: (store0.currency as string) || "₺",
+    about: (store0.about as string) || "",
   });
   const [shopSave, setShopSave] = useState<{ kind: "idle" | "saving" | "ok" | "error"; msg?: string }>({
     kind: "idle",
@@ -324,6 +325,15 @@ function Overview({
               onChange={(e) => setShop({ ...shop, currency: e.target.value })}
             />
           </div>
+        </div>
+        <div>
+          <label className="field-label">{t("adm.shop_about")}</label>
+          <textarea
+            className="input"
+            rows={4}
+            value={shop.about}
+            onChange={(e) => setShop({ ...shop, about: e.target.value })}
+          />
         </div>
         <div className="flex items-center gap-3">
           <button className="btn-primary" onClick={saveShop} disabled={shopSave.kind === "saving"}>

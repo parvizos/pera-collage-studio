@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Template } from "../api/types";
 import { api, type StoreProduct, type StoreVariation } from "../api/client";
 import { Thumb } from "../components/Thumb";
@@ -11,6 +11,14 @@ interface Props {
 
 const WHATSAPP = "905339178551"; // +90 533 917 85 51
 const CART_KEY = "pera_cart";
+
+function slugify(s: string): string {
+  return (s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 function parsePrice(p?: string): number {
   if (!p) return 0;
@@ -95,11 +103,6 @@ function collect(items: StoreProduct[], pick: (p: StoreProduct) => string[]): st
 }
 
 
-function productSlugFromPath(): string | null {
-  const m = window.location.pathname.match(/^\/product\/(.+)$/);
-  return m ? decodeURIComponent(m[1].replace(/\/$/, "")) : null;
-}
-
 export function Store({ template }: Props) {
   const { t } = useI18n();
   const store = template.store as Record<string, unknown>;
@@ -133,6 +136,8 @@ export function Store({ template }: Props) {
 
   const [cart, setCart] = useState<CartItem[]>(() => loadCart());
   const [cartPage, setCartPage] = useState(false);
+  const [aboutPage, setAboutPage] = useState(false);
+  const [listing, setListing] = useState<{ type: "brand" | "category" | "color"; value: string } | null>(null);
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
@@ -189,44 +194,51 @@ export function Store({ template }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Initial route from the URL (cart deep link / refresh).
-  useEffect(() => {
-    if (window.location.pathname === "/cart") setCartPage(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Resolve the current URL into a view (deep link / refresh / back-forward).
+  const resolveRoute = useCallback(() => {
+    setQuick(null);
+    setCartPage(false);
+    setAboutPage(false);
+    setListing(null);
 
-  // Open the product page when the URL points at one (deep link / refresh).
-  useEffect(() => {
-    const slug = productSlugFromPath();
-    if (!slug || quick || !products.length) return;
-    const found = products.find((p) => p.slug === slug);
-    if (found) showProduct(found, false);
-    else api.getStoreProduct(slug).then((p) => p && showProduct(p, false)).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products]);
+    const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
+    if (path === "/cart") { setCartPage(true); return; }
+    if (path === "/about") { setAboutPage(true); return; }
 
-  // Back / forward buttons.
-  useEffect(() => {
-    const onPop = () => {
-      if (window.location.pathname === "/cart") {
-        setQuick(null);
-        setCartPage(true);
-        return;
-      }
-      setCartPage(false);
-      const slug = productSlugFromPath();
-      if (!slug) {
-        setQuick(null);
-        return;
-      }
+    const dec = decodeURIComponent(path);
+    const lm = dec.match(/^\/(brand|category|color)\/(.+)$/);
+    if (lm) {
+      const type = lm[1] as "brand" | "category" | "color";
+      const wanted = lm[2];
+      const pool =
+        type === "brand"
+          ? products.map((p) => p.brandName)
+          : type === "category"
+          ? products.map((p) => p.category)
+          : products.flatMap((p) => p.colors || []);
+      const value = pool.find((v) => v && slugify(v) === wanted);
+      if (value) setListing({ type, value });
+      return;
+    }
+
+    const pm = window.location.pathname.match(/^\/product\/(.+)$/);
+    if (pm) {
+      const slug = decodeURIComponent(pm[1].replace(/\/$/, ""));
       const found = products.find((p) => p.slug === slug);
       if (found) showProduct(found, false);
       else api.getStoreProduct(slug).then((p) => p && showProduct(p, false)).catch(() => {});
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products]);
+
+  useEffect(() => {
+    resolveRoute();
+  }, [resolveRoute]);
+
+  useEffect(() => {
+    window.addEventListener("popstate", resolveRoute);
+    return () => window.removeEventListener("popstate", resolveRoute);
+  }, [resolveRoute]);
 
   const categories = useMemo(() => collect(products, (p) => [p.category]), [products]);
   const colors = useMemo(() => collect(products, (p) => p.colors || []), [products]);
@@ -279,18 +291,6 @@ export function Store({ template }: Props) {
 
   function scrollToCatalog() {
     document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  function selectCategory(cat: string) {
-    setBrand("");
-    setCategory((c) => (c === cat ? "" : cat));
-    setTimeout(scrollToCatalog, 50);
-  }
-
-  function selectBrand(name: string) {
-    setCategory("");
-    setBrand((b) => (b === name ? "" : name));
-    setTimeout(scrollToCatalog, 50);
   }
 
   function renderCard(p: StoreProduct) {
@@ -360,8 +360,15 @@ export function Store({ template }: Props) {
     setQuickPhoto(0);
   }
 
-  function showProduct(p: StoreProduct, push: boolean) {
+  function clearViews() {
+    setQuick(null);
     setCartPage(false);
+    setAboutPage(false);
+    setListing(null);
+  }
+
+  function showProduct(p: StoreProduct, push: boolean) {
+    clearViews();
     setQuick(p);
     applyVariation(p, 0);
     if (push) window.history.pushState({}, "", `/product/${p.slug}`);
@@ -373,16 +380,29 @@ export function Store({ template }: Props) {
   }
 
   function backToCatalog(push = true) {
-    setQuick(null);
-    setCartPage(false);
+    clearViews();
     if (push) window.history.pushState({}, "", "/");
     window.scrollTo({ top: 0 });
   }
 
   function goCart() {
-    setQuick(null);
+    clearViews();
     setCartPage(true);
     window.history.pushState({}, "", "/cart");
+    window.scrollTo({ top: 0 });
+  }
+
+  function goAbout() {
+    clearViews();
+    setAboutPage(true);
+    window.history.pushState({}, "", "/about");
+    window.scrollTo({ top: 0 });
+  }
+
+  function goListing(type: "brand" | "category" | "color", value: string) {
+    clearViews();
+    setListing({ type, value });
+    window.history.pushState({}, "", `/${type}/${slugify(value)}`);
     window.scrollTo({ top: 0 });
   }
 
@@ -412,17 +432,20 @@ export function Store({ template }: Props) {
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-line bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <a href="/" className="flex items-center gap-3">
+          <button onClick={() => backToCatalog()} className="flex items-center gap-3">
             {logo ? (
               <img src={logo} alt={title} className="h-9 w-auto" />
             ) : (
-              <div className="leading-none">
+              <div className="text-left leading-none">
                 <div className="font-serif text-2xl tracking-tight">{title}</div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.35em] text-ink/50">{subtitle}</div>
               </div>
             )}
-          </a>
+          </button>
           <nav className="flex items-center gap-2 text-sm text-ink/60 sm:gap-3">
+            <button onClick={() => goAbout()} className="hidden font-medium hover:text-ink sm:block">
+              {t("store.about")}
+            </button>
             <a href={`https://instagram.com/${instagram}`} target="_blank" rel="noreferrer" className="hidden hover:text-ink sm:block">
               Instagram
             </a>
@@ -445,7 +468,55 @@ export function Store({ template }: Props) {
         </div>
       </header>
 
-      {cartPage ? (
+      {aboutPage ? (
+        <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+          <button onClick={() => backToCatalog()} className="mb-6 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink">
+            {t("store.back_home")}
+          </button>
+          <h1 className="font-serif text-4xl">{t("store.about")}</h1>
+          <p className="mt-5 whitespace-pre-line leading-relaxed text-ink/70">
+            {(store.about as string) || t("store.about_default")}
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-5 py-3 font-semibold text-white">
+              WhatsApp
+            </a>
+            <a href={`https://instagram.com/${instagram}`} target="_blank" rel="noreferrer" className="rounded-full bg-ink px-5 py-3 font-semibold text-white">
+              Instagram
+            </a>
+          </div>
+        </main>
+      ) : listing ? (() => {
+        const items = products.filter((p) =>
+          listing.type === "brand"
+            ? p.brandName === listing.value
+            : listing.type === "category"
+            ? p.category === listing.value
+            : (p.colors || []).includes(listing.value),
+        );
+        const label =
+          listing.type === "brand" ? t("store.brand_label") : listing.type === "category" ? t("product.category") : t("product.color");
+        return (
+          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+            <button onClick={() => backToCatalog()} className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink">
+              {t("store.back_home")}
+            </button>
+            <div className="mb-6">
+              <div className="text-xs uppercase tracking-wide text-ink/40">{label}</div>
+              <h1 className="font-serif text-3xl">{listing.value}</h1>
+            </div>
+            {items.length === 0 ? (
+              <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-ink/40">
+                {t("store.not_found")}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+                {items.map((p) => renderCard(p))}
+              </div>
+            )}
+          </main>
+        );
+      })() : cartPage ? (
         <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
           <button
             onClick={() => backToCatalog()}
@@ -678,7 +749,7 @@ export function Store({ template }: Props) {
                 {categories.map((c) => {
                   const img = categoryImage(c);
                   return (
-                    <button key={c} onClick={() => selectCategory(c)} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink text-white shadow-sm">
+                    <button key={c} onClick={() => goListing("category", c)} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink text-white shadow-sm">
                       {img && <Thumb src={img} w={400} className="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-110 group-hover:opacity-60" />}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
                       <span className="absolute inset-x-0 bottom-0 p-3 text-left font-semibold uppercase tracking-wide drop-shadow">{c}</span>
@@ -717,8 +788,8 @@ export function Store({ template }: Props) {
                 {shopBrands.map((b) => (
                   <button
                     key={b.id}
-                    onClick={() => selectBrand(b.name)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition ${brand === b.name ? "border-clay bg-clay/10" : "border-line bg-white hover:border-clay/50"}`}
+                    onClick={() => goListing("brand", b.name)}
+                    className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 transition hover:border-clay/50"
                   >
                     {b.logo ? (
                       <img src={b.logo} alt={b.name} className="h-8 w-8 rounded object-contain" />
@@ -726,6 +797,24 @@ export function Store({ template }: Props) {
                       <span className="grid h-8 w-8 place-items-center rounded bg-sand text-xs font-bold text-ink/50">{b.name.slice(0, 2)}</span>
                     )}
                     <span className="text-sm font-medium">{b.name}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Colors */}
+          {colors.length > 0 && (
+            <section>
+              <h2 className="mb-4 font-serif text-2xl">{t("store.colors")}</h2>
+              <div className="flex flex-wrap gap-2">
+                {colors.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => goListing("color", c)}
+                    className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium transition hover:border-clay/50 hover:text-clay"
+                  >
+                    {c}
                   </button>
                 ))}
               </div>
@@ -789,8 +878,14 @@ export function Store({ template }: Props) {
       </>
       )}
 
-      <footer className="border-t border-line py-8 text-center text-sm text-ink/40">
-        © {new Date().getFullYear()} {title} {subtitle}
+      <footer className="border-t border-line bg-white/40 py-8 text-center text-sm text-ink/50">
+        <div className="mb-3 flex flex-wrap items-center justify-center gap-4">
+          <button onClick={() => goAbout()} className="font-medium hover:text-ink">{t("store.about")}</button>
+          <a href={`https://instagram.com/${instagram}`} target="_blank" rel="noreferrer" className="hover:text-ink">Instagram</a>
+          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="hover:text-ink">WhatsApp</a>
+          <a href="/staff" className="hover:text-ink">{t("store.staff")}</a>
+        </div>
+        <div className="text-ink/40">© {new Date().getFullYear()} {title} {subtitle}</div>
       </footer>
 
       {/* Added toast */}
