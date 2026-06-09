@@ -64,6 +64,25 @@ function loadCart(): CartItem[] {
   }
 }
 
+/** Discount info for a variation if its old price is higher than the current one. */
+function discountOf(v: StoreVariation): { old: number; pct: number } | null {
+  const old = parsePrice(v.oldPrice);
+  const cur = parsePrice(v.price);
+  if (old > 0 && cur > 0 && old > cur) return { old, pct: Math.round((1 - cur / old) * 100) };
+  return null;
+}
+
+function cheapestVar(p: StoreProduct): StoreVariation | null {
+  const vs = p.variations.filter((v) => parsePrice(v.price) > 0);
+  if (!vs.length) return null;
+  return vs.reduce((a, b) => (parsePrice(a.price) <= parsePrice(b.price) ? a : b));
+}
+
+function productDiscount(p: StoreProduct): { old: number; pct: number } | null {
+  const c = cheapestVar(p);
+  return c ? discountOf(c) : null;
+}
+
 function collect(items: StoreProduct[], pick: (p: StoreProduct) => string[]): string[] {
   const seen: string[] = [];
   for (const it of items) {
@@ -245,6 +264,8 @@ export function Store({ template }: Props) {
     return list.filter((b) => products.some((p) => p.brandName === b.name));
   }, [template.brands, products]);
 
+  const onSale = useMemo(() => products.filter((p) => productDiscount(p)).slice(0, 8), [products]);
+
   function categoryImage(cat: string): string {
     const p = products.find((pp) => pp.category === cat && (pp.photos[0] || pp.collageImage));
     return p ? p.photos[0] || p.collageImage : "";
@@ -280,6 +301,7 @@ export function Store({ template }: Props) {
     const unit = cheapest ? parsePrice(cheapest.price) : 0;
     const unitVaries = cheapest ? vs.some((v) => parsePrice(v.price) !== unit) : false;
     const cnt = cheapest ? seriesCount(cheapest.size) : 1;
+    const disc = cheapest ? discountOf(cheapest) : null;
     return (
       <button
         key={p.id}
@@ -297,11 +319,15 @@ export function Store({ template }: Props) {
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("store.no_photo")}</div>
           )}
-          {isNew(p) && (
+          {disc ? (
+            <span className="absolute left-2 top-2 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-extrabold text-white shadow">
+              −{disc.pct}%
+            </span>
+          ) : isNew(p) ? (
             <span className="absolute left-2 top-2 rounded-full bg-clay px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-white shadow">
               {t("store.badge_new")}
             </span>
-          )}
+          ) : null}
           {p.colors.length > 1 && (
             <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm">
               {t("store.colors_n", { n: p.colors.length })}
@@ -313,7 +339,12 @@ export function Store({ template }: Props) {
           <div className="truncate text-xs text-ink/45">{[p.category, p.brandName].filter(Boolean).join(" · ")}</div>
           {cheapest && (
             <div className="mt-auto pt-2">
-              <div className="font-serif text-lg leading-none text-clay">{unitVaries ? `${money(unit)}+` : money(unit)}</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className={`font-serif text-lg leading-none ${disc ? "text-red-600" : "text-clay"}`}>
+                  {unitVaries ? `${money(unit)}+` : money(unit)}
+                </span>
+                {disc && <span className="text-xs text-ink/40 line-through">{money(disc.old)}</span>}
+              </div>
               {cnt > 1 && (
                 <div className="mt-0.5 text-[11px] text-ink/45">{t("store.series_calc", { n: cnt, total: money(unit * cnt) })}</div>
               )}
@@ -497,6 +528,7 @@ export function Store({ template }: Props) {
         const count = seriesCount(variation.size);
         const unitPrice = parsePrice(variation.price);
         const series = money(unitPrice * count);
+        const disc = discountOf(variation);
         return (
           <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
             <button
@@ -548,9 +580,15 @@ export function Store({ template }: Props) {
                 </dl>
                 {unitPrice > 0 && (
                   <div className="mt-4">
-                    <div className="font-serif text-3xl">
-                      {money(unitPrice)}
-                      <span className="ml-1 align-middle font-sans text-sm text-ink/40">{t("product.per_piece")}</span>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className={`font-serif text-3xl ${disc ? "text-red-600" : ""}`}>
+                        {money(unitPrice)}
+                        <span className="ml-1 align-middle font-sans text-sm text-ink/40">{t("product.per_piece")}</span>
+                      </span>
+                      {disc && <span className="text-lg text-ink/40 line-through">{money(disc.old)}</span>}
+                      {disc && (
+                        <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">−{disc.pct}%</span>
+                      )}
                     </div>
                     {count > 1 && (
                       <div className="mt-1 text-base font-semibold text-ink/80">
@@ -647,6 +685,16 @@ export function Store({ template }: Props) {
                     </button>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* Sale */}
+          {onSale.length > 0 && (
+            <section>
+              <h2 className="mb-4 font-serif text-2xl text-red-600">{t("store.sale")}</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+                {onSale.map((p) => renderCard(p))}
               </div>
             </section>
           )}

@@ -41,6 +41,8 @@ export const translations: Record<Lang, Dict> = {
     "store.catalog": "Каталог",
     "store.all_products": "Все товары",
     "store.badge_new": "NEW",
+    "store.sale": "Акции",
+    "store.badge_sale": "СКИДКА",
 
     "product.back": "← Назад в каталог",
     "product.category": "Категория",
@@ -376,6 +378,8 @@ export const translations: Record<Lang, Dict> = {
     "store.catalog": "Catalog",
     "store.all_products": "All products",
     "store.badge_new": "NEW",
+    "store.sale": "Sale",
+    "store.badge_sale": "SALE",
 
     "product.back": "← Back to catalog",
     "product.category": "Category",
@@ -711,6 +715,8 @@ export const translations: Record<Lang, Dict> = {
     "store.catalog": "Katalog",
     "store.all_products": "Tüm ürünler",
     "store.badge_new": "YENİ",
+    "store.sale": "İndirim",
+    "store.badge_sale": "İNDİRİM",
 
     "product.back": "← Kataloğa dön",
     "product.category": "Kategori",
@@ -1046,6 +1052,8 @@ export const translations: Record<Lang, Dict> = {
     "store.catalog": "الكتالوج",
     "store.all_products": "كل المنتجات",
     "store.badge_new": "جديد",
+    "store.sale": "تخفيضات",
+    "store.badge_sale": "خصم",
 
     "product.back": "← العودة إلى الكتالوج",
     "product.category": "الفئة",

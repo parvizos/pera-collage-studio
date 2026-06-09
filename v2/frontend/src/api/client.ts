@@ -194,6 +194,7 @@ export interface StoreVariation {
   color: string;
   size: string;
   price: string;
+  oldPrice?: string;
   photos: string[];
   collageImage: string;
 }

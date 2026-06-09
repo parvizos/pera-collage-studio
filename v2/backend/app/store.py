@@ -1159,29 +1159,46 @@ def set_collage_published(record_id: str, brand_slug: str | None, user_id: str |
     return True
 
 
-def _product_fields_from_state(state: dict) -> dict:
+# Field id/label hints that mark the "old price" (for discount display).
+_OLD_PRICE_HINTS = ("old", "стар", "eski", "öncek", "قديم", "был")
+
+
+def _find_old_price_field_id() -> str | None:
+    data = load_template_payload_from_db() or load_template_payload_from_files()
+    for f in (data or {}).get("fields") or []:
+        text = f"{f.get('id', '')} {f.get('label', '')}".lower()
+        if any(h in text for h in _OLD_PRICE_HINTS):
+            return f.get("id")
+    return None
+
+
+def _product_fields_from_state(state: dict, old_id: str | None = None) -> dict:
     state = state or {}
     products = state.get("products") or []
-    values = products[0].get("values") if products and isinstance(products[0], dict) else None
-    values = values or state.get("values") or {}
+    product_values = products[0].get("values") if products and isinstance(products[0], dict) else None
+    # Merge: state.values as base, per-product values take precedence.
+    values = {**(state.get("values") or {}), **(product_values or {})}
     return {
         "code": (values.get("code") or "").strip(),
         "category": (values.get("category") or "").strip(),
         "color": (values.get("color") or "").strip(),
         "size": (values.get("size") or "").strip(),
         "price": (values.get("price") or "").strip(),
+        "oldPrice": (values.get(old_id) or "").strip() if old_id else "",
     }
 
 
-def build_store_product(entry: dict) -> dict | None:
+def build_store_product(entry: dict, old_id: str | None = None) -> dict | None:
     record_id = entry.get("id")
+    if old_id is None:
+        old_id = _find_old_price_field_id()
     # Look up by id + brand only — the storefront doesn't filter by employee.
     detail = load_history_record_detail(record_id, entry.get("brandSlug"), None)
     if not detail and entry.get("brandSlug"):
         detail = load_history_record_detail(record_id, None, None)
     if not detail:
         return None
-    fields = _product_fields_from_state(detail.get("state") or {})
+    fields = _product_fields_from_state(detail.get("state") or {}, old_id)
     photos = [p.get("imagePath") for p in (detail.get("originalPhotos") or []) if p.get("imagePath")]
     return {
         "id": record_id,
@@ -1191,6 +1208,7 @@ def build_store_product(entry: dict) -> dict | None:
         "color": fields["color"],
         "size": fields["size"],
         "price": fields["price"],
+        "oldPrice": fields["oldPrice"],
         "brandName": detail.get("brandName") or "",
         "photos": photos,
         "collageImage": detail.get("imagePath") or "",
@@ -1228,8 +1246,9 @@ def _build_products_grouped() -> list[dict]:
     groups: dict[str, dict] = {}
     order: list[str] = []
     standalone = 0
+    old_id = _find_old_price_field_id()
     for entry in _load_published_entries():
-        rec = build_store_product(entry)
+        rec = build_store_product(entry, old_id)
         if not rec:
             continue
         code = (rec.get("code") or "").strip()
@@ -1244,6 +1263,7 @@ def _build_products_grouped() -> list[dict]:
             "color": rec["color"],
             "size": rec["size"],
             "price": rec["price"],
+            "oldPrice": rec.get("oldPrice", ""),
             "photos": rec["photos"],
             "collageImage": rec["collageImage"],
         }
