@@ -3,6 +3,7 @@ import type { Template } from "../api/types";
 import { api, type StoreProduct, type StoreVariation } from "../api/client";
 import { Thumb } from "../components/Thumb";
 import { useI18n } from "../i18n";
+import { translateTerm } from "../i18n/glossary";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 interface Props {
@@ -104,7 +105,8 @@ function collect(items: StoreProduct[], pick: (p: StoreProduct) => string[]): st
 
 
 export function Store({ template }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const term = (v?: string) => translateTerm(v, lang);
   const store = template.store as Record<string, unknown>;
   const title = (store.title as string) || "PERA";
   const subtitle = (store.subtitle as string) || "ISTANBUL";
@@ -340,7 +342,7 @@ export function Store({ template }: Props) {
         </div>
         <div className="flex flex-1 flex-col p-3">
           <div className="truncate text-sm font-semibold">{p.code}</div>
-          <div className="truncate text-xs text-ink/45">{[p.category, p.brandName].filter(Boolean).join(" · ")}</div>
+          <div className="truncate text-xs text-ink/45">{[term(p.category), p.brandName].filter(Boolean).join(" · ")}</div>
           {cheapest && (
             <div className="mt-auto pt-2">
               <div className="flex items-baseline gap-1.5">
@@ -533,18 +535,18 @@ export function Store({ template }: Props) {
             <nav className="mb-4 text-sm text-ink/45">
               <button onClick={() => goHome()} className="hover:text-ink">{t("store.home")}</button>
               <span className="mx-1.5">/</span>
-              <span className="text-ink/70">{listing.value}</span>
+              <span className="text-ink/70">{term(listing.value)}</span>
             </nav>
             <div className="mb-5">
               <div className="text-xs uppercase tracking-wide text-ink/40">{label}</div>
-              <h1 className="font-serif text-3xl">{listing.value}</h1>
+              <h1 className="font-serif text-3xl">{term(listing.value)}</h1>
             </div>
 
             <div className="mb-5 flex flex-wrap items-center gap-2">
               {fColors.length > 0 && (
                 <select className="input w-auto" value={lColor} onChange={(e) => setLColor(e.target.value)}>
                   <option value="">{t("store.color_any")}</option>
-                  {fColors.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  {fColors.map((c) => (<option key={c} value={c}>{term(c)}</option>))}
                 </select>
               )}
               {fSizes.length > 0 && (
@@ -665,7 +667,7 @@ export function Store({ template }: Props) {
               {quick.category && (
                 <>
                   <span className="mx-1.5">/</span>
-                  <button onClick={() => goListing("category", quick.category)} className="hover:text-ink">{quick.category}</button>
+                  <button onClick={() => goListing("category", quick.category)} className="hover:text-ink">{term(quick.category)}</button>
                 </>
               )}
               <span className="mx-1.5">/</span>
@@ -703,8 +705,8 @@ export function Store({ template }: Props) {
                 <h1 className="font-serif text-3xl">{quick.code}</h1>
                 {quick.brandName && <div className="mt-1 text-sm text-ink/50">{quick.brandName}</div>}
                 <dl className="mt-4 space-y-1 text-sm">
-                  {quick.category && <Row label={t("product.category")} value={quick.category} />}
-                  {variation.color && <Row label={t("product.color")} value={variation.color} />}
+                  {quick.category && <Row label={t("product.category")} value={term(quick.category)} />}
+                  {variation.color && <Row label={t("product.color")} value={term(variation.color)} />}
                   {variation.size && (
                     <Row
                       label={t("product.series_sizes")}
@@ -749,7 +751,7 @@ export function Store({ template }: Props) {
                             <span className="h-8 w-8 shrink-0 overflow-hidden rounded bg-sand">
                               {thumb && <Thumb src={thumb} w={120} className="h-full w-full object-cover" />}
                             </span>
-                            {v.color || t("product.variant_n", { n: i + 1 })}
+                            {v.color ? term(v.color) : t("product.variant_n", { n: i + 1 })}
                           </button>
                         );
                       })}
@@ -824,7 +826,7 @@ export function Store({ template }: Props) {
                     <button key={c} onClick={() => goListing("category", c)} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink text-white shadow-sm">
                       {img && <Thumb src={img} w={400} className="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-110 group-hover:opacity-60" />}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-                      <span className="absolute inset-x-0 bottom-0 p-3 text-left font-semibold uppercase tracking-wide drop-shadow">{c}</span>
+                      <span className="absolute inset-x-0 bottom-0 p-3 text-left font-semibold uppercase tracking-wide drop-shadow">{term(c)}</span>
                     </button>
                   );
                 })}
@@ -886,7 +888,7 @@ export function Store({ template }: Props) {
                     onClick={() => goListing("color", c)}
                     className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium transition hover:border-clay/50 hover:text-clay"
                   >
-                    {c}
+                    {term(c)}
                   </button>
                 ))}
               </div>
@@ -896,7 +898,7 @@ export function Store({ template }: Props) {
           {/* Catalog */}
           <section id="catalog" className="scroll-mt-20">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-serif text-2xl">{category || brand || t("store.catalog")}</h2>
+              <h2 className="font-serif text-2xl">{category ? term(category) : brand || t("store.catalog")}</h2>
               {(category || brand || search) && (
                 <button onClick={() => { setCategory(""); setBrand(""); setSearch(""); }} className="text-sm font-medium text-clay hover:underline">
                   {t("store.all_products")}
@@ -908,13 +910,13 @@ export function Store({ template }: Props) {
             <div className="mb-5 flex flex-wrap items-center gap-2">
               <Chip active={!category} onClick={() => setCategory("")}>{t("store.all")}</Chip>
               {categories.map((c) => (
-                <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>{c}</Chip>
+                <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>{term(c)}</Chip>
               ))}
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 {colors.length > 0 && (
                   <select className="input w-auto" value={color} onChange={(e) => setColor(e.target.value)}>
                     <option value="">{t("store.color_any")}</option>
-                    {colors.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    {colors.map((c) => (<option key={c} value={c}>{term(c)}</option>))}
                   </select>
                 )}
                 {sizes.length > 0 && (
@@ -995,7 +997,7 @@ export function Store({ template }: Props) {
                   <div className="flex flex-wrap gap-2">
                     {categories.map((c) => (
                       <button key={c} onClick={() => goListing("category", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
-                        {c}
+                        {term(c)}
                       </button>
                     ))}
                   </div>
@@ -1019,7 +1021,7 @@ export function Store({ template }: Props) {
                   <div className="flex flex-wrap gap-2">
                     {colors.map((c) => (
                       <button key={c} onClick={() => goListing("color", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
-                        {c}
+                        {term(c)}
                       </button>
                     ))}
                   </div>
