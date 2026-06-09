@@ -470,6 +470,181 @@ export function Store({ template }: Props) {
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
+  // ---- Homepage (configurable from admin "Homepage" editor) ----
+  const heroCfg = (home.hero as Record<string, unknown>) || {};
+  const heroEnabled = heroCfg.enabled !== false;
+  const heroImage = (heroCfg.image as string) || "";
+  const heroTitle = (heroCfg.title as string) || title;
+  const heroSubtitle = (heroCfg.subtitle as string) ?? t("store.tagline");
+  const heroButton = (heroCfg.button as string) || t("store.view_catalog");
+
+  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string };
+  const DEFAULT_SECTIONS: HomeSection[] = [
+    { id: "categories", type: "categories" },
+    { id: "sale", type: "sale" },
+    { id: "new", type: "new" },
+    { id: "brands", type: "brands" },
+    { id: "colors", type: "colors" },
+    { id: "catalog", type: "catalog" },
+  ];
+  const sectionList: HomeSection[] = Array.isArray(home.sections) && (home.sections as unknown[]).length
+    ? (home.sections as HomeSection[])
+    : DEFAULT_SECTIONS;
+
+  function goLink(link?: string) {
+    if (!link) return;
+    if (/^https?:\/\//i.test(link)) window.open(link, "_blank");
+    else if (link.startsWith("/")) window.location.href = link;
+  }
+
+  function renderSection(sec: HomeSection) {
+    if (sec.enabled === false) return null;
+    switch (sec.type) {
+      case "categories":
+        if (!categories.length) return null;
+        return (
+          <section key={sec.id}>
+            <h2 className="mb-4 font-serif text-2xl">{sec.title || t("store.categories")}</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {categories.map((c) => {
+                const img = categoryImage(c);
+                return (
+                  <button key={c} onClick={() => goListing("category", c)} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink text-white shadow-sm">
+                    {img && <Thumb src={img} w={400} className="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-110 group-hover:opacity-60" />}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                    <span className="absolute inset-x-0 bottom-0 p-3 text-left font-semibold uppercase tracking-wide drop-shadow">{term(c)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      case "sale":
+        if (!onSale.length) return null;
+        return (
+          <section key={sec.id}>
+            <h2 className="mb-4 font-serif text-2xl text-red-600">{sec.title || t("store.sale")}</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{onSale.map((p) => renderCard(p))}</div>
+          </section>
+        );
+      case "new":
+        if (!newArrivals.length) return null;
+        return (
+          <section key={sec.id}>
+            <h2 className="mb-4 font-serif text-2xl">{sec.title || t("store.new")}</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{newArrivals.map((p) => renderCard(p))}</div>
+          </section>
+        );
+      case "brands":
+        if (!shopBrands.length) return null;
+        return (
+          <section key={sec.id}>
+            <h2 className="mb-4 font-serif text-2xl">{sec.title || t("store.brands")}</h2>
+            <div className="flex flex-wrap gap-3">
+              {shopBrands.map((b) => (
+                <button key={b.id} onClick={() => goListing("brand", b.name)} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 transition hover:border-clay/50">
+                  {b.logo ? (
+                    <img src={b.logo} alt={b.name} className="h-8 w-8 rounded object-contain" />
+                  ) : (
+                    <span className="grid h-8 w-8 place-items-center rounded bg-sand text-xs font-bold text-ink/50">{b.name.slice(0, 2)}</span>
+                  )}
+                  <span className="text-sm font-medium">{b.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      case "colors":
+        if (!colors.length) return null;
+        return (
+          <section key={sec.id}>
+            <h2 className="mb-4 font-serif text-2xl">{sec.title || t("store.colors")}</h2>
+            <div className="flex flex-wrap gap-2">
+              {colors.map((c) => (
+                <button key={c} onClick={() => goListing("color", c)} className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium transition hover:border-clay/50 hover:text-clay">
+                  {term(c)}
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      case "custom":
+        return (
+          <section key={sec.id}>
+            <div
+              className={`relative overflow-hidden rounded-2xl bg-ink text-white shadow-sm ${sec.link ? "cursor-pointer" : ""}`}
+              onClick={() => goLink(sec.link)}
+            >
+              {sec.image ? (
+                <img src={sec.image} alt="" className="h-56 w-full object-cover sm:h-72" />
+              ) : (
+                <div className="h-56 w-full bg-clay sm:h-72" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/10" />
+              <div className="absolute inset-0 flex flex-col justify-center gap-2 p-6 sm:p-10">
+                {sec.title && <h2 className="font-serif text-3xl drop-shadow sm:text-4xl">{sec.title}</h2>}
+                {sec.text && <p className="max-w-md text-sm text-white/90 drop-shadow sm:text-base">{sec.text}</p>}
+                {sec.button && (
+                  <span className="mt-2 inline-block w-fit rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-ink">{sec.button}</span>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      case "catalog":
+        return (
+          <section key={sec.id} id="catalog" className="scroll-mt-20">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-serif text-2xl">{category ? term(category) : brand || sec.title || t("store.catalog")}</h2>
+              {(category || brand || search) && (
+                <button onClick={() => { setCategory(""); setBrand(""); setSearch(""); }} className="text-sm font-medium text-clay hover:underline">
+                  {t("store.all_products")}
+                </button>
+              )}
+            </div>
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <Chip active={!category} onClick={() => setCategory("")}>{t("store.all")}</Chip>
+              {categories.map((c) => (
+                <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>{term(c)}</Chip>
+              ))}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {colors.length > 0 && (
+                  <select className="input w-auto" value={color} onChange={(e) => setColor(e.target.value)}>
+                    <option value="">{t("store.color_any")}</option>
+                    {colors.map((c) => (<option key={c} value={c}>{term(c)}</option>))}
+                  </select>
+                )}
+                {sizes.length > 0 && (
+                  <select className="input w-auto" value={size} onChange={(e) => setSize(e.target.value)}>
+                    <option value="">{t("store.size_any")}</option>
+                    {sizes.map((s) => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                )}
+                <select className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+                  <option value="new">{t("store.sort_new")}</option>
+                  <option value="cheap">{t("store.sort_cheap")}</option>
+                  <option value="expensive">{t("store.sort_expensive")}</option>
+                </select>
+              </div>
+            </div>
+            {loading ? (
+              <p className="py-20 text-center text-ink/40">{t("common.loading")}</p>
+            ) : error ? (
+              <p className="py-20 text-center text-red-600">{t("common.load_failed")}</p>
+            ) : filtered.length === 0 ? (
+              <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-center text-ink/40">
+                {products.length === 0 ? t("store.empty_soon") : t("store.not_found")}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{filtered.map((p) => renderCard(p))}</div>
+            )}
+          </section>
+        );
+      default:
+        return null;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-sand" style={rootStyle}>
       {/* Header */}
@@ -823,161 +998,32 @@ export function Store({ template }: Props) {
       })() : (
       <>
         {/* Hero */}
-        <section className="relative overflow-hidden bg-clay text-white">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 to-black/25" />
-          <div className="relative mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 sm:py-16">
-            {logo && <img src={logo} alt={title} className="mx-auto mb-4 h-14 w-auto" />}
-            <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{title}</h1>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">{t("store.tagline")}</p>
-            <div className="mx-auto mt-7 flex max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
-              <input
-                className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
-                placeholder={t("store.search_ph")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") scrollToCatalog(); }}
-              />
-              <button onClick={scrollToCatalog} className="shrink-0 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white">
-                {t("store.view_catalog")}
-              </button>
+        {heroEnabled && (
+          <section className="relative overflow-hidden bg-clay text-white">
+            {heroImage && <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+            <div className={`pointer-events-none absolute inset-0 ${heroImage ? "bg-gradient-to-br from-black/45 to-black/60" : "bg-gradient-to-br from-white/15 to-black/25"}`} />
+            <div className="relative mx-auto max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-20">
+              {!heroImage && logo && <img src={logo} alt={title} className="mx-auto mb-4 h-14 w-auto" />}
+              <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{heroTitle}</h1>
+              {heroSubtitle && <p className="mx-auto mt-3 max-w-xl text-sm text-white/90 sm:text-base">{heroSubtitle}</p>}
+              <div className="mx-auto mt-7 flex max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
+                <input
+                  className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
+                  placeholder={t("store.search_ph")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") scrollToCatalog(); }}
+                />
+                <button onClick={scrollToCatalog} className="shrink-0 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white">
+                  {heroButton}
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
-          {/* Categories */}
-          {categories.length > 0 && (
-            <section>
-              <h2 className="mb-4 font-serif text-2xl">{t("store.categories")}</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {categories.map((c) => {
-                  const img = categoryImage(c);
-                  return (
-                    <button key={c} onClick={() => goListing("category", c)} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink text-white shadow-sm">
-                      {img && <Thumb src={img} w={400} className="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-110 group-hover:opacity-60" />}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-                      <span className="absolute inset-x-0 bottom-0 p-3 text-left font-semibold uppercase tracking-wide drop-shadow">{term(c)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Sale */}
-          {onSale.length > 0 && (
-            <section>
-              <h2 className="mb-4 font-serif text-2xl text-red-600">{t("store.sale")}</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
-                {onSale.map((p) => renderCard(p))}
-              </div>
-            </section>
-          )}
-
-          {/* New arrivals */}
-          {newArrivals.length > 0 && (
-            <section>
-              <h2 className="mb-4 font-serif text-2xl">{t("store.new")}</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
-                {newArrivals.map((p) => renderCard(p))}
-              </div>
-            </section>
-          )}
-
-          {/* Brands */}
-          {shopBrands.length > 0 && (
-            <section>
-              <h2 className="mb-4 font-serif text-2xl">{t("store.brands")}</h2>
-              <div className="flex flex-wrap gap-3">
-                {shopBrands.map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => goListing("brand", b.name)}
-                    className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 transition hover:border-clay/50"
-                  >
-                    {b.logo ? (
-                      <img src={b.logo} alt={b.name} className="h-8 w-8 rounded object-contain" />
-                    ) : (
-                      <span className="grid h-8 w-8 place-items-center rounded bg-sand text-xs font-bold text-ink/50">{b.name.slice(0, 2)}</span>
-                    )}
-                    <span className="text-sm font-medium">{b.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Colors */}
-          {colors.length > 0 && (
-            <section>
-              <h2 className="mb-4 font-serif text-2xl">{t("store.colors")}</h2>
-              <div className="flex flex-wrap gap-2">
-                {colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => goListing("color", c)}
-                    className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium transition hover:border-clay/50 hover:text-clay"
-                  >
-                    {term(c)}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Catalog */}
-          <section id="catalog" className="scroll-mt-20">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-serif text-2xl">{category ? term(category) : brand || t("store.catalog")}</h2>
-              {(category || brand || search) && (
-                <button onClick={() => { setCategory(""); setBrand(""); setSearch(""); }} className="text-sm font-medium text-clay hover:underline">
-                  {t("store.all_products")}
-                </button>
-              )}
-            </div>
-
-            {/* Filters */}
-            <div className="mb-5 flex flex-wrap items-center gap-2">
-              <Chip active={!category} onClick={() => setCategory("")}>{t("store.all")}</Chip>
-              {categories.map((c) => (
-                <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>{term(c)}</Chip>
-              ))}
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                {colors.length > 0 && (
-                  <select className="input w-auto" value={color} onChange={(e) => setColor(e.target.value)}>
-                    <option value="">{t("store.color_any")}</option>
-                    {colors.map((c) => (<option key={c} value={c}>{term(c)}</option>))}
-                  </select>
-                )}
-                {sizes.length > 0 && (
-                  <select className="input w-auto" value={size} onChange={(e) => setSize(e.target.value)}>
-                    <option value="">{t("store.size_any")}</option>
-                    {sizes.map((s) => (<option key={s} value={s}>{s}</option>))}
-                  </select>
-                )}
-                <select className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-                  <option value="new">{t("store.sort_new")}</option>
-                  <option value="cheap">{t("store.sort_cheap")}</option>
-                  <option value="expensive">{t("store.sort_expensive")}</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Grid */}
-            {loading ? (
-              <p className="py-20 text-center text-ink/40">{t("common.loading")}</p>
-            ) : error ? (
-              <p className="py-20 text-center text-red-600">{t("common.load_failed")}</p>
-            ) : filtered.length === 0 ? (
-              <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-center text-ink/40">
-                {products.length === 0 ? t("store.empty_soon") : t("store.not_found")}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
-                {filtered.map((p) => renderCard(p))}
-              </div>
-            )}
-          </section>
+          {sectionList.map((sec) => renderSection(sec))}
         </main>
       </>
       )}
