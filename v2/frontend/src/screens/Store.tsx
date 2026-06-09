@@ -103,6 +103,7 @@ export function Store({ template }: Props) {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [brand, setBrand] = useState("");
   const [color, setColor] = useState("");
   const [size, setSize] = useState("");
   const [sort, setSort] = useState<"new" | "cheap" | "expensive">("new");
@@ -216,6 +217,7 @@ export function Store({ template }: Props) {
     const q = search.trim().toLowerCase();
     let list = products.filter((p) => {
       if (category && p.category !== category) return false;
+      if (brand && p.brandName !== brand) return false;
       if (color && !(p.colors || []).includes(color)) return false;
       if (size && !(p.sizes || []).includes(size)) return false;
       if (q) {
@@ -227,7 +229,100 @@ export function Store({ template }: Props) {
     if (sort === "cheap") list = [...list].sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
     else if (sort === "expensive") list = [...list].sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
     return list;
-  }, [products, search, category, color, size, sort]);
+  }, [products, search, category, brand, color, size, sort]);
+
+  // ---- homepage data ----
+  const newArrivals = useMemo(
+    () =>
+      [...products]
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+        .slice(0, 8),
+    [products],
+  );
+
+  const shopBrands = useMemo(() => {
+    const list = (template.brands ?? []) as { id: string; name: string; logo?: string | null }[];
+    return list.filter((b) => products.some((p) => p.brandName === b.name));
+  }, [template.brands, products]);
+
+  function categoryImage(cat: string): string {
+    const p = products.find((pp) => pp.category === cat && (pp.photos[0] || pp.collageImage));
+    return p ? p.photos[0] || p.collageImage : "";
+  }
+
+  function isNew(p: StoreProduct): boolean {
+    if (!p.createdAt) return false;
+    const ts = new Date(p.createdAt).getTime();
+    return !Number.isNaN(ts) && Date.now() - ts < 14 * 86400000;
+  }
+
+  function scrollToCatalog() {
+    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function selectCategory(cat: string) {
+    setBrand("");
+    setCategory((c) => (c === cat ? "" : cat));
+    setTimeout(scrollToCatalog, 50);
+  }
+
+  function selectBrand(name: string) {
+    setCategory("");
+    setBrand((b) => (b === name ? "" : name));
+    setTimeout(scrollToCatalog, 50);
+  }
+
+  function renderCard(p: StoreProduct) {
+    const main = p.photos[0] || p.collageImage;
+    const alt = p.photos[1] || "";
+    const vs = p.variations.filter((v) => parsePrice(v.price) > 0);
+    const cheapest = vs.length ? vs.reduce((a, b) => (parsePrice(a.price) <= parsePrice(b.price) ? a : b)) : null;
+    const unit = cheapest ? parsePrice(cheapest.price) : 0;
+    const unitVaries = cheapest ? vs.some((v) => parsePrice(v.price) !== unit) : false;
+    const cnt = cheapest ? seriesCount(cheapest.size) : 1;
+    return (
+      <button
+        key={p.id}
+        onClick={() => openProduct(p)}
+        className="group relative flex flex-col overflow-hidden rounded-2xl bg-white text-left shadow-sm ring-1 ring-line/60 transition hover:-translate-y-1 hover:shadow-xl"
+      >
+        <div className="relative aspect-[3/4] overflow-hidden bg-sand">
+          {main ? (
+            <>
+              <Thumb src={main} w={500} alt={p.code} className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              {alt && (
+                <Thumb src={alt} w={500} alt="" className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-500 group-hover:opacity-100" />
+              )}
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("store.no_photo")}</div>
+          )}
+          {isNew(p) && (
+            <span className="absolute left-2 top-2 rounded-full bg-clay px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-white shadow">
+              {t("store.badge_new")}
+            </span>
+          )}
+          {p.colors.length > 1 && (
+            <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm">
+              {t("store.colors_n", { n: p.colors.length })}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-1 flex-col p-3">
+          <div className="truncate text-sm font-semibold">{p.code}</div>
+          <div className="truncate text-xs text-ink/45">{[p.category, p.brandName].filter(Boolean).join(" · ")}</div>
+          {cheapest && (
+            <div className="mt-auto pt-2">
+              <div className="font-serif text-lg leading-none text-clay">{unitVaries ? `${money(unit)}+` : money(unit)}</div>
+              {cnt > 1 && (
+                <div className="mt-0.5 text-[11px] text-ink/45">{t("store.series_calc", { n: cnt, total: money(unit * cnt) })}</div>
+              )}
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  }
 
   function applyVariation(_p: StoreProduct, i: number) {
     setVariationIdx(i);
@@ -514,110 +609,136 @@ export function Store({ template }: Props) {
           </main>
         );
       })() : (
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {/* Filters */}
-        <div className="mb-6 space-y-3">
-          <input
-            className="input"
-            placeholder={t("store.search_ph")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Chip active={!category} onClick={() => setCategory("")}>{t("store.all")}</Chip>
-            {categories.map((c) => (
-              <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>
-                {c}
-              </Chip>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {colors.length > 0 && (
-              <select className="input w-auto" value={color} onChange={(e) => setColor(e.target.value)}>
-                <option value="">{t("store.color_any")}</option>
-                {colors.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            )}
-            {sizes.length > 0 && (
-              <select className="input w-auto" value={size} onChange={(e) => setSize(e.target.value)}>
-                <option value="">{t("store.size_any")}</option>
-                {sizes.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            )}
-            <select className="input ml-auto w-auto" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-              <option value="new">{t("store.sort_new")}</option>
-              <option value="cheap">{t("store.sort_cheap")}</option>
-              <option value="expensive">{t("store.sort_expensive")}</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Grid */}
-        {loading ? (
-          <p className="py-20 text-center text-ink/40">{t("common.loading")}</p>
-        ) : error ? (
-          <p className="py-20 text-center text-red-600">{t("common.load_failed")}</p>
-        ) : filtered.length === 0 ? (
-          <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-center text-ink/40">
-            {products.length === 0 ? t("store.empty_soon") : t("store.not_found")}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
-            {filtered.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => openProduct(p)}
-                className="group overflow-hidden rounded-xl bg-white text-left shadow-sm transition hover:shadow-md"
-              >
-                <div className="aspect-[3/4] overflow-hidden bg-sand">
-                  {p.photos[0] || p.collageImage ? (
-                    <Thumb
-                      src={p.photos[0] || p.collageImage}
-                      w={500}
-                      alt={p.code}
-                      className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-ink/30">{t("store.no_photo")}</div>
-                  )}
-                </div>
-                <div className="p-3">
-                  <div className="truncate text-sm font-semibold">{p.code}</div>
-                  <div className="truncate text-xs text-ink/45">
-                    {[p.category, p.colors.length > 1 ? t("store.colors_n", { n: p.colors.length }) : p.colors[0]]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </div>
-                  {(() => {
-                    const vs = p.variations.filter((v) => parsePrice(v.price) > 0);
-                    if (!vs.length) return null;
-                    const cheapest = vs.reduce((a, b) => (parsePrice(a.price) <= parsePrice(b.price) ? a : b));
-                    const unit = parsePrice(cheapest.price);
-                    const unitVaries = vs.some((v) => parsePrice(v.price) !== unit);
-                    const cnt = seriesCount(cheapest.size);
-                    return (
-                      <>
-                        <div className="mt-1 font-serif text-lg">
-                          {unitVaries ? `от ${money(unit)}` : money(unit)}
-                        </div>
-                        {cnt > 1 && (
-                          <div className="text-[11px] text-ink/45">
-                            {t("store.series_calc", { n: cnt, total: money(unit * cnt) })}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+      <>
+        {/* Hero */}
+        <section className="bg-gradient-to-br from-clay via-[#e58a2e] to-[#b85e10] text-white">
+          <div className="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 sm:py-16">
+            {logo && <img src={logo} alt={title} className="mx-auto mb-4 h-14 w-auto" />}
+            <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{title}</h1>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">{t("store.tagline")}</p>
+            <div className="mx-auto mt-7 flex max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
+              <input
+                className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
+                placeholder={t("store.search_ph")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") scrollToCatalog(); }}
+              />
+              <button onClick={scrollToCatalog} className="shrink-0 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white">
+                {t("store.view_catalog")}
               </button>
-            ))}
+            </div>
           </div>
-        )}
-      </main>
+        </section>
+
+        <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
+          {/* Categories */}
+          {categories.length > 0 && (
+            <section>
+              <h2 className="mb-4 font-serif text-2xl">{t("store.categories")}</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {categories.map((c) => {
+                  const img = categoryImage(c);
+                  return (
+                    <button key={c} onClick={() => selectCategory(c)} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink text-white shadow-sm">
+                      {img && <Thumb src={img} w={400} className="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-110 group-hover:opacity-60" />}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                      <span className="absolute inset-x-0 bottom-0 p-3 text-left font-semibold uppercase tracking-wide drop-shadow">{c}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* New arrivals */}
+          {newArrivals.length > 0 && (
+            <section>
+              <h2 className="mb-4 font-serif text-2xl">{t("store.new")}</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+                {newArrivals.map((p) => renderCard(p))}
+              </div>
+            </section>
+          )}
+
+          {/* Brands */}
+          {shopBrands.length > 0 && (
+            <section>
+              <h2 className="mb-4 font-serif text-2xl">{t("store.brands")}</h2>
+              <div className="flex flex-wrap gap-3">
+                {shopBrands.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => selectBrand(b.name)}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition ${brand === b.name ? "border-clay bg-clay/10" : "border-line bg-white hover:border-clay/50"}`}
+                  >
+                    {b.logo ? (
+                      <img src={b.logo} alt={b.name} className="h-8 w-8 rounded object-contain" />
+                    ) : (
+                      <span className="grid h-8 w-8 place-items-center rounded bg-sand text-xs font-bold text-ink/50">{b.name.slice(0, 2)}</span>
+                    )}
+                    <span className="text-sm font-medium">{b.name}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Catalog */}
+          <section id="catalog" className="scroll-mt-20">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-serif text-2xl">{category || brand || t("store.catalog")}</h2>
+              {(category || brand || search) && (
+                <button onClick={() => { setCategory(""); setBrand(""); setSearch(""); }} className="text-sm font-medium text-clay hover:underline">
+                  {t("store.all_products")}
+                </button>
+              )}
+            </div>
+
+            {/* Filters */}
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <Chip active={!category} onClick={() => setCategory("")}>{t("store.all")}</Chip>
+              {categories.map((c) => (
+                <Chip key={c} active={category === c} onClick={() => setCategory(category === c ? "" : c)}>{c}</Chip>
+              ))}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {colors.length > 0 && (
+                  <select className="input w-auto" value={color} onChange={(e) => setColor(e.target.value)}>
+                    <option value="">{t("store.color_any")}</option>
+                    {colors.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </select>
+                )}
+                {sizes.length > 0 && (
+                  <select className="input w-auto" value={size} onChange={(e) => setSize(e.target.value)}>
+                    <option value="">{t("store.size_any")}</option>
+                    {sizes.map((s) => (<option key={s} value={s}>{s}</option>))}
+                  </select>
+                )}
+                <select className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+                  <option value="new">{t("store.sort_new")}</option>
+                  <option value="cheap">{t("store.sort_cheap")}</option>
+                  <option value="expensive">{t("store.sort_expensive")}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Grid */}
+            {loading ? (
+              <p className="py-20 text-center text-ink/40">{t("common.loading")}</p>
+            ) : error ? (
+              <p className="py-20 text-center text-red-600">{t("common.load_failed")}</p>
+            ) : filtered.length === 0 ? (
+              <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-center text-ink/40">
+                {products.length === 0 ? t("store.empty_soon") : t("store.not_found")}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+                {filtered.map((p) => renderCard(p))}
+              </div>
+            )}
+          </section>
+        </main>
+      </>
       )}
 
       <footer className="border-t border-line py-8 text-center text-sm text-ink/40">
