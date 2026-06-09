@@ -138,6 +138,10 @@ export function Store({ template }: Props) {
   const [cartPage, setCartPage] = useState(false);
   const [aboutPage, setAboutPage] = useState(false);
   const [listing, setListing] = useState<{ type: "brand" | "category" | "color"; value: string } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [lColor, setLColor] = useState("");
+  const [lSize, setLSize] = useState("");
+  const [lSort, setLSort] = useState<"new" | "cheap" | "expensive">("new");
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
@@ -365,6 +369,7 @@ export function Store({ template }: Props) {
     setCartPage(false);
     setAboutPage(false);
     setListing(null);
+    setMenuOpen(false);
   }
 
   function showProduct(p: StoreProduct, push: boolean) {
@@ -401,9 +406,16 @@ export function Store({ template }: Props) {
 
   function goListing(type: "brand" | "category" | "color", value: string) {
     clearViews();
+    setLColor("");
+    setLSize("");
+    setLSort("new");
     setListing({ type, value });
     window.history.pushState({}, "", `/${type}/${slugify(value)}`);
     window.scrollTo({ top: 0 });
+  }
+
+  function goHome() {
+    backToCatalog();
   }
 
   function cartWhatsappLink(): string {
@@ -428,7 +440,7 @@ export function Store({ template }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-sand">
+    <div className="min-h-screen bg-sand pb-16 sm:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-line bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
@@ -443,6 +455,9 @@ export function Store({ template }: Props) {
             )}
           </button>
           <nav className="flex items-center gap-2 text-sm text-ink/60 sm:gap-3">
+            <button onClick={() => setMenuOpen((v) => !v)} className="hidden font-medium hover:text-ink sm:block">
+              {t("store.menu")} ▾
+            </button>
             <button onClick={() => goAbout()} className="hidden font-medium hover:text-ink sm:block">
               {t("store.about")}
             </button>
@@ -487,24 +502,56 @@ export function Store({ template }: Props) {
           </div>
         </main>
       ) : listing ? (() => {
-        const items = products.filter((p) =>
+        const base = products.filter((p) =>
           listing.type === "brand"
             ? p.brandName === listing.value
             : listing.type === "category"
             ? p.category === listing.value
             : (p.colors || []).includes(listing.value),
         );
+        const fColors = collect(base, (p) => p.colors || []);
+        const fSizes = collect(base, (p) => p.sizes || []);
+        let items = base.filter((p) => {
+          if (lColor && !(p.colors || []).includes(lColor)) return false;
+          if (lSize && !(p.sizes || []).includes(lSize)) return false;
+          return true;
+        });
+        if (lSort === "cheap") items = [...items].sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
+        else if (lSort === "expensive") items = [...items].sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
         const label =
           listing.type === "brand" ? t("store.brand_label") : listing.type === "category" ? t("product.category") : t("product.color");
         return (
-          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-            <button onClick={() => backToCatalog()} className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink">
-              {t("store.back_home")}
-            </button>
-            <div className="mb-6">
+          <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+            <nav className="mb-4 text-sm text-ink/45">
+              <button onClick={() => goHome()} className="hover:text-ink">{t("store.home")}</button>
+              <span className="mx-1.5">/</span>
+              <span className="text-ink/70">{listing.value}</span>
+            </nav>
+            <div className="mb-5">
               <div className="text-xs uppercase tracking-wide text-ink/40">{label}</div>
               <h1 className="font-serif text-3xl">{listing.value}</h1>
             </div>
+
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              {fColors.length > 0 && (
+                <select className="input w-auto" value={lColor} onChange={(e) => setLColor(e.target.value)}>
+                  <option value="">{t("store.color_any")}</option>
+                  {fColors.map((c) => (<option key={c} value={c}>{c}</option>))}
+                </select>
+              )}
+              {fSizes.length > 0 && (
+                <select className="input w-auto" value={lSize} onChange={(e) => setLSize(e.target.value)}>
+                  <option value="">{t("store.size_any")}</option>
+                  {fSizes.map((s) => (<option key={s} value={s}>{s}</option>))}
+                </select>
+              )}
+              <select className="input ml-auto w-auto" value={lSort} onChange={(e) => setLSort(e.target.value as typeof lSort)}>
+                <option value="new">{t("store.sort_new")}</option>
+                <option value="cheap">{t("store.sort_cheap")}</option>
+                <option value="expensive">{t("store.sort_expensive")}</option>
+              </select>
+            </div>
+
             {items.length === 0 ? (
               <div className="grid min-h-[40vh] place-items-center rounded-2xl border border-dashed border-line bg-white/50 text-ink/40">
                 {t("store.not_found")}
@@ -600,14 +647,22 @@ export function Store({ template }: Props) {
         const unitPrice = parsePrice(variation.price);
         const series = money(unitPrice * count);
         const disc = discountOf(variation);
+        const related = products
+          .filter((p) => p.key !== quick.key && (p.category === quick.category || p.brandName === quick.brandName))
+          .slice(0, 6);
         return (
           <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-            <button
-              onClick={() => backToCatalog()}
-              className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink"
-            >
-              {t("product.back")}
-            </button>
+            <nav className="mb-4 text-sm text-ink/45">
+              <button onClick={() => goHome()} className="hover:text-ink">{t("store.home")}</button>
+              {quick.category && (
+                <>
+                  <span className="mx-1.5">/</span>
+                  <button onClick={() => goListing("category", quick.category)} className="hover:text-ink">{quick.category}</button>
+                </>
+              )}
+              <span className="mx-1.5">/</span>
+              <span className="text-ink/70">{quick.code}</span>
+            </nav>
             <div className="grid gap-6 sm:grid-cols-2">
               {/* Photos */}
               <div>
@@ -715,6 +770,15 @@ export function Store({ template }: Props) {
                 </div>
               </div>
             </div>
+
+            {related.length > 0 && (
+              <section className="mt-12">
+                <h2 className="mb-4 font-serif text-2xl">{t("store.related")}</h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+                  {related.map((p) => renderCard(p))}
+                </div>
+              </section>
+            )}
           </main>
         );
       })() : (
@@ -888,9 +952,82 @@ export function Store({ template }: Props) {
         <div className="text-ink/40">© {new Date().getFullYear()} {title} {subtitle}</div>
       </footer>
 
+      {/* Catalog menu (header dropdown / mobile sheet) */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
+          <div
+            className="absolute inset-x-0 top-0 max-h-[85vh] overflow-auto rounded-b-2xl bg-white p-5 shadow-2xl sm:inset-x-auto sm:right-6 sm:top-16 sm:w-80 sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <span className="font-serif text-xl">{t("store.menu")}</span>
+              <button className="rounded-full px-3 py-1 text-sm text-ink/50 hover:bg-sand" onClick={() => setMenuOpen(false)}>
+                {t("common.close")}
+              </button>
+            </div>
+            {categories.length > 0 && (
+              <div className="mb-4">
+                <div className="field-label">{t("store.categories")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((c) => (
+                    <button key={c} onClick={() => goListing("category", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {shopBrands.length > 0 && (
+              <div className="mb-4">
+                <div className="field-label">{t("store.brands")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {shopBrands.map((b) => (
+                    <button key={b.id} onClick={() => goListing("brand", b.name)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {colors.length > 0 && (
+              <div>
+                <div className="field-label">{t("store.colors")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {colors.map((c) => (
+                    <button key={c} onClick={() => goListing("color", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-white/95 backdrop-blur sm:hidden">
+        {[
+          { key: "store.home", icon: "🏠", on: () => goHome() },
+          { key: "store.menu", icon: "≣", on: () => setMenuOpen(true) },
+          { key: "store.cart", icon: "🛒", on: () => goCart(), badge: cartCount },
+          { key: "store.about", icon: "ℹ️", on: () => goAbout() },
+        ].map((tab) => (
+          <button key={tab.key} onClick={tab.on} className="relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-ink/60">
+            <span className="text-lg leading-none">{tab.icon}</span>
+            {t(tab.key)}
+            {tab.badge ? (
+              <span className="absolute right-1/2 top-1 translate-x-4 grid h-4 min-w-[16px] place-items-center rounded-full bg-clay px-1 text-[10px] font-bold text-white">
+                {tab.badge}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
       {/* Added toast */}
       {added && (
-        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+        <div className="fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 sm:bottom-6">
           <div className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-lg">
             {t("cart.added")}
           </div>
