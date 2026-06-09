@@ -4,13 +4,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["DM Sans", "system-ui", "sans-serif"],
-        serif: ["Instrument Serif", "serif"],
+        sans: ["var(--font-body)", "DM Sans", "system-ui", "sans-serif"],
+        serif: ["var(--font-head)", "Instrument Serif", "serif"],
       },
       colors: {
         ink: "#121212",
-        sand: "#f6f1ea",
-        clay: "#d47516",
+        sand: "rgb(var(--bg-rgb) / <alpha-value>)",
+        clay: "rgb(var(--accent-rgb) / <alpha-value>)",
         line: "#e7ddd0",
       },
       borderRadius: {

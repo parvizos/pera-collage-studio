@@ -4,6 +4,10 @@
 
 :root {
   --app-vh: 100vh;
+  --accent-rgb: 212 117 22;
+  --bg-rgb: 246 241 234;
+  --font-head: "Instrument Serif", serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
 }
 
 html,

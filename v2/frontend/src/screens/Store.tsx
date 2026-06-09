@@ -13,6 +13,22 @@ interface Props {
 const WHATSAPP = "905339178551"; // +90 533 917 85 51
 const CART_KEY = "pera_cart";
 
+const FONTS: Record<string, { head: string; body: string }> = {
+  serif: { head: '"Instrument Serif", serif', body: '"DM Sans", system-ui, sans-serif' },
+  modern: { head: '"Poppins", sans-serif', body: '"Poppins", sans-serif' },
+  elegant: { head: '"Playfair Display", serif', body: '"DM Sans", system-ui, sans-serif' },
+  clean: { head: '"Montserrat", sans-serif', body: '"Montserrat", sans-serif' },
+};
+
+/** "#d47516" → "212 117 22" (for rgb(var(--accent-rgb) / a)). */
+function hexToRgbTriplet(hex?: string): string | null {
+  if (!hex) return null;
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
+
 function slugify(s: string): string {
   return (s || "")
     .trim()
@@ -114,6 +130,19 @@ export function Store({ template }: Props) {
   const whatsapp = ((store.whatsapp as string) || WHATSAPP).replace(/[^\d]/g, "");
   const instagram = (store.instagram as string) || "peraistanbulstore";
   const currency = (store.currency as string) || "₺";
+
+  const home = (store.home as Record<string, unknown>) || {};
+  const branding = (home.branding as Record<string, string>) || {};
+  const rootStyle: React.CSSProperties = {};
+  const accRgb = hexToRgbTriplet(branding.accent);
+  if (accRgb) (rootStyle as Record<string, string>)["--accent-rgb"] = accRgb;
+  const bgRgb = hexToRgbTriplet(branding.bg);
+  if (bgRgb) (rootStyle as Record<string, string>)["--bg-rgb"] = bgRgb;
+  const fontPreset = branding.font && FONTS[branding.font];
+  if (fontPreset) {
+    (rootStyle as Record<string, string>)["--font-head"] = fontPreset.head;
+    (rootStyle as Record<string, string>)["--font-body"] = fontPreset.body;
+  }
 
   /** Любую цену всегда приводим к валюте магазина (игнорируя символ, что ввёл сотрудник). */
   const money = (num: number) => {
@@ -442,7 +471,7 @@ export function Store({ template }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-sand">
+    <div className="min-h-screen bg-sand" style={rootStyle}>
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-line bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
@@ -794,8 +823,9 @@ export function Store({ template }: Props) {
       })() : (
       <>
         {/* Hero */}
-        <section className="bg-gradient-to-br from-clay via-[#e58a2e] to-[#b85e10] text-white">
-          <div className="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 sm:py-16">
+        <section className="relative overflow-hidden bg-clay text-white">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 to-black/25" />
+          <div className="relative mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 sm:py-16">
             {logo && <img src={logo} alt={title} className="mx-auto mb-4 h-14 w-auto" />}
             <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{title}</h1>
             <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">{t("store.tagline")}</p>
