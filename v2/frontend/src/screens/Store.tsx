@@ -440,7 +440,7 @@ export function Store({ template }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-sand pb-16 sm:pb-0">
+    <div className="min-h-screen bg-sand">
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-line bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
@@ -469,15 +469,23 @@ export function Store({ template }: Props) {
             </a>
             <LanguageSwitcher />
             <button
-              className="relative flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 font-semibold text-white"
+              className="relative flex items-center gap-1.5 rounded-full bg-ink px-3 py-2 font-semibold text-white sm:px-4"
               onClick={() => goCart()}
+              aria-label={t("store.cart")}
             >
-              🛒 {t("store.cart")}
+              🛒<span className="hidden sm:inline"> {t("store.cart")}</span>
               {cartCount > 0 && (
-                <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-clay px-1 text-xs">
+                <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-clay px-1 text-xs sm:static sm:right-auto sm:top-auto">
                   {cartCount}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="grid h-10 w-10 place-items-center rounded-full border border-line text-xl leading-none text-ink/70 hover:border-ink/40 sm:hidden"
+              aria-label={t("store.menu")}
+            >
+              ☰
             </button>
           </nav>
         </div>
@@ -952,82 +960,88 @@ export function Store({ template }: Props) {
         <div className="text-ink/40">© {new Date().getFullYear()} {title} {subtitle}</div>
       </footer>
 
-      {/* Catalog menu (header dropdown / mobile sheet) */}
+      {/* Slide-in menu drawer (hamburger on mobile, "Catalog" on desktop) */}
       {menuOpen && (
-        <div className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
+        <div className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
           <div
-            className="absolute inset-x-0 top-0 max-h-[85vh] overflow-auto rounded-b-2xl bg-white p-5 shadow-2xl sm:inset-x-auto sm:right-6 sm:top-16 sm:w-80 sm:rounded-2xl"
+            className="absolute right-0 top-0 flex h-full w-80 max-w-[86vw] flex-col overflow-auto bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="sticky top-0 flex items-center justify-between border-b border-line bg-white px-5 py-4">
               <span className="font-serif text-xl">{t("store.menu")}</span>
-              <button className="rounded-full px-3 py-1 text-sm text-ink/50 hover:bg-sand" onClick={() => setMenuOpen(false)}>
-                {t("common.close")}
+              <button className="grid h-9 w-9 place-items-center rounded-full text-ink/50 hover:bg-sand" onClick={() => setMenuOpen(false)} aria-label={t("common.close")}>
+                ✕
               </button>
             </div>
-            {categories.length > 0 && (
-              <div className="mb-4">
-                <div className="field-label">{t("store.categories")}</div>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((c) => (
-                    <button key={c} onClick={() => goListing("category", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
-                      {c}
-                    </button>
-                  ))}
-                </div>
+
+            <div className="space-y-5 p-5">
+              {/* Quick links (mobile) */}
+              <div className="space-y-1 sm:hidden">
+                <button onClick={() => goHome()} className="block w-full rounded-lg px-3 py-2 text-left font-medium hover:bg-sand">
+                  {t("store.home")}
+                </button>
+                <button onClick={() => goAbout()} className="block w-full rounded-lg px-3 py-2 text-left font-medium hover:bg-sand">
+                  {t("store.about")}
+                </button>
+                <a href="/staff" className="block w-full rounded-lg px-3 py-2 text-left font-medium hover:bg-sand">
+                  {t("store.staff")}
+                </a>
+                <div className="px-3 pt-2"><LanguageSwitcher /></div>
               </div>
-            )}
-            {shopBrands.length > 0 && (
-              <div className="mb-4">
-                <div className="field-label">{t("store.brands")}</div>
-                <div className="flex flex-wrap gap-2">
-                  {shopBrands.map((b) => (
-                    <button key={b.id} onClick={() => goListing("brand", b.name)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
-                      {b.name}
-                    </button>
-                  ))}
+
+              {categories.length > 0 && (
+                <div>
+                  <div className="field-label">{t("store.categories")}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((c) => (
+                      <button key={c} onClick={() => goListing("category", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            {colors.length > 0 && (
-              <div>
-                <div className="field-label">{t("store.colors")}</div>
-                <div className="flex flex-wrap gap-2">
-                  {colors.map((c) => (
-                    <button key={c} onClick={() => goListing("color", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
-                      {c}
-                    </button>
-                  ))}
+              )}
+              {shopBrands.length > 0 && (
+                <div>
+                  <div className="field-label">{t("store.brands")}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {shopBrands.map((b) => (
+                      <button key={b.id} onClick={() => goListing("brand", b.name)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {colors.length > 0 && (
+                <div>
+                  <div className="field-label">{t("store.colors")}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {colors.map((c) => (
+                      <button key={c} onClick={() => goListing("color", c)} className="rounded-full border border-line px-3 py-1.5 text-sm hover:border-clay/50 hover:text-clay">
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <a
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-full bg-[#25D366] py-3 text-center font-semibold text-white sm:hidden"
+              >
+                WhatsApp
+              </a>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-white/95 backdrop-blur sm:hidden">
-        {[
-          { key: "store.home", icon: "🏠", on: () => goHome() },
-          { key: "store.menu", icon: "≣", on: () => setMenuOpen(true) },
-          { key: "store.cart", icon: "🛒", on: () => goCart(), badge: cartCount },
-          { key: "store.about", icon: "ℹ️", on: () => goAbout() },
-        ].map((tab) => (
-          <button key={tab.key} onClick={tab.on} className="relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-ink/60">
-            <span className="text-lg leading-none">{tab.icon}</span>
-            {t(tab.key)}
-            {tab.badge ? (
-              <span className="absolute right-1/2 top-1 translate-x-4 grid h-4 min-w-[16px] place-items-center rounded-full bg-clay px-1 text-[10px] font-bold text-white">
-                {tab.badge}
-              </span>
-            ) : null}
-          </button>
-        ))}
-      </nav>
-
       {/* Added toast */}
       {added && (
-        <div className="fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 sm:bottom-6">
+        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
           <div className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white shadow-lg">
             {t("cart.added")}
           </div>
