@@ -133,14 +133,40 @@ export function Store({ template }: Props) {
 
   // Live preview: the admin homepage editor posts an unsaved config via postMessage.
   const [liveHome, setLiveHome] = useState<Record<string, unknown> | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
   useEffect(() => {
     function onMsg(e: MessageEvent) {
-      const d = e.data as { type?: string; home?: Record<string, unknown> } | null;
-      if (d && d.type === "pera-home-preview" && d.home) setLiveHome(d.home);
+      const d = e.data as { type?: string; home?: Record<string, unknown>; previewMode?: boolean; selectedId?: string } | null;
+      if (!d || d.type !== "pera-home-preview") return;
+      if (d.home) setLiveHome(d.home);
+      if ("previewMode" in d) setPreviewMode(!!d.previewMode);
+      if ("selectedId" in d) setSelectedId(d.selectedId || "");
     }
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, []);
+
+  /** In preview mode wrap each block so clicking it opens its settings in the builder. */
+  function previewWrap(id: string, node: React.ReactNode) {
+    if (!previewMode) return node;
+    const sel = selectedId === id;
+    return (
+      <div
+        key={id}
+        onClickCapture={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try { window.parent.postMessage({ type: "pera-section-click", id }, "*"); } catch { /* ignore */ }
+        }}
+        className={`relative cursor-pointer rounded-lg transition ${
+          sel ? "outline outline-2 outline-clay outline-offset-4" : "hover:outline hover:outline-2 hover:outline-clay/40 hover:outline-offset-4"
+        }`}
+      >
+        {node}
+      </div>
+    );
+  }
 
   const home = liveHome || (store.home as Record<string, unknown>) || {};
   const branding = (home.branding as Record<string, string>) || {};
@@ -505,7 +531,7 @@ export function Store({ template }: Props) {
   const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[] };
+  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
     { id: "sale", type: "sale" },
@@ -672,6 +698,33 @@ export function Store({ template }: Props) {
             </div>
           </section>
         );
+      }
+      case "gallery": {
+        const imgs = (sec.items || []).filter((it) => it.image);
+        if (!imgs.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {imgs.map((it, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => goLink(it.link)}
+                  className={`group relative aspect-square overflow-hidden rounded-xl bg-ink ${it.link ? "cursor-pointer" : ""}`}
+                >
+                  <img src={it.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  {it.title && (
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 text-sm font-semibold text-white">{it.title}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "spacer": {
+        const h = sec.size === "s" ? 16 : sec.size === "l" ? 80 : 40;
+        return <div key={sec.id} style={{ height: h }} aria-hidden />;
       }
       case "custom":
         return (
@@ -1103,7 +1156,7 @@ export function Store({ template }: Props) {
       })() : (
       <>
         {/* Hero */}
-        {heroEnabled && (
+        {heroEnabled && previewWrap("__hero__",
           <section className={`relative overflow-hidden bg-clay ${heroTextCls}`}>
             {heroImage && <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
             <div className={`pointer-events-none absolute inset-0 ${overlayCls}`} />
@@ -1128,7 +1181,7 @@ export function Store({ template }: Props) {
         )}
 
         <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
-          {sectionList.map((sec) => renderSection(sec))}
+          {sectionList.map((sec) => previewWrap(sec.id, renderSection(sec)))}
         </main>
       </>
       )}

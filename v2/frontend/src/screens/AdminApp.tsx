@@ -89,7 +89,7 @@ export function AdminApp({
             />
           )}
           {section === "storepage" && (
-            <StorePageSection template={template} adminPin={adminPin} onTemplateChange={onTemplateChange} />
+            <StorePageSection template={template} adminPin={adminPin} onTemplateChange={onTemplateChange} onClose={() => setSection("overview")} />
           )}
           {section === "users" && (
             <UsersSection
