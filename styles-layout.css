@@ -1,0 +1,719 @@
+/* Pera Collage Studio — layout & UX shell (v4) */
+
+/* ─── App shell ─── */
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  padding: 0;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.app-header .app-brand-text h1 {
+  font-size: 20px;
+}
+
+.app-header-center {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.header-user-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-soft);
+}
+
+.header-user-bar.is-hidden {
+  display: none !important;
+}
+
+.header-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-header--legacy {
+  display: none !important;
+}
+
+.app-mode-switch h2 {
+  display: none;
+}
+
+/* Stepper */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.stepper-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.stepper-step-num {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stepper-step.is-active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.stepper-step.is-active .stepper-step-num {
+  background: var(--accent-brand);
+  color: #fff;
+}
+
+.stepper-step.is-done .stepper-step-num {
+  background: #16a34a;
+  color: #fff;
+}
+
+body:not(.app-state-employee) #composeStepper,
+body.app-state-login #composeStepper,
+body.app-state-admin #composeStepper {
+  display: none;
+}
+
+body.app-state-employee:has(.employee-view-panel[data-employee-view-panel="history"]:not(.is-hidden)) #composeStepper {
+  display: none;
+}
+
+body.app-state-employee:has(.employee-view-panel[data-employee-view-panel="compose"]:not(.is-hidden)) #composeStepper {
+  display: inline-flex;
+}
+
+/* Workspace grid */
+.app-workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(360px, 480px) minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.app-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 65px);
+  max-height: calc(100vh - 65px);
+}
+
+.mode-panel[data-panel="employee"],
+.mode-panel[data-panel="admin"] {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#employeeWorkspace.employee-layout:not(.is-hidden) {
+  flex: 1;
+  min-height: 0;
+}
+
+.app-canvas {
+  border: 0;
+  border-radius: 0;
+  border-left: 1px solid var(--line);
+  box-shadow: none;
+  padding: 20px 24px;
+  position: sticky;
+  top: 65px;
+  height: calc(100vh - 65px);
+  max-height: calc(100vh - 65px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-soft);
+}
+
+.canvas-shell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.canvas-shell .stage {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ─── Login ─── */
+body.app-state-login .app-workspace,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-workspace {
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: 24px;
+}
+
+body.app-state-login .app-panel,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-panel {
+  max-width: 440px;
+  width: 100%;
+  min-height: auto;
+  max-height: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  padding: 0;
+}
+
+body.app-state-login .app-canvas,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-canvas {
+  display: none !important;
+}
+
+body.app-state-login .app-header-center,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-header-center {
+  display: none;
+}
+
+body.app-state-login .header-user-bar,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .header-user-bar {
+  display: none !important;
+}
+
+body.app-state-login .app-header,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-header {
+  grid-template-columns: 1fr auto;
+  justify-content: center;
+}
+
+body.app-state-login .app-brand,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-brand {
+  justify-self: center;
+}
+
+body.app-state-login .app-mode-switch,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .app-mode-switch {
+  display: none;
+}
+
+body.app-state-login .mode-panel[data-panel="employee"],
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .mode-panel[data-panel="employee"] {
+  padding: 28px;
+}
+
+body.app-state-login .auth-showcase,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-showcase {
+  display: none !important;
+}
+
+body.app-state-login .auth-shell--login,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-shell--login {
+  display: block;
+}
+
+body.app-state-login .auth-card,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) .auth-card {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+body.app-state-login #loginUser,
+body:not(.app-state-admin):has(#employeeWorkspace.is-hidden) #loginUser {
+  width: 100%;
+  min-height: 48px;
+  font-size: 15px;
+}
+
+/* ─── Employee layout ─── */
+.employee-layout {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.employee-sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 8px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sidebar-nav-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text);
+}
+
+.sidebar-nav-item.is-active,
+.sidebar-nav-item.workspace-tab.is-active {
+  background: var(--card);
+  color: var(--accent-brand);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.sidebar-logout {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.employee-content {
+  overflow: auto;
+  padding: 20px;
+  min-height: 0;
+}
+
+.content-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.content-card-head h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.content-card-hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.field-grid--emphasis {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+.field--search input {
+  padding-left: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.1a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 12px center;
+}
+
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.action-bar .primary {
+  margin-left: auto;
+}
+
+.action-bar-host {
+  margin-top: 8px;
+}
+
+#employeePreviewActionsHost {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+#employeePreviewActionsHost .action-bar {
+  border-top: 0;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Compose step: collage focus */
+body.app-state-compose-collage .app-workspace {
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+body.app-state-compose-collage .employee-sidebar {
+  display: none;
+}
+
+body.app-state-compose-collage .employee-layout {
+  grid-template-columns: 1fr;
+}
+
+body.app-state-compose-collage #employeePrimaryFields,
+body.app-state-compose-collage #employeeCustomFields {
+  display: none !important;
+}
+
+body.app-state-compose-collage #employeeComposeCollage {
+  display: block !important;
+}
+
+body.app-state-compose-collage .content-card-head:not(.content-card-head--compact) {
+  display: none;
+}
+
+body.app-state-compose-details #employeeComposeCollage {
+  display: none !important;
+}
+
+body.app-state-compose-collage .preview-head {
+  display: flex !important;
+}
+
+body.app-state-employee .preview-head,
+body.app-state-compose-details .preview-head {
+  display: none;
+}
+
+body.app-state-compose-collage .app-canvas {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+body.app-state-compose-collage .canvas-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.app-state-compose-collage .preview-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.app-state-compose-collage .stage {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+body.app-state-compose-collage #collageCanvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Кнопки — строго под превью, не поверх коллажа */
+body.app-state-compose-collage #employeePreviewActionsHost {
+  position: static !important;
+  flex: 0 0 auto;
+  order: 10;
+  margin: 0;
+  padding: 14px 0 0;
+  background: transparent;
+  pointer-events: auto;
+  z-index: auto;
+  bottom: auto !important;
+}
+
+body.app-state-compose-collage #employeePreviewActionsHost .action-bar {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+}
+
+body.app-state-compose-collage #employeePreviewActionsHost:empty {
+  display: none;
+}
+
+body.app-state-compose-collage #employeeComposeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+body.app-state-compose-collage #downloadPng {
+  order: -1;
+  flex: 1 1 100%;
+  max-width: 100%;
+}
+
+/* History full width */
+body.app-state-employee:has([data-employee-view-panel="history"]:not(.is-hidden)) .app-workspace {
+  grid-template-columns: 1fr;
+}
+
+body.app-state-employee:has([data-employee-view-panel="history"]:not(.is-hidden)) .app-canvas {
+  display: none;
+}
+
+body.app-state-employee:has([data-employee-view-panel="history"]:not(.is-hidden)) .employee-layout {
+  grid-template-columns: 72px 1fr;
+}
+
+.content-card--history {
+  max-width: 1200px;
+}
+
+/* ─── Admin layout ─── */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-sidebar {
+  border-right: 1px solid var(--line);
+  background: var(--bg-soft);
+  padding: 12px 10px;
+  overflow: auto;
+}
+
+.sidebar-nav--admin .sidebar-nav-item {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.admin-content {
+  overflow: auto;
+  padding: 20px;
+  padding-bottom: 80px;
+  min-height: 0;
+}
+
+.action-bar--sticky {
+  position: sticky;
+  bottom: 0;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.persist-status {
+  display: none;
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: auto;
+}
+
+.persist-status.is-visible {
+  display: inline-flex;
+}
+
+.persist-status.is-error {
+  color: var(--danger, #c0392b);
+}
+
+body.app-state-admin .app-workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
+}
+
+body.app-state-admin .app-panel {
+  max-height: calc(100vh - 65px);
+}
+
+body.app-state-admin .app-mode-switch {
+  display: flex;
+}
+
+body.app-state-admin #composeStepper {
+  display: none;
+}
+
+/* Hide employee chrome in admin */
+body.app-state-admin .mode-panel[data-panel="employee"] {
+  display: none !important;
+}
+
+body.app-state-admin .mode-panel[data-panel="admin"] {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Employee mode hide admin */
+body.app-state-employee .mode-panel[data-panel="admin"],
+body.app-state-login .mode-panel[data-panel="admin"],
+body.app-state-compose-details .mode-panel[data-panel="admin"],
+body.app-state-compose-collage .mode-panel[data-panel="admin"] {
+  display: none !important;
+}
+
+body.app-state-employee .mode-panel[data-panel="employee"],
+body.app-state-compose-details .mode-panel[data-panel="employee"],
+body.app-state-compose-collage .mode-panel[data-panel="employee"] {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Auth authenticated legacy hide */
+.auth-shell.is-authenticated .auth-showcase,
+.auth-shell.is-authenticated .field-grid,
+.auth-shell.is-authenticated #loginUser {
+  display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .app-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .app-header-center {
+    display: none;
+  }
+
+  .app-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .app-canvas {
+    position: relative;
+    top: 0;
+    height: auto;
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  body.app-state-compose-collage .employee-sidebar {
+    display: none;
+  }
+
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sidebar-nav--admin {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  body.app-state-admin .app-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Narrow layouts: see styles-mobile.css */

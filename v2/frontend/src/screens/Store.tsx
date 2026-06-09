@@ -477,6 +477,10 @@ export function Store({ template }: Props) {
   const heroTitle = (heroCfg.title as string) || title;
   const heroSubtitle = (heroCfg.subtitle as string) ?? t("store.tagline");
   const heroButton = (heroCfg.button as string) || t("store.view_catalog");
+  const heroHeight = (heroCfg.height as string) || "m";
+  const heroAlign = (heroCfg.align as string) || "center";
+  const heroPad = heroHeight === "s" ? "py-8 sm:py-10" : heroHeight === "l" ? "py-24 sm:py-36" : "py-14 sm:py-20";
+  const heroAlignCls = heroAlign === "left" ? "items-start text-left" : "items-center text-center";
 
   type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string };
   const DEFAULT_SECTIONS: HomeSection[] = [
@@ -565,6 +569,16 @@ export function Store({ template }: Props) {
                   {term(c)}
                 </button>
               ))}
+            </div>
+          </section>
+        );
+      case "strip":
+        if (!sec.text && !sec.title) return null;
+        return (
+          <section key={sec.id} className={sec.link ? "cursor-pointer" : ""} onClick={() => goLink(sec.link)}>
+            <div className="flex flex-wrap items-center justify-center gap-3 rounded-xl bg-clay px-4 py-3 text-center text-sm font-semibold text-white">
+              <span>{sec.text || sec.title}</span>
+              {sec.button && <span className="rounded-full bg-white/25 px-3 py-1 text-xs">{sec.button}</span>}
             </div>
           </section>
         );
@@ -1002,11 +1016,11 @@ export function Store({ template }: Props) {
           <section className="relative overflow-hidden bg-clay text-white">
             {heroImage && <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
             <div className={`pointer-events-none absolute inset-0 ${heroImage ? "bg-gradient-to-br from-black/45 to-black/60" : "bg-gradient-to-br from-white/15 to-black/25"}`} />
-            <div className="relative mx-auto max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-20">
-              {!heroImage && logo && <img src={logo} alt={title} className="mx-auto mb-4 h-14 w-auto" />}
+            <div className={`relative mx-auto flex max-w-6xl flex-col ${heroAlignCls} px-4 ${heroPad} sm:px-6`}>
+              {!heroImage && logo && <img src={logo} alt={title} className="mb-4 h-14 w-auto" />}
               <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{heroTitle}</h1>
-              {heroSubtitle && <p className="mx-auto mt-3 max-w-xl text-sm text-white/90 sm:text-base">{heroSubtitle}</p>}
-              <div className="mx-auto mt-7 flex max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
+              {heroSubtitle && <p className="mt-3 max-w-xl text-sm text-white/90 sm:text-base">{heroSubtitle}</p>}
+              <div className="mt-7 flex w-full max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
                 <input
                   className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
                   placeholder={t("store.search_ph")}

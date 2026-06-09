@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Template } from "../../api/types";
 import { api, ApiError } from "../../api/client";
 import { useI18n } from "../../i18n";
@@ -44,6 +44,7 @@ const TYPE_KEY: Record<string, string> = {
   colors: "store.colors",
   catalog: "store.catalog",
   custom: "adm.custom_block",
+  strip: "adm.strip",
 };
 
 type Status = { kind: "idle" | "saving" | "ok" | "error"; msg?: string };
@@ -77,11 +78,30 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
   const [heroTitle, setHeroTitle] = useState((hero0.title as string) || "");
   const [heroSubtitle, setHeroSubtitle] = useState((hero0.subtitle as string) || "");
   const [heroButton, setHeroButton] = useState((hero0.button as string) || "");
+  const [heroHeight, setHeroHeight] = useState((hero0.height as string) || "m");
+  const [heroAlign, setHeroAlign] = useState((hero0.align as string) || "center");
 
   const [sections, setSections] = useState<HomeSection[]>(sections0);
 
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [previewKey, setPreviewKey] = useState(0);
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [wrapW, setWrapW] = useState(0);
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const update = () => setWrapW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const FW = device === "desktop" ? 1280 : 390;
+  const FH = device === "desktop" ? 820 : 760;
+  const scale = wrapW ? Math.min(1, wrapW / FW) : 0.3;
 
   function patchSection(id: string, patch: Partial<HomeSection>) {
     setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -95,10 +115,10 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
       return next;
     });
   }
-  function addBlock() {
+  function addBlock(type: "custom" | "strip") {
     setSections((prev) => [
       ...prev,
-      { id: `custom_${Date.now()}`, type: "custom", enabled: true, title: "", text: "", button: "", link: "" },
+      { id: `${type}_${Date.now()}`, type, enabled: true, title: "", text: "", button: "", link: "" },
     ]);
   }
   function removeBlock(id: string) {
@@ -121,7 +141,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
           home: {
             ...home0,
             branding: { accent, bg, font },
-            hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton },
+            hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign },
             sections,
           },
         },
@@ -138,6 +158,12 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
     }
   }
 
+  const saveBtn = (
+    <button className="btn-primary" onClick={save} disabled={status.kind === "saving"}>
+      {status.kind === "saving" ? t("common.saving") : t("common.save")}
+    </button>
+  );
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -149,13 +175,11 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
           {status.msg && (
             <span className={`text-sm font-medium ${status.kind === "error" ? "text-red-600" : "text-green-600"}`}>{status.msg}</span>
           )}
-          <button className="btn-primary" onClick={save} disabled={status.kind === "saving"}>
-            {status.kind === "saving" ? t("common.saving") : t("common.save")}
-          </button>
+          {saveBtn}
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(320px,1fr)_minmax(0,1.25fr)]">
         {/* Editor */}
         <div className="space-y-4">
           {/* Branding */}
@@ -224,72 +248,142 @@ export function StorePageSection({ template, adminPin, onTemplateChange }: Props
                   <label className="field-label">{t("adm.hero_sub")}</label>
                   <input className="input" value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} />
                 </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="field-label">{t("adm.hero_height")}</label>
+                    <select className="input" value={heroHeight} onChange={(e) => setHeroHeight(e.target.value)}>
+                      <option value="s">{t("adm.h_s")}</option>
+                      <option value="m">{t("adm.h_m")}</option>
+                      <option value="l">{t("adm.h_l")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label">{t("adm.hero_align")}</label>
+                    <select className="input" value={heroAlign} onChange={(e) => setHeroAlign(e.target.value)}>
+                      <option value="center">{t("se.align_center")}</option>
+                      <option value="left">{t("se.align_left")}</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           {/* Sections */}
           <div className="card space-y-3 p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-serif text-lg">{t("adm.sections_title")}</h2>
-              <button className="btn-ghost" onClick={addBlock}>{t("adm.add_block")}</button>
+              <div className="flex gap-2">
+                <button className="btn-ghost" onClick={() => addBlock("custom")}>{t("adm.add_block")}</button>
+                <button className="btn-ghost" onClick={() => addBlock("strip")}>{t("adm.add_strip")}</button>
+              </div>
             </div>
             <div className="space-y-2">
-              {sections.map((s, i) => (
-                <div key={s.id} className="rounded-xl border border-line p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col">
-                      <button className="px-1 text-xs text-ink/50 hover:text-ink disabled:opacity-30" onClick={() => move(i, -1)} disabled={i === 0}>▲</button>
-                      <button className="px-1 text-xs text-ink/50 hover:text-ink disabled:opacity-30" onClick={() => move(i, 1)} disabled={i === sections.length - 1}>▼</button>
+              {sections.map((s, i) => {
+                const custom = s.type === "custom";
+                const strip = s.type === "strip";
+                return (
+                  <div key={s.id} className="rounded-xl border border-line p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <button className="px-1 text-xs text-ink/50 hover:text-ink disabled:opacity-30" onClick={() => move(i, -1)} disabled={i === 0}>▲</button>
+                        <button className="px-1 text-xs text-ink/50 hover:text-ink disabled:opacity-30" onClick={() => move(i, 1)} disabled={i === sections.length - 1}>▼</button>
+                      </div>
+                      <span className="flex-1 truncate text-sm font-semibold">
+                        {custom || strip ? s.title || s.text || t(TYPE_KEY[s.type]) : t(TYPE_KEY[s.type] || s.type)}
+                        {(custom || strip) && (
+                          <span className="ml-2 rounded-full bg-clay/10 px-2 py-0.5 text-[11px] font-normal text-clay">{t(TYPE_KEY[s.type])}</span>
+                        )}
+                      </span>
+                      <label className="flex shrink-0 items-center gap-1.5 text-xs text-ink/60">
+                        <input type="checkbox" checked={s.enabled !== false} onChange={(e) => patchSection(s.id, { enabled: e.target.checked })} />
+                        {t("adm.show")}
+                      </label>
+                      {(custom || strip) && (
+                        <button className="shrink-0 text-sm text-red-600 hover:underline" onClick={() => removeBlock(s.id)}>{t("common.delete")}</button>
+                      )}
                     </div>
-                    <span className="flex-1 text-sm font-semibold">
-                      {s.type === "custom" ? s.title || t("adm.custom_block") : t(TYPE_KEY[s.type] || s.type)}
-                      {s.type === "custom" && <span className="ml-2 rounded-full bg-clay/10 px-2 py-0.5 text-[11px] font-normal text-clay">{t("adm.custom_block")}</span>}
-                    </span>
-                    <label className="flex items-center gap-1.5 text-xs text-ink/60">
-                      <input type="checkbox" checked={s.enabled !== false} onChange={(e) => patchSection(s.id, { enabled: e.target.checked })} />
-                      {t("adm.show")}
-                    </label>
-                    {s.type === "custom" && (
-                      <button className="text-sm text-red-600 hover:underline" onClick={() => removeBlock(s.id)}>{t("common.delete")}</button>
+
+                    {/* Built-in: optional custom heading */}
+                    {!custom && !strip && (
+                      <input
+                        className="input mt-3"
+                        placeholder={`${t("adm.section_heading")} — ${t(TYPE_KEY[s.type])}`}
+                        value={s.title || ""}
+                        onChange={(e) => patchSection(s.id, { title: e.target.value })}
+                      />
+                    )}
+
+                    {/* Custom banner */}
+                    {custom && (
+                      <div className="mt-3 space-y-2 border-t border-line pt-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-line bg-sand">
+                            {s.image && <img src={s.image} alt="" className="h-full w-full object-cover" />}
+                          </div>
+                          <label className="btn-ghost cursor-pointer">
+                            {t("adm.upload")}
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadBlock(s.id, e.target.files?.[0])} />
+                          </label>
+                          {s.image && <button className="text-xs text-red-600 hover:underline" onClick={() => patchSection(s.id, { image: "" })}>{t("adm.remove_image")}</button>}
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input className="input" placeholder={t("adm.hero_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+                          <input className="input" placeholder={t("adm.block_btn")} value={s.button || ""} onChange={(e) => patchSection(s.id, { button: e.target.value })} />
+                        </div>
+                        <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
+                        <input className="input" placeholder={t("adm.block_link")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+                      </div>
+                    )}
+
+                    {/* Promo strip */}
+                    {strip && (
+                      <div className="mt-3 space-y-2 border-t border-line pt-3">
+                        <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input className="input" placeholder={t("adm.block_btn")} value={s.button || ""} onChange={(e) => patchSection(s.id, { button: e.target.value })} />
+                          <input className="input" placeholder={t("adm.block_link")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {s.type === "custom" && (
-                    <div className="mt-3 space-y-2 border-t border-line pt-3">
-                      <div className="flex items-center gap-3">
-                        <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-line bg-sand">
-                          {s.image && <img src={s.image} alt="" className="h-full w-full object-cover" />}
-                        </div>
-                        <label className="btn-ghost cursor-pointer">
-                          {t("adm.upload")}
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadBlock(s.id, e.target.files?.[0])} />
-                        </label>
-                        {s.image && <button className="text-xs text-red-600 hover:underline" onClick={() => patchSection(s.id, { image: "" })}>{t("adm.remove_image")}</button>}
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input className="input" placeholder={t("adm.hero_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
-                        <input className="input" placeholder={t("adm.block_btn")} value={s.button || ""} onChange={(e) => patchSection(s.id, { button: e.target.value })} />
-                      </div>
-                      <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
-                      <input className="input" placeholder={t("adm.block_link")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          <button className="btn-primary" onClick={save} disabled={status.kind === "saving"}>
-            {status.kind === "saving" ? t("common.saving") : t("common.save")}
-          </button>
+          {saveBtn}
         </div>
 
         {/* Live preview */}
         <div className="lg:sticky lg:top-20 lg:self-start">
-          <div className="card p-3">
-            <div className="field-label">{t("adm.preview")}</div>
-            <div className="overflow-hidden rounded-xl border border-line">
-              <iframe key={previewKey} src="/" title="preview" className="h-[640px] w-full" />
+          <div className="card space-y-3 p-3">
+            <div className="flex items-center justify-between">
+              <div className="field-label mb-0">{t("adm.preview")}</div>
+              <div className="inline-flex rounded-full border border-line bg-sand p-0.5 text-xs font-semibold">
+                <button
+                  className={`rounded-full px-3 py-1 transition ${device === "desktop" ? "bg-ink text-white" : "text-ink/60"}`}
+                  onClick={() => setDevice("desktop")}
+                >
+                  🖥 {t("adm.desktop")}
+                </button>
+                <button
+                  className={`rounded-full px-3 py-1 transition ${device === "mobile" ? "bg-ink text-white" : "text-ink/60"}`}
+                  onClick={() => setDevice("mobile")}
+                >
+                  📱 {t("adm.mobile")}
+                </button>
+              </div>
+            </div>
+            <div ref={previewRef} className="overflow-hidden rounded-xl border border-line bg-white">
+              <div className="mx-auto overflow-hidden" style={{ width: Math.round(FW * scale), height: Math.round(FH * scale) }}>
+                <iframe
+                  key={previewKey}
+                  src="/"
+                  title="preview"
+                  style={{ width: FW, height: FH, border: 0, transform: `scale(${scale})`, transformOrigin: "top left" }}
+                />
+              </div>
             </div>
           </div>
         </div>
