@@ -4,7 +4,9 @@ backend/.venv/
 backend/venv/
 
 # Build output
-frontend/dist/
+# ВАЖНО: frontend/dist НЕ игнорируем! Деплой (deploy-vps.sh) тянет собранный фронт
+# из git через `git reset --hard` — сервер сам НЕ собирает. Если игнорировать
+# dist/assets, index.html ссылается на несуществующий JS-бандл и сайт падает.
 *.tsbuildinfo
 
 # Python cache
