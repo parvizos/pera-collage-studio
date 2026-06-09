@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Template } from "../api/types";
 import { api, type StoreProduct, type StoreVariation } from "../api/client";
 import { Thumb } from "../components/Thumb";
@@ -35,6 +35,55 @@ function slugify(s: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+/** Running-text strip. speed: "s" slow, "m" medium, "l" fast. */
+function Marquee({ text, speed }: { text: string; speed?: string }) {
+  const dur = speed === "l" ? 12 : speed === "s" ? 40 : 22;
+  const piece = <span className="mx-6 inline-block">{text}</span>;
+  return (
+    <div className="overflow-hidden rounded-xl bg-clay py-3 text-white">
+      <div className="pera-marquee-track text-sm font-semibold uppercase tracking-wide" style={{ animationDuration: `${dur}s` }}>
+        <span className="inline-flex">{Array.from({ length: 8 }).map((_, i) => <span key={i}>{piece}</span>)}</span>
+        <span className="inline-flex" aria-hidden>{Array.from({ length: 8 }).map((_, i) => <span key={i}>{piece}</span>)}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Countdown to a target ISO date. */
+function Countdown({ target, title }: { target?: string; title?: string }) {
+  const { t } = useI18n();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const end = target ? new Date(target).getTime() : 0;
+  const diff = Math.max(0, end - now);
+  const ended = !target || (end > 0 && diff === 0);
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  const cell = (val: number, label: string) => (
+    <div className="flex min-w-[64px] flex-col items-center rounded-xl bg-white/15 px-3 py-2">
+      <span className="font-serif text-3xl tabular-nums">{String(val).padStart(2, "0")}</span>
+      <span className="text-[11px] uppercase tracking-wide opacity-80">{label}</span>
+    </div>
+  );
+  return (
+    <div className="rounded-2xl bg-clay px-5 py-6 text-center text-white">
+      {title && <h2 className="mb-3 font-serif text-2xl">{title}</h2>}
+      {ended ? (
+        <div className="text-lg font-semibold">{t("store.ended")}</div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {cell(d, t("store.days"))}{cell(h, t("store.hours"))}{cell(m, t("store.mins"))}{cell(s, t("store.secs"))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function parsePrice(p?: string): number {
@@ -180,6 +229,25 @@ export function Store({ template }: Props) {
     (rootStyle as Record<string, string>)["--font-head"] = fontPreset.head;
     (rootStyle as Record<string, string>)["--font-body"] = fontPreset.body;
   }
+
+  // Reveal-on-scroll animation (opt-in via builder). Guarded so it can never hide content.
+  const animations = !!home.animations && !previewMode;
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!animations || typeof IntersectionObserver === "undefined") return;
+    const root = mainRef.current;
+    if (!root) return;
+    const els = Array.from(root.children) as HTMLElement[];
+    els.forEach((el) => el.classList.add("pera-reveal"));
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) { (e.target as HTMLElement).classList.add("pera-reveal-in"); io.unobserve(e.target); }
+      }),
+      { threshold: 0.08 },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => { io.disconnect(); els.forEach((el) => el.classList.remove("pera-reveal", "pera-reveal-in")); };
+  }, [animations, liveHome]);
 
   /** Любую цену всегда приводим к валюте магазина (игнорируя символ, что ввёл сотрудник). */
   const money = (num: number) => {
@@ -531,7 +599,7 @@ export function Store({ template }: Props) {
   const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string };
+  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
     { id: "sale", type: "sale" },
@@ -725,6 +793,89 @@ export function Store({ template }: Props) {
       case "spacer": {
         const h = sec.size === "s" ? 16 : sec.size === "l" ? 80 : 40;
         return <div key={sec.id} style={{ height: h }} aria-hidden />;
+      }
+      case "marquee":
+        if (!sec.text) return null;
+        return <section key={sec.id}><Marquee text={sec.text} speed={sec.size} /></section>;
+      case "countdown":
+        return <section key={sec.id}><Countdown target={sec.date} title={sec.title} /></section>;
+      case "features": {
+        const items = (sec.items || []).filter((it) => it.title || it.text);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {items.map((it, idx) => (
+                <div key={idx} className="rounded-2xl border border-line bg-white p-5 text-center">
+                  <div className="mb-2 text-3xl">{it.button || "✓"}</div>
+                  {it.title && <div className="font-serif text-lg">{it.title}</div>}
+                  {it.text && <p className="mt-1 text-sm text-ink/60">{it.text}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "stats": {
+        const items = (sec.items || []).filter((it) => it.title);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="grid grid-cols-2 gap-4 rounded-2xl bg-clay/10 p-6 sm:grid-cols-4">
+              {items.map((it, idx) => (
+                <div key={idx} className="text-center">
+                  <div className="font-serif text-4xl text-clay">{it.title}</div>
+                  {it.text && <div className="mt-1 text-sm uppercase tracking-wide text-ink/60">{it.text}</div>}
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "testimonials": {
+        const items = (sec.items || []).filter((it) => it.text || it.title);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((it, idx) => (
+                <div key={idx} className="flex flex-col rounded-2xl border border-line bg-white p-5">
+                  <div className="mb-2 text-clay">{"★★★★★"}</div>
+                  {it.text && <p className="flex-1 text-sm text-ink/80">“{it.text}”</p>}
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-clay/15 font-semibold text-clay">
+                      {(it.title || "?").slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="text-sm font-semibold">{it.title}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case "faq": {
+        const items = (sec.items || []).filter((it) => it.title);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="space-y-2">
+              {items.map((it, idx) => (
+                <details key={idx} className="group rounded-xl border border-line bg-white px-4 py-3">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 font-medium">
+                    {it.title}
+                    <span className="text-ink/40 transition group-open:rotate-45">+</span>
+                  </summary>
+                  {it.text && <p className="mt-2 text-sm text-ink/70">{it.text}</p>}
+                </details>
+              ))}
+            </div>
+          </section>
+        );
       }
       case "custom":
         return (
@@ -1180,7 +1331,7 @@ export function Store({ template }: Props) {
           </section>
         )}
 
-        <main className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
+        <main ref={mainRef} className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
           {sectionList.map((sec) => previewWrap(sec.id, renderSection(sec)))}
         </main>
       </>

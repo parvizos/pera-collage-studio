@@ -29,6 +29,7 @@ interface HomeSection {
   button?: string;
   items?: HomeItem[];
   size?: string;
+  date?: string;
 }
 
 const FONT_OPTS = [
@@ -61,15 +62,32 @@ const TYPE_KEY: Record<string, string> = {
   richtext: "adm.richtext",
   gallery: "adm.gallery",
   spacer: "adm.spacer",
+  marquee: "adm.marquee",
+  countdown: "adm.countdown",
+  testimonials: "adm.testimonials",
+  stats: "adm.stats",
+  faq: "adm.faq",
+  features: "adm.features",
 };
 
 const TYPE_ICON: Record<string, string> = {
   categories: "▦", sale: "%", new: "✦", brands: "◈", colors: "◐", catalog: "▤",
   custom: "🖼", strip: "▬", duo: "▥", slider: "❮❯", richtext: "T", gallery: "▣", spacer: "↕",
+  marquee: "🅰", countdown: "⏱", testimonials: "❝", stats: "📊", faq: "❓", features: "★",
 };
 
 const BUILTIN = new Set(["categories", "sale", "new", "brands", "colors", "catalog"]);
-const ITEM_TYPES = new Set(["duo", "slider", "gallery"]);
+const IMAGE_ITEMS = new Set(["duo", "slider", "gallery"]);
+const CONTENT_ITEMS = new Set(["testimonials", "stats", "faq", "features"]);
+
+const PALETTES: { name: string; accent: string; bg: string }[] = [
+  { name: "Clay", accent: "#d47516", bg: "#f6f1ea" },
+  { name: "Emerald", accent: "#0f766e", bg: "#eef5f3" },
+  { name: "Berry", accent: "#be185d", bg: "#f7eef2" },
+  { name: "Indigo", accent: "#4338ca", bg: "#eef0fb" },
+  { name: "Sunset", accent: "#ea580c", bg: "#fdf1e8" },
+  { name: "Mono", accent: "#1a1a1a", bg: "#f4f4f4" },
+];
 
 type Status = { kind: "idle" | "saving" | "ok" | "error"; msg?: string };
 
@@ -108,6 +126,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [heroTextColor, setHeroTextColor] = useState((hero0.textColor as string) || "light");
 
   const [sections, setSections] = useState<HomeSection[]>(sections0);
+  const [animations, setAnimations] = useState(home0.animations === true);
 
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [previewKey, setPreviewKey] = useState(0);
@@ -122,6 +141,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
       branding: { accent, bg, font },
       hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign, overlay: heroOverlay, textColor: heroTextColor },
       sections,
+      animations,
     };
   }
   function selectedId() {
@@ -163,7 +183,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const id = setTimeout(postPreview, 200);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, device, open]);
+  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, device, open]);
 
   // click a block in the preview -> open its settings
   useEffect(() => {
@@ -210,7 +230,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     }, 450);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections]);
+  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations]);
   function applyHome(s: string) {
     const c = JSON.parse(s);
     applyingRef.current = true;
@@ -219,6 +239,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     setHeroSubtitle(c.hero.subtitle || ""); setHeroButton(c.hero.button || ""); setHeroHeight(c.hero.height || "m");
     setHeroAlign(c.hero.align || "center"); setHeroOverlay(c.hero.overlay || "1"); setHeroTextColor(c.hero.textColor || "light");
     setSections(c.sections || []);
+    setAnimations(c.animations === true);
   }
   function undo() { if (idxRef.current > 0) { idxRef.current--; applyHome(histRef.current[idxRef.current]); bumpHist(); } }
   function redo() { if (idxRef.current < histRef.current.length - 1) { idxRef.current++; applyHome(histRef.current[idxRef.current]); bumpHist(); } }
@@ -245,7 +266,8 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const base: HomeSection = { id, type, enabled: true };
     if (type === "duo") base.items = [{}, {}];
     else if (type === "slider" || type === "gallery") base.items = [{}];
-    else if (type === "spacer") base.size = "m";
+    else if (CONTENT_ITEMS.has(type)) base.items = [{}, {}, {}];
+    else if (type === "spacer" || type === "marquee") base.size = "m";
     setSections((prev) => [...prev, base]);
     setOpen(id);
   }
@@ -276,6 +298,26 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   }
   function removeItem(secId: string, idx: number) {
     setSections((prev) => prev.map((s) => (s.id === secId ? { ...s, items: (s.items || []).filter((_, i) => i !== idx) } : s)));
+  }
+  function exportTheme() {
+    const blob = new Blob([JSON.stringify(currentHome(), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pera-theme.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  async function importTheme(file?: File) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      applyHome(text);
+      setStatus({ kind: "ok", msg: t("common.saved") });
+      setTimeout(() => setStatus({ kind: "idle" }), 1500);
+    } catch {
+      setStatus({ kind: "error", msg: t("common.save_fail") });
+    }
   }
   async function uploadItem(secId: string, idx: number, file?: File) { if (file) patchItem(secId, idx, { image: await fileToDataUrl(file) }); }
   async function uploadHero(file?: File) { if (file) setHeroImage(await fileToDataUrl(file)); }
@@ -328,6 +370,33 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
               {sec.type !== "gallery" && <input className="input" placeholder={t("adm.block_btn")} value={it.button || ""} onChange={(e) => patchItem(sec.id, idx, { button: e.target.value })} />}
             </div>
             <input className="input mt-2" placeholder={t("adm.block_link")} value={it.link || ""} onChange={(e) => patchItem(sec.id, idx, { link: e.target.value })} />
+          </div>
+        ))}
+        <button className="btn-ghost w-full text-sm" onClick={() => addItem(sec.id)}>{t("adm.add_item")}</button>
+      </div>
+    );
+  }
+
+  function contentItemEditor(sec: HomeSection) {
+    const items = sec.items || [];
+    const ph: Record<string, { a: string; b: string }> = {
+      testimonials: { a: "adm.name_ph", b: "adm.quote_ph" },
+      stats: { a: "adm.stat_value", b: "adm.stat_label" },
+      faq: { a: "adm.question_ph", b: "adm.answer_ph" },
+      features: { a: "adm.hero_heading", b: "adm.block_text" },
+    };
+    const p = ph[sec.type] || { a: "adm.hero_heading", b: "adm.block_text" };
+    return (
+      <div className="space-y-2">
+        {items.map((it, idx) => (
+          <div key={idx} className="space-y-2 rounded-lg bg-sand/60 p-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-ink/60">{t("adm.item")} {idx + 1}</span>
+              <button className="text-xs text-red-600 hover:underline" onClick={() => removeItem(sec.id, idx)}>{t("common.delete")}</button>
+            </div>
+            {sec.type === "features" && <input className="input" placeholder={t("adm.icon_ph")} value={it.button || ""} onChange={(e) => patchItem(sec.id, idx, { button: e.target.value })} />}
+            <input className="input" placeholder={t(p.a)} value={it.title || ""} onChange={(e) => patchItem(sec.id, idx, { title: e.target.value })} />
+            <input className="input" placeholder={t(p.b)} value={it.text || ""} onChange={(e) => patchItem(sec.id, idx, { text: e.target.value })} />
           </div>
         ))}
         <button className="btn-ghost w-full text-sm" onClick={() => addItem(sec.id)}>{t("adm.add_item")}</button>
@@ -394,11 +463,43 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         </div>
       );
     }
-    if (ITEM_TYPES.has(s.type)) {
+    if (s.type === "marquee") {
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
+          <div>
+            <label className="field-label">{t("adm.speed")}</label>
+            <select className="input" value={s.size || "m"} onChange={(e) => patchSection(s.id, { size: e.target.value })}>
+              <option value="s">{t("adm.h_s")}</option><option value="m">{t("adm.h_m")}</option><option value="l">{t("adm.h_l")}</option>
+            </select>
+          </div>
+        </div>
+      );
+    }
+    if (s.type === "countdown") {
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.hero_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          <div>
+            <label className="field-label">{t("adm.date_time")}</label>
+            <input type="datetime-local" className="input" value={s.date || ""} onChange={(e) => patchSection(s.id, { date: e.target.value })} />
+          </div>
+        </div>
+      );
+    }
+    if (IMAGE_ITEMS.has(s.type)) {
       return (
         <div className="space-y-2">
           <input className="input" placeholder={t("adm.section_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
           {itemEditor(s)}
+        </div>
+      );
+    }
+    if (CONTENT_ITEMS.has(s.type)) {
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.section_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          {contentItemEditor(s)}
         </div>
       );
     }
@@ -412,6 +513,12 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     { type: "gallery", key: "adm.add_gallery" },
     { type: "strip", key: "adm.add_strip" },
     { type: "richtext", key: "adm.add_text" },
+    { type: "marquee", key: "adm.add_marquee" },
+    { type: "countdown", key: "adm.add_countdown" },
+    { type: "features", key: "adm.add_features" },
+    { type: "stats", key: "adm.add_stats" },
+    { type: "testimonials", key: "adm.add_testimonials" },
+    { type: "faq", key: "adm.add_faq" },
     { type: "spacer", key: "adm.add_spacer" },
   ];
 
@@ -439,6 +546,14 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         </div>
 
         <div className="flex items-center gap-2">
+          {/* export / import theme */}
+          <div className="hidden items-center gap-1 sm:flex">
+            <button className="rounded-full border border-line px-3 py-1.5 text-xs font-medium hover:bg-sand" onClick={exportTheme} title={t("adm.export_theme")}>⤓ {t("adm.export_theme")}</button>
+            <label className="cursor-pointer rounded-full border border-line px-3 py-1.5 text-xs font-medium hover:bg-sand" title={t("adm.import_theme")}>
+              ⤒ {t("adm.import_theme")}
+              <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => importTheme(e.target.files?.[0])} />
+            </label>
+          </div>
           {/* undo / redo */}
           <div className="flex overflow-hidden rounded-full border border-line">
             <button className="px-3 py-1.5 text-sm disabled:opacity-30 hover:bg-sand" onClick={undo} disabled={!canUndo} title={t("adm.undo")}>↶</button>
@@ -488,6 +603,31 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                   {FONT_OPTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="field-label">{t("adm.palette")}</label>
+                <div className="flex flex-wrap gap-2">
+                  {PALETTES.map((p) => (
+                    <button
+                      key={p.name}
+                      title={p.name}
+                      onClick={() => { setAccent(p.accent); setBg(p.bg); }}
+                      className={`h-8 w-8 rounded-full border-2 transition ${accent.toLowerCase() === p.accent ? "border-ink" : "border-white shadow"}`}
+                      style={{ background: `linear-gradient(135deg, ${p.accent} 60%, ${p.bg} 60%)` }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg bg-sand/60 px-3 py-2">
+                <span className="text-sm font-medium">{t("adm.animations")}</span>
+                <span
+                  role="checkbox"
+                  aria-checked={animations}
+                  onClick={() => setAnimations((v) => !v)}
+                  className={`relative inline-block h-5 w-9 rounded-full transition ${animations ? "bg-clay" : "bg-line"}`}
+                >
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${animations ? "left-4" : "left-0.5"}`} />
+                </span>
+              </label>
             </div>
           )}
 
