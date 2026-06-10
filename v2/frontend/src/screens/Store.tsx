@@ -290,28 +290,7 @@ export function Store({ template }: Props) {
     link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(customFont).replace(/%20/g, "+")}:wght@400;500;600;700&display=swap`;
   }, [customFont]);
 
-  // Entrance animation: reveal .pera-anim blocks as they scroll into view.
-  // Guarded with a timeout fallback so a block can never stay hidden.
   const mainRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const root = mainRef.current;
-    if (!root) return;
-    const els = Array.from(root.querySelectorAll<HTMLElement>(".pera-anim"));
-    if (!els.length) return;
-    if (typeof IntersectionObserver === "undefined") {
-      els.forEach((el) => el.classList.add("pera-anim-in"));
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) { (e.target as HTMLElement).classList.add("pera-anim-in"); io.unobserve(e.target); }
-      }),
-      { threshold: 0.06 },
-    );
-    els.forEach((el) => io.observe(el));
-    const safety = window.setTimeout(() => els.forEach((el) => el.classList.add("pera-anim-in")), 3000);
-    return () => { io.disconnect(); clearTimeout(safety); };
-  }, [liveHome, previewMode]);
 
   // Parallax: move .pera-parallax backgrounds slower than scroll.
   useEffect(() => {
@@ -359,6 +338,30 @@ export function Store({ template }: Props) {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Entrance animation: reveal .pera-anim blocks as they scroll into view.
+  // Re-runs after products load so blocks rendered late (new/sale/catalog) are
+  // observed too; a timeout fallback guarantees nothing stays hidden.
+  useEffect(() => {
+    const root = mainRef.current;
+    if (!root) return;
+    const els = Array.from(root.querySelectorAll<HTMLElement>(".pera-anim"));
+    if (!els.length) return;
+    if (typeof IntersectionObserver === "undefined") {
+      els.forEach((el) => el.classList.add("pera-anim-in"));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) { (e.target as HTMLElement).classList.add("pera-anim-in"); io.unobserve(e.target); }
+      }),
+      { threshold: 0.06 },
+    );
+    els.forEach((el) => io.observe(el));
+    const safety = window.setTimeout(() => els.forEach((el) => el.classList.add("pera-anim-in")), 1500);
+    return () => { io.disconnect(); clearTimeout(safety); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveHome, previewMode, products, loading]);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
