@@ -91,6 +91,23 @@ def _collect(node, out: set) -> None:
             _collect(item, out)
 
 
+def needs_translation(home: dict) -> bool:
+    """True if any user-facing string is missing a translation for some language."""
+    if not isinstance(home, dict):
+        return False
+    strings: set[str] = set()
+    _collect(home, strings)
+    existing = home.get("translations")
+    existing = existing if isinstance(existing, dict) else {}
+    for src in strings:
+        cur = existing.get(src)
+        cur = cur if isinstance(cur, dict) else {}
+        for lang in LANGS:
+            if not cur.get(lang):
+                return True
+    return False
+
+
 def enrich_home_translations(home: dict, max_new_strings: int = 100) -> dict:
     """Translate every new user-facing string in ``home`` into the 4 languages.
 

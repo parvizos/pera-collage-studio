@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import FastAPI, Header, Query, Request
+from fastapi import BackgroundTasks, FastAPI, Header, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -35,11 +35,39 @@ def json_response(payload, status: int = 200) -> JSONResponse:
 # Template
 # ---------------------------------------------------------------------------
 
+_translating = False
+
+
+def _bg_translate_home() -> None:
+    """Background: translate any missing homepage strings and persist (self-heal)."""
+    global _translating
+    try:
+        data = store.load_template_payload_from_db() or store.load_template_payload_from_files()
+        home = (data.get("store") or {}).get("home") if data else None
+        if isinstance(home, dict) and translate.needs_translation(home):
+            translate.enrich_home_translations(home)
+            store.save_template_payload(data)
+    except Exception:
+        pass
+    finally:
+        _translating = False
+
+
 @app.get("/api/template")
-def get_template():
+def get_template(background_tasks: BackgroundTasks):
     data = store.load_template_payload_from_db() or store.load_template_payload_from_files()
     if not data:
         return json_response({"error": "template_not_found"}, 404)
+    # Self-heal: if homepage content has no translations yet (e.g. saved before
+    # the feature existed), translate it in the background, once.
+    global _translating
+    try:
+        home = (data.get("store") or {}).get("home")
+        if isinstance(home, dict) and not _translating and translate.needs_translation(home):
+            _translating = True
+            background_tasks.add_task(_bg_translate_home)
+    except Exception:
+        _translating = False
     if "security" in data and "adminPin" in data["security"]:
         data["security"]["adminPin"] = ""
     return json_response(data)
