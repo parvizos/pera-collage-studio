@@ -18,6 +18,17 @@ interface HomeItem {
   button?: string;
 }
 
+interface BlockStyle {
+  mt?: string;
+  mb?: string;
+  pad?: string;
+  bg?: string;
+  cols?: string;
+  anim?: string;
+  animDur?: string;
+  animDelay?: string;
+}
+
 interface HomeSection {
   id: string;
   type: string;
@@ -30,7 +41,12 @@ interface HomeSection {
   items?: HomeItem[];
   size?: string;
   date?: string;
+  style?: BlockStyle;
 }
+
+const GRID_TYPES = new Set(["gallery", "features", "stats", "testimonials", "sale", "new", "catalog"]);
+const SPACE_OPTS = ["none", "s", "m", "l", "xl"];
+const ANIM_OPTS = ["none", "fade", "up", "down", "left", "right", "zoom"];
 
 const FONT_OPTS = [
   { id: "serif", label: "Classic (Serif)" },
@@ -267,6 +283,9 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   function patchSection(id: string, patch: Partial<HomeSection>) {
     setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }
+  function patchStyle(id: string, patch: Partial<BlockStyle>) {
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, style: { ...(s.style || {}), ...patch } } : s)));
+  }
   function onDrop(target: number) {
     setSections((prev) => {
       if (dragIndex === null || dragIndex === target) return prev;
@@ -419,6 +438,36 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         ))}
         <button className="btn-ghost w-full text-sm" onClick={() => addItem(sec.id)}>{t("adm.add_item")}</button>
       </div>
+    );
+  }
+
+  // ---------- per-block style settings ----------
+  function styleEditor(sec: HomeSection) {
+    const st = sec.style || {};
+    const opts = (vals: string[], prefix: string) => vals.map((v) => ({ v, l: t(prefix + v) }));
+    const sel = (label: string, val: string, list: { v: string; l: string }[], on: (v: string) => void) => (
+      <div>
+        <label className="field-label">{label}</label>
+        <select className="input" value={val} onChange={(e) => on(e.target.value)}>
+          {list.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+        </select>
+      </div>
+    );
+    const colList = [{ v: "", l: t("adm.auto") }, ...["1", "2", "3", "4", "5", "6"].map((v) => ({ v, l: v }))];
+    return (
+      <details className="rounded-lg border border-line bg-sand/40 px-3 py-2">
+        <summary className="cursor-pointer select-none text-xs font-semibold text-ink/60">⚙ {t("adm.block_style")}</summary>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {sel(t("adm.margin_top"), st.mt || "none", opts(SPACE_OPTS, "adm.sz_"), (v) => patchStyle(sec.id, { mt: v }))}
+          {sel(t("adm.margin_bottom"), st.mb || "m", opts(SPACE_OPTS, "adm.sz_"), (v) => patchStyle(sec.id, { mb: v }))}
+          {sel(t("adm.padding"), st.pad || "none", opts(SPACE_OPTS, "adm.sz_"), (v) => patchStyle(sec.id, { pad: v }))}
+          {sel(t("adm.bg_block"), st.bg || "none", opts(["none", "soft", "accent", "dark"], "adm.bg_"), (v) => patchStyle(sec.id, { bg: v }))}
+          {GRID_TYPES.has(sec.type) && sel(t("adm.columns"), st.cols || "", colList, (v) => patchStyle(sec.id, { cols: v }))}
+          {sel(t("adm.animation"), st.anim || "none", opts(ANIM_OPTS, "adm.an_"), (v) => patchStyle(sec.id, { anim: v }))}
+          {sel(t("adm.anim_speed"), st.animDur || "normal", opts(["fast", "normal", "slow"], "adm.spd_"), (v) => patchStyle(sec.id, { animDur: v }))}
+          {sel(t("adm.anim_delay"), st.animDelay || "0", opts(["0", "s", "m"], "adm.dly_"), (v) => patchStyle(sec.id, { animDelay: v }))}
+        </div>
+      </details>
     );
   }
 
@@ -816,6 +865,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                   {active && (
                     <div className="space-y-2 border-t border-line px-3 py-3">
                       {sectionBody(s)}
+                      {s.type !== "spacer" && styleEditor(s)}
                       {!BUILTIN.has(s.type) && (
                         <div className="flex items-center gap-3 pt-1">
                           <button className="text-xs text-ink/50 hover:text-ink hover:underline" onClick={() => duplicate(s.id)}>{t("adm.duplicate")}</button>

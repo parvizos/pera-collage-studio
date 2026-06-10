@@ -20,6 +20,11 @@ const FONTS: Record<string, { head: string; body: string }> = {
   clean: { head: '"Montserrat", sans-serif', body: '"Montserrat", sans-serif' },
 };
 
+// Per-block style value maps (shared with the admin builder).
+const SPACE_PX: Record<string, number> = { none: 0, s: 16, m: 32, l: 56, xl: 96 };
+const ANIM_DUR: Record<string, string> = { fast: "0.4s", normal: "0.65s", slow: "1s" };
+const ANIM_DELAY: Record<string, string> = { "0": "0s", s: "0.15s", m: "0.35s" };
+
 /** "#d47516" → "212 117 22" (for rgb(var(--accent-rgb) / a)). */
 function hexToRgbTriplet(hex?: string): string | null {
   if (!hex) return null;
@@ -257,24 +262,28 @@ export function Store({ template }: Props) {
     (rootStyle as Record<string, string>)["--font-body"] = fontPreset.body;
   }
 
-  // Reveal-on-scroll animation (opt-in via builder). Guarded so it can never hide content.
-  const animations = !!home.animations && !previewMode;
+  // Entrance animation: reveal .pera-anim blocks as they scroll into view.
+  // Guarded with a timeout fallback so a block can never stay hidden.
   const mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (!animations || typeof IntersectionObserver === "undefined") return;
     const root = mainRef.current;
     if (!root) return;
-    const els = Array.from(root.children) as HTMLElement[];
-    els.forEach((el) => el.classList.add("pera-reveal"));
+    const els = Array.from(root.querySelectorAll<HTMLElement>(".pera-anim"));
+    if (!els.length) return;
+    if (typeof IntersectionObserver === "undefined") {
+      els.forEach((el) => el.classList.add("pera-anim-in"));
+      return;
+    }
     const io = new IntersectionObserver(
       (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) { (e.target as HTMLElement).classList.add("pera-reveal-in"); io.unobserve(e.target); }
+        if (e.isIntersecting) { (e.target as HTMLElement).classList.add("pera-anim-in"); io.unobserve(e.target); }
       }),
-      { threshold: 0.08 },
+      { threshold: 0.06 },
     );
     els.forEach((el) => io.observe(el));
-    return () => { io.disconnect(); els.forEach((el) => el.classList.remove("pera-reveal", "pera-reveal-in")); };
-  }, [animations, liveHome]);
+    const safety = window.setTimeout(() => els.forEach((el) => el.classList.add("pera-anim-in")), 3000);
+    return () => { io.disconnect(); clearTimeout(safety); };
+  }, [liveHome, previewMode]);
 
   // Promo popup (marketing modal). On the live site: shows once per session after a delay.
   // In the builder: shows only while the "popup" panel is selected, so editing isn't blocked.
@@ -644,7 +653,8 @@ export function Store({ template }: Props) {
   const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string };
+  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
+  type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string; style?: BlockStyle };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
     { id: "sale", type: "sale" },
@@ -661,6 +671,42 @@ export function Store({ template }: Props) {
     if (!link) return;
     if (/^https?:\/\//i.test(link)) window.open(link, "_blank");
     else if (link.startsWith("/")) window.location.href = link;
+  }
+
+  /** Per-block column count → responsive grid classes. */
+  function colsClass(sec: HomeSection, def: string) {
+    const c = sec.style?.cols;
+    if (c === "1") return "grid-cols-1";
+    if (c === "2") return "grid-cols-2";
+    if (c === "3") return "grid-cols-2 sm:grid-cols-3";
+    if (c === "4") return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4";
+    if (c === "5") return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5";
+    if (c === "6") return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6";
+    return def;
+  }
+
+  /** Wrap a rendered block with its per-block spacing, background and entrance animation. */
+  function applyBlockStyle(sec: HomeSection, node: React.ReactNode) {
+    if (!node || sec.type === "spacer") return node;
+    const st = sec.style || {};
+    const mt = st.mt !== undefined ? SPACE_PX[st.mt] ?? 0 : 0;
+    const mb = st.mb !== undefined ? SPACE_PX[st.mb] ?? 40 : 40;
+    const pad = st.pad ? SPACE_PX[st.pad] ?? 0 : 0;
+    const banded = st.bg && st.bg !== "none";
+    const bgCls = st.bg === "accent" ? "bg-clay text-white" : st.bg === "dark" ? "bg-ink text-white" : st.bg === "soft" ? "bg-clay/[0.06]" : "";
+    const effAnim = st.anim && st.anim !== "none" ? st.anim : home.animations ? "up" : "none";
+    const animOn = effAnim !== "none" && !previewMode;
+    const style: React.CSSProperties = { marginTop: mt || undefined, marginBottom: mb, paddingTop: pad || undefined, paddingBottom: pad || undefined };
+    if (animOn) {
+      (style as Record<string, string>)["--anim-dur"] = ANIM_DUR[st.animDur || "normal"] || "0.65s";
+      (style as Record<string, string>)["--anim-delay"] = ANIM_DELAY[st.animDelay || "0"] || "0s";
+    }
+    const cls = [banded ? `rounded-2xl px-4 sm:px-6 ${bgCls}` : "", animOn ? "pera-anim" : ""].filter(Boolean).join(" ");
+    return (
+      <div key={sec.id} className={cls || undefined} style={style} data-anim={animOn ? effAnim : undefined}>
+        {node}
+      </div>
+    );
   }
 
   function renderSection(sec: HomeSection) {
@@ -690,7 +736,7 @@ export function Store({ template }: Props) {
         return (
           <section key={sec.id}>
             <h2 className="mb-4 font-serif text-2xl text-red-600">{sec.title || t("store.sale")}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{onSale.map((p) => renderCard(p))}</div>
+            <div className={`grid gap-3 sm:gap-5 ${colsClass(sec, "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}`}>{onSale.map((p) => renderCard(p))}</div>
           </section>
         );
       case "new":
@@ -698,7 +744,7 @@ export function Store({ template }: Props) {
         return (
           <section key={sec.id}>
             <h2 className="mb-4 font-serif text-2xl">{sec.title || t("store.new")}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{newArrivals.map((p) => renderCard(p))}</div>
+            <div className={`grid gap-3 sm:gap-5 ${colsClass(sec, "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}`}>{newArrivals.map((p) => renderCard(p))}</div>
           </section>
         );
       case "brands":
@@ -818,7 +864,7 @@ export function Store({ template }: Props) {
         return (
           <section key={sec.id}>
             {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className={`grid gap-3 ${colsClass(sec, "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}`}>
               {imgs.map((it, idx) => (
                 <div
                   key={idx}
@@ -875,7 +921,7 @@ export function Store({ template }: Props) {
         return (
           <section key={sec.id}>
             {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`grid gap-4 ${colsClass(sec, "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4")}`}>
               {items.map((it, idx) => (
                 <div key={idx} className="rounded-2xl border border-line bg-white p-5 text-center">
                   <div className="mb-2 text-3xl">{it.button || "✓"}</div>
@@ -893,7 +939,7 @@ export function Store({ template }: Props) {
         return (
           <section key={sec.id}>
             {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
-            <div className="grid grid-cols-2 gap-4 rounded-2xl bg-clay/10 p-6 sm:grid-cols-4">
+            <div className={`grid gap-4 rounded-2xl bg-clay/10 p-6 ${colsClass(sec, "grid-cols-2 sm:grid-cols-4")}`}>
               {items.map((it, idx) => (
                 <div key={idx} className="text-center">
                   <div className="font-serif text-4xl text-clay">{it.title}</div>
@@ -910,7 +956,7 @@ export function Store({ template }: Props) {
         return (
           <section key={sec.id}>
             {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={`grid gap-4 ${colsClass(sec, "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3")}`}>
               {items.map((it, idx) => (
                 <div key={idx} className="flex flex-col rounded-2xl border border-line bg-white p-5">
                   <div className="mb-2 text-clay">{"★★★★★"}</div>
@@ -1015,7 +1061,7 @@ export function Store({ template }: Props) {
                 {products.length === 0 ? t("store.empty_soon") : t("store.not_found")}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{filtered.map((p) => renderCard(p))}</div>
+              <div className={`grid gap-3 sm:gap-5 ${colsClass(sec, "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}`}>{filtered.map((p) => renderCard(p))}</div>
             )}
           </section>
         );
@@ -1401,8 +1447,8 @@ export function Store({ template }: Props) {
           </section>
         )}
 
-        <main ref={mainRef} className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6">
-          {sectionList.map((sec) => previewWrap(sec.id, renderSection(sec)))}
+        <main ref={mainRef} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          {sectionList.map((sec) => applyBlockStyle(sec, previewWrap(sec.id, renderSection(sec))))}
         </main>
       </>
       )}

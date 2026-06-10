@@ -38,6 +38,24 @@ body,
   transform: none;
 }
 
+/* Per-block entrance animation (type via data-anim, timing via CSS vars) */
+.pera-anim {
+  opacity: 0;
+  transition: opacity var(--anim-dur, 0.6s) ease var(--anim-delay, 0s),
+    transform var(--anim-dur, 0.6s) ease var(--anim-delay, 0s);
+  will-change: opacity, transform;
+}
+.pera-anim[data-anim="up"] { transform: translateY(32px); }
+.pera-anim[data-anim="down"] { transform: translateY(-32px); }
+.pera-anim[data-anim="left"] { transform: translateX(32px); }
+.pera-anim[data-anim="right"] { transform: translateX(-32px); }
+.pera-anim[data-anim="zoom"] { transform: scale(0.92); }
+.pera-anim[data-anim="fade"] { transform: none; }
+.pera-anim.pera-anim-in {
+  opacity: 1;
+  transform: none;
+}
+
 body {
   margin: 0;
   background: theme("colors.sand");
