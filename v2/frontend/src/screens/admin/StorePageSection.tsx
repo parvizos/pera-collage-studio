@@ -117,6 +117,155 @@ const PALETTES: { name: string; accent: string; bg: string }[] = [
   { name: "Mono", accent: "#1a1a1a", bg: "#f4f4f4" },
 ];
 
+// ---- Full-page templates (each = a complete, visually distinct home config) ----
+interface PageTemplate {
+  id: string;
+  name: string;
+  config: {
+    branding: Record<string, string>;
+    hero: Record<string, unknown>;
+    sections: HomeSection[];
+    animations: boolean;
+  };
+}
+
+const ti = (title: string, text: string) => ({ title, text });
+
+const PAGE_TEMPLATES: PageTemplate[] = [
+  {
+    id: "boutique",
+    name: "Boutique",
+    config: {
+      branding: { accent: "#a98467", bg: "#f7f3ee", font: "elegant" },
+      hero: { enabled: true, title: "Maison", subtitle: "Оптовая мода из Стамбула", button: "Смотреть коллекцию", height: "l", align: "center", overlay: "1", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "marquee", type: "marquee", enabled: true, text: "NEW SEASON · WHOLESALE · ISTANBUL", size: "m", style: { mb: "m" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "up" } },
+        { id: "split", type: "split", enabled: true, title: "Наше ателье", text: "Серии напрямую от производителя — без посредников.", button: "О нас", size: "left", style: { mb: "l", anim: "left" } },
+        { id: "tst", type: "testimonials", enabled: true, title: "Что говорят клиенты", items: [ti("Aylin", "Превосходное качество тканей."), ti("Mert", "Быстрая отгрузка, всё чётко."), ti("Lena", "Заказываю каждый сезон.")], style: { mb: "l", bg: "soft", pad: "l", anim: "up" } },
+        { id: "cta", type: "cta", enabled: true, title: "Готовы к заказу?", text: "Напишите нам — подберём серию.", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
+  {
+    id: "urban",
+    name: "Urban",
+    config: {
+      branding: { accent: "#e11d2a", bg: "#f4f4f5", font: "clean" },
+      hero: { enabled: true, title: "STREET", subtitle: "Опт от одной серии", button: "В каталог", height: "l", align: "left", overlay: "2", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "marquee", type: "marquee", enabled: true, text: "SALE · NEW DROP · STREETWEAR ·", size: "l", style: { mb: "m" } },
+        { id: "new", type: "new", enabled: true, title: "Свежий завоз", style: { mb: "l", cols: "4", anim: "up" } },
+        { id: "rt", type: "richtext", enabled: true, title: "BUILT FOR THE STREET", text: "Дерзкие модели для молодёжных магазинов.", button: "Каталог", style: { bg: "dark", full: true, pad: "xl", textColor: "light", mb: "l", anim: "zoom" } },
+        { id: "stats", type: "stats", enabled: true, items: [ti("5K+", "моделей"), ti("24ч", "отгрузка"), ti("40+", "стран")], style: { mb: "l", cols: "3" } },
+        { id: "cta", type: "cta", enabled: true, title: "Залетай в опт", button: "Связаться", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    config: {
+      branding: { accent: "#111111", bg: "#ffffff", font: "modern" },
+      hero: { enabled: true, title: "MINIMAL", subtitle: "Меньше — значит лучше", button: "Каталог", height: "m", align: "left", overlay: "1", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "xl", cols: "4", anim: "fade" } },
+        { id: "sp", type: "spacer", enabled: true, size: "l" },
+        { id: "split", type: "split", enabled: true, title: "Философия", text: "Чистые линии и честные цены.", button: "Подробнее", size: "right", style: { mb: "xl", anim: "right" } },
+        { id: "cat", type: "catalog", enabled: true, style: { mt: "l" } },
+      ],
+    },
+  },
+  {
+    id: "market",
+    name: "Market",
+    config: {
+      branding: { accent: "#f97316", bg: "#fff7ed", font: "modern" },
+      hero: { enabled: true, title: "MARKET", subtitle: "Всё для оптовика в одном месте", button: "Смотреть каталог", height: "m", align: "center", overlay: "1", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "cat", type: "categories", enabled: true, title: "Категории", style: { mb: "l" } },
+        { id: "strip", type: "strip", enabled: true, text: "🚚 Бесплатная доставка от 10 серий", button: "Подробнее", style: { mb: "l" } },
+        { id: "sale", type: "sale", enabled: true, title: "Акции", style: { mb: "l", cols: "4", anim: "up" } },
+        { id: "stats", type: "stats", enabled: true, items: [ti("1000+", "товаров"), ti("15", "брендов"), ti("10 лет", "на рынке"), ti("24/7", "поддержка")], style: { mb: "l", cols: "4" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "4" } },
+        { id: "catalog", type: "catalog", enabled: true },
+      ],
+    },
+  },
+  {
+    id: "lookbook",
+    name: "Lookbook",
+    config: {
+      branding: { accent: "#7c3aed", bg: "#faf5ff", font: "elegant" },
+      hero: { enabled: true, title: "LOOKBOOK", subtitle: "Коллекция сезона 2026", button: "Смотреть", height: "l", align: "center", overlay: "1", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "marquee", type: "marquee", enabled: true, text: "EDITORIAL · SS26 · WHOLESALE", size: "s", style: { mb: "l" } },
+        { id: "new", type: "new", enabled: true, title: "Образы недели", style: { mb: "l", cols: "3", anim: "up" } },
+        { id: "gal", type: "gallery", enabled: true, title: "Галерея", items: [{}, {}, {}, {}], style: { mb: "l" } },
+        { id: "split", type: "split", enabled: true, title: "За кадром", text: "Снимаем каждую серию вживую.", button: "Instagram", size: "left", style: { mb: "l", anim: "left" } },
+        { id: "cta", type: "cta", enabled: true, title: "Запросить каталог", button: "Написать", style: { bg: "soft", full: true, pad: "l" } },
+      ],
+    },
+  },
+  {
+    id: "business",
+    name: "Business",
+    config: {
+      branding: { accent: "#0e7490", bg: "#ecfeff", font: "clean" },
+      hero: { enabled: true, title: "WHOLESALE", subtitle: "Надёжный B2B-партнёр", button: "Связаться", height: "m", align: "left", overlay: "1", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "feat", type: "features", enabled: true, title: "Почему мы", items: [{ title: "Доставка", text: "По всему миру", button: "🚚" }, { title: "Гарантия", text: "Проверка качества", button: "✅" }, { title: "Опт", text: "От 1 серии", button: "📦" }, { title: "Поддержка", text: "24/7 на связи", button: "💬" }], style: { mb: "l", cols: "4", anim: "up" } },
+        { id: "stats", type: "stats", enabled: true, items: [ti("1200+", "клиентов"), ti("40+", "стран"), ti("10 лет", "опыта")], style: { mb: "l", bg: "soft", pad: "l", cols: "3" } },
+        { id: "faq", type: "faq", enabled: true, title: "Частые вопросы", items: [ti("Минимальный заказ?", "Одна серия."), ti("Доставка?", "Карго по миру."), ti("Оплата?", "Обсуждается в WhatsApp.")], style: { mb: "l" } },
+        { id: "cta", type: "cta", enabled: true, title: "Начать сотрудничество", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
+];
+
+/** Tiny visual mock of a template for the gallery card. */
+function tplMini(s: HomeSection, b: Record<string, string>) {
+  const grid = new Set(["new", "sale", "catalog", "gallery", "features", "stats", "testimonials", "logos", "duo", "slider", "categories"]);
+  const bar = new Set(["marquee", "strip", "cta", "countdown", "socials", "richtext"]);
+  if (grid.has(s.type)) {
+    return <div className="flex gap-0.5">{[0, 1, 2].map((i) => <div key={i} className="h-3 flex-1 rounded-sm" style={{ backgroundColor: b.accent + "30" }} />)}</div>;
+  }
+  if (s.type === "split") {
+    return <div className="flex gap-0.5"><div className="h-3 w-1/2 rounded-sm" style={{ backgroundColor: b.accent + "55" }} /><div className="h-3 w-1/2 rounded-sm bg-black/10" /></div>;
+  }
+  if (bar.has(s.type)) {
+    const accent = s.style?.bg === "accent" || s.type === "marquee" || s.type === "cta";
+    return <div className="h-2 w-full rounded-sm" style={{ backgroundColor: accent ? b.accent : b.accent + "55" }} />;
+  }
+  if (s.type === "spacer") return <div className="h-1.5" />;
+  return <div className="h-2 w-2/3 rounded-sm bg-black/10" />;
+}
+
+function TemplateThumb({ tpl }: { tpl: PageTemplate }) {
+  const b = tpl.config.branding;
+  const hero = tpl.config.hero;
+  const left = hero.align === "left";
+  return (
+    <div className="aspect-[4/3] w-full overflow-hidden" style={{ backgroundColor: b.bg }}>
+      {hero.enabled !== false && (
+        <div className={`flex h-[36%] w-full flex-col justify-center gap-1 px-2 ${left ? "items-start" : "items-center"}`} style={{ backgroundColor: b.accent }}>
+          <div className="h-1.5 w-1/2 rounded-full bg-white/85" />
+          <div className="h-1 w-1/3 rounded-full bg-white/55" />
+        </div>
+      )}
+      <div className="space-y-1 p-2">
+        {tpl.config.sections.slice(0, 5).map((s, i) => <div key={i}>{tplMini(s, b)}</div>)}
+      </div>
+    </div>
+  );
+}
+
 type Status = { kind: "idle" | "saving" | "ok" | "error"; msg?: string };
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -333,10 +482,18 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   function removeBlock(id: string) {
     setSections((prev) => prev.filter((s) => s.id !== id));
   }
-  function applyPreset(name: string) {
-    if (name === "market") setSections(DEFAULT_SECTIONS.map((s) => ({ ...s })));
-    else if (name === "minimal") setSections([{ id: "new", type: "new", enabled: true }, { id: "catalog", type: "catalog", enabled: true }]);
-    else if (name === "promo") setSections([{ id: `strip_${Date.now()}`, type: "strip", enabled: true, text: "", button: "" }, { id: "sale", type: "sale", enabled: true }, { id: "new", type: "new", enabled: true }, { id: "catalog", type: "catalog", enabled: true }]);
+  function applyTemplate(tpl: PageTemplate) {
+    const c = tpl.config;
+    setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont("");
+    const h = c.hero;
+    setHeroEnabled(h.enabled !== false); setHeroImage(""); setHeroTitle((h.title as string) || ""); setHeroSubtitle((h.subtitle as string) || "");
+    setHeroButton((h.button as string) || ""); setHeroHeight((h.height as string) || "m"); setHeroAlign((h.align as string) || "center");
+    setHeroOverlay((h.overlay as string) || "1"); setHeroTextColor((h.textColor as string) || "light");
+    const stamp = Date.now();
+    setSections(c.sections.map((s, i) => ({ ...s, id: `${s.type}_${stamp}_${i}` })));
+    setAnimations(c.animations === true);
+    setPopupEnabled(false);
+    setOpen("design");
   }
   function patchItem(secId: string, idx: number, patch: Partial<HomeItem>) {
     setSections((prev) => prev.map((s) => (s.id === secId ? { ...s, items: (s.items || []).map((it, i) => (i === idx ? { ...it, ...patch } : it)) } : s)));
@@ -911,16 +1068,26 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
             </div>
           )}
 
-          {/* Presets */}
-          {accHeader("presets", t("adm.presets"))}
+          {/* Page templates */}
+          {accHeader("presets", t("adm.page_templates"))}
           {open === "presets" && (
             <div className="space-y-2 px-1 pb-2 pt-1">
-              <div className="flex flex-wrap gap-2">
-                <button className="btn-ghost" onClick={() => applyPreset("market")}>{t("adm.preset_market")}</button>
-                <button className="btn-ghost" onClick={() => applyPreset("minimal")}>{t("adm.preset_minimal")}</button>
-                <button className="btn-ghost" onClick={() => applyPreset("promo")}>{t("adm.preset_promo")}</button>
+              <p className="text-xs text-ink/40">{t("adm.tpl_hint")}</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {PAGE_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => applyTemplate(tpl)}
+                    className="group overflow-hidden rounded-xl border border-line bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-clay hover:shadow-md"
+                  >
+                    <TemplateThumb tpl={tpl} />
+                    <div className="flex items-center justify-between px-2.5 py-1.5">
+                      <span className="text-xs font-semibold">{tpl.name}</span>
+                      <span className="text-[10px] text-clay opacity-0 transition group-hover:opacity-100">{t("adm.apply")} →</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <p className="text-xs text-ink/40">{t("adm.preset_hint")}</p>
             </div>
           )}
 

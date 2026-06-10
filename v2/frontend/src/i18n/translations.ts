@@ -307,6 +307,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.add_socials": "+ Соцсети", "adm.socials": "Соцсети",
     "adm.add_map": "+ Карта", "adm.map": "Карта",
     "adm.map_address": "Адрес или ссылка Google Maps",
+    "adm.page_templates": "Шаблоны страниц",
+    "adm.tpl_hint": "Клик — соберётся вся главная. Заменит текущий дизайн.",
+    "adm.apply": "Применить",
 
     "adm.ov_title": "Обзор",
     "adm.ov_sub": "Текущее состояние студии",
@@ -786,6 +789,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.add_socials": "+ Social", "adm.socials": "Social links",
     "adm.add_map": "+ Map", "adm.map": "Map",
     "adm.map_address": "Address or Google Maps link",
+    "adm.page_templates": "Page templates",
+    "adm.tpl_hint": "One click builds the whole homepage. Replaces current design.",
+    "adm.apply": "Apply",
 
     "adm.ov_title": "Overview",
     "adm.ov_sub": "Current studio status",
@@ -1265,6 +1271,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.add_socials": "+ Sosyal", "adm.socials": "Sosyal medya",
     "adm.add_map": "+ Harita", "adm.map": "Harita",
     "adm.map_address": "Adres veya Google Maps bağlantısı",
+    "adm.page_templates": "Sayfa şablonları",
+    "adm.tpl_hint": "Tek tıkla tüm ana sayfa oluşur. Mevcut tasarımı değiştirir.",
+    "adm.apply": "Uygula",
 
     "adm.ov_title": "Genel",
     "adm.ov_sub": "Stüdyonun mevcut durumu",
@@ -1744,6 +1753,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.add_socials": "+ تواصل اجتماعي", "adm.socials": "روابط اجتماعية",
     "adm.add_map": "+ خريطة", "adm.map": "خريطة",
     "adm.map_address": "العنوان أو رابط خرائط Google",
+    "adm.page_templates": "قوالب الصفحة",
+    "adm.tpl_hint": "نقرة واحدة تبني الصفحة كاملة. تستبدل التصميم الحالي.",
+    "adm.apply": "تطبيق",
 
     "adm.ov_title": "نظرة عامة",
     "adm.ov_sub": "الحالة الحالية للاستوديو",
