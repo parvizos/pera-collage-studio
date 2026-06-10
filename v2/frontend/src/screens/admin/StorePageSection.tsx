@@ -158,46 +158,56 @@ const ti = (title: string, text: string) => ({ title, text });
 
 const PAGE_TEMPLATES: PageTemplate[] = [
   {
-    id: "boutique",
-    name: "Boutique",
+    id: "atelier",
+    name: "Atelier",
     config: {
-      branding: { accent: "#a98467", bg: "#f7f3ee", font: "elegant", customFont: "Marcellus" },
-      hero: { enabled: true, title: "Maison", subtitle: "Оптовая мода из Стамбула", button: "Смотреть коллекцию", height: "l", align: "center", overlay: "1", textColor: "light" },
+      branding: { accent: "#1c1b19", bg: "#f3efe9", font: "elegant", customFont: "Cormorant Garamond" },
+      hero: { enabled: true, height: "full", search: false, autoplay: 6, slides: [
+        { title: "ATELIER", subtitle: "Премиальный дом моды · Стамбул", button: "Коллекция", link: "/", button2: "О бренде", link2: "/", overlay: "2", textColor: "light", align: "center", textAnim: "up", kenburns: true },
+        { title: "Couture SS26", subtitle: "Лимитированные серии ручного отбора", button: "Смотреть", overlay: "2", textColor: "light", align: "center", textAnim: "fade", kenburns: true },
+      ] },
       animations: true,
-      popup: { enabled: true, title: "Добро пожаловать", text: "Скидка −10% на первую серию", button: "Получить", delay: 3 },
+      popup: { enabled: true, title: "VIP-доступ", text: "−15% на первый заказ по промокоду ATELIER", button: "Получить", delay: 3 },
       sections: [
-        { id: "marquee", type: "marquee", enabled: true, text: "NEW SEASON · WHOLESALE · ISTANBUL", size: "m", style: { mb: "m" } },
-        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "up" } },
-        { id: "split", type: "split", enabled: true, title: "Наше ателье", text: "Серии напрямую от производителя — без посредников.", button: "О нас", size: "left", style: { mb: "l", anim: "left" } },
-        { id: "tst", type: "testimonials", enabled: true, title: "Что говорят клиенты", items: [ti("Aylin", "Превосходное качество тканей."), ti("Mert", "Быстрая отгрузка, всё чётко."), ti("Lena", "Заказываю каждый сезон.")], style: { mb: "l", bg: "soft", pad: "l", anim: "up" } },
-        { id: "cta", type: "cta", enabled: true, title: "Готовы к заказу?", text: "Напишите нам — подберём серию.", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+        { id: "perks", type: "perks", enabled: true, items: [{ button: "🚚", title: "Доставка по миру" }, { button: "🧵", title: "Премиум ткани" }, { button: "✅", title: "Контроль качества" }], style: { mb: "l" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки сезона", style: { mb: "l", cols: "3", anim: "up" } },
+        { id: "split", type: "split", enabled: true, title: "Наше ателье", text: "Серии напрямую от производителя, без посредников.", button: "Подробнее", size: "left", style: { mb: "l", anim: "left" } },
+        { id: "tst", type: "testimonials", enabled: true, title: "Отзывы байеров", items: [ti("Aylin", "Превосходное качество тканей."), ti("Mert", "Быстрая отгрузка, всё чётко."), ti("Lena", "Заказываю каждый сезон.")], style: { mb: "l", bg: "soft", pad: "l", anim: "up" } },
+        { id: "rt", type: "richtext", enabled: true, title: "CRAFTED IN ISTANBUL", text: "Каждая серия — ручной отбор и контроль.", button: "Запросить прайс", style: { full: true, pad: "xl", grad1: "#1c1b19", grad2: "#403a30", textColor: "light", mb: "l", anim: "fade" } },
+        { id: "cta", type: "cta", enabled: true, title: "Готовы к заказу?", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
       ],
     },
   },
   {
-    id: "urban",
-    name: "Urban",
+    id: "neon",
+    name: "Neon Street",
     config: {
-      branding: { accent: "#e11d2a", bg: "#f4f4f5", font: "clean" },
-      hero: { enabled: true, title: "STREET", subtitle: "Опт от одной серии", button: "В каталог", height: "l", align: "left", overlay: "2", textColor: "light" },
+      branding: { accent: "#ff2e63", bg: "#f3f3f4", font: "clean", customFont: "Oswald" },
+      hero: { enabled: true, height: "full", search: false, autoplay: 0, slides: [
+        { title: "DROP 01", subtitle: "Streetwear оптом — от одной серии", button: "В каталог", link: "/", button2: "Новинки", link2: "/", overlay: "2", textColor: "light", align: "left", textAnim: "up", parallax: true },
+      ] },
       animations: true,
       sections: [
-        { id: "marquee", type: "marquee", enabled: true, text: "SALE · NEW DROP · STREETWEAR ·", size: "l", style: { mb: "m" } },
-        { id: "new", type: "new", enabled: true, title: "Свежий завоз", style: { mb: "l", cols: "4", anim: "up" } },
-        { id: "rt", type: "richtext", enabled: true, title: "BUILT FOR THE STREET", text: "Дерзкие модели для молодёжных магазинов.", button: "Каталог", style: { bg: "dark", full: true, pad: "xl", textColor: "light", mb: "l", anim: "zoom" } },
+        { id: "marquee", type: "marquee", enabled: true, text: "SALE · NEW DROP · STREETWEAR · HYPE ·", size: "l", style: { mb: "m" } },
+        { id: "new", type: "new", enabled: true, title: "Свежий дроп", style: { mb: "l", cols: "4", anim: "up", animDelay: "0" } },
+        { id: "rt", type: "richtext", enabled: true, title: "BUILT FOR THE STREET", text: "Дерзкие модели для молодёжных магазинов.", button: "Каталог", style: { full: true, pad: "xl", grad1: "#111114", grad2: "#ff2e63", textColor: "light", mb: "l", anim: "zoom" } },
         { id: "stats", type: "stats", enabled: true, items: [ti("5K+", "моделей"), ti("24ч", "отгрузка"), ti("40+", "стран")], style: { mb: "l", cols: "3" } },
+        { id: "cd", type: "countdown", enabled: true, title: "Дроп заканчивается", date: "2026-12-31T23:59", style: { mb: "l", full: true } },
         { id: "cta", type: "cta", enabled: true, title: "Залетай в опт", button: "Связаться", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
       ],
     },
   },
   {
-    id: "minimal",
-    name: "Minimal",
+    id: "mono",
+    name: "Mono",
     config: {
-      branding: { accent: "#111111", bg: "#ffffff", font: "modern" },
-      hero: { enabled: true, title: "MINIMAL", subtitle: "Меньше — значит лучше", button: "Каталог", height: "m", align: "left", overlay: "1", textColor: "light" },
+      branding: { accent: "#121212", bg: "#ffffff", font: "modern" },
+      hero: { enabled: true, height: "m", search: false, autoplay: 0, slides: [
+        { title: "MONO", subtitle: "Меньше — значит лучше", button: "Каталог", link: "/", overlay: "1", textColor: "light", align: "left", textAnim: "fade" },
+      ] },
       animations: true,
       sections: [
+        { id: "perks", type: "perks", enabled: true, items: [{ button: "✓", title: "Честные цены" }, { button: "✓", title: "Быстрая отгрузка" }, { button: "✓", title: "Опт от 1 серии" }], style: { mb: "xl" } },
         { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "xl", cols: "4", anim: "fade" } },
         { id: "sp", type: "spacer", enabled: true, size: "l" },
         { id: "split", type: "split", enabled: true, title: "Философия", text: "Чистые линии и честные цены.", button: "Подробнее", size: "right", style: { mb: "xl", anim: "right" } },
@@ -206,81 +216,79 @@ const PAGE_TEMPLATES: PageTemplate[] = [
     },
   },
   {
-    id: "market",
-    name: "Market",
+    id: "rose",
+    name: "Rosé",
     config: {
-      branding: { accent: "#f97316", bg: "#fff7ed", font: "modern" },
-      hero: { enabled: true, title: "MARKET", subtitle: "Всё для оптовика в одном месте", button: "Смотреть каталог", height: "m", align: "center", overlay: "1", textColor: "light" },
+      branding: { accent: "#d6849b", bg: "#fbf3f1", font: "elegant", customFont: "Cormorant Garamond" },
+      hero: { enabled: true, height: "l", search: false, autoplay: 5, slides: [
+        { title: "Rosé", subtitle: "Романтичная оптовая мода", button: "Коллекция", link: "/", overlay: "1", textColor: "light", align: "center", textAnim: "up", kenburns: true },
+        { title: "Soft Spring", subtitle: "Нежные оттенки сезона", button: "Смотреть", overlay: "1", textColor: "light", align: "center", textAnim: "zoom" },
+      ] },
       animations: true,
+      popup: { enabled: true, title: "Привет! 🌸", text: "Дарим −10% на первую серию", button: "Хочу скидку", delay: 2 },
       sections: [
+        { id: "perks", type: "perks", enabled: true, items: [{ button: "🌸", title: "Нежные ткани" }, { button: "🚚", title: "Бережная доставка" }, { button: "💗", title: "Любимый сервис" }], style: { mb: "l" } },
         { id: "cat", type: "categories", enabled: true, title: "Категории", style: { mb: "l" } },
-        { id: "strip", type: "strip", enabled: true, text: "🚚 Бесплатная доставка от 10 серий", button: "Подробнее", style: { mb: "l" } },
-        { id: "sale", type: "sale", enabled: true, title: "Акции", style: { mb: "l", cols: "4", anim: "up" } },
-        { id: "stats", type: "stats", enabled: true, items: [ti("1000+", "товаров"), ti("15", "брендов"), ti("10 лет", "на рынке"), ti("24/7", "поддержка")], style: { mb: "l", cols: "4" } },
-        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "4" } },
-        { id: "catalog", type: "catalog", enabled: true },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "zoom" } },
+        { id: "split", type: "split", enabled: true, title: "О нас", text: "Делаем оптовые закупки приятными.", button: "Подробнее", size: "left", style: { mb: "l", bg: "soft", pad: "l", radius: "l", anim: "left" } },
+        { id: "tst", type: "testimonials", enabled: true, title: "Отзывы", items: [ti("Дина", "Милейшие модели!"), ti("Аня", "Беру каждый сезон."), ti("Кэт", "Сервис топ.")], style: { mb: "l", cols: "3" } },
+        { id: "cta", type: "cta", enabled: true, title: "Готовы заказать?", button: "Написать", style: { grad1: "#d6849b", grad2: "#e9b8c4", full: true, pad: "l", textColor: "light" } },
       ],
     },
   },
   {
-    id: "lookbook",
-    name: "Lookbook",
+    id: "denim",
+    name: "Denim Co.",
     config: {
-      branding: { accent: "#7c3aed", bg: "#faf5ff", font: "elegant" },
-      hero: { enabled: true, title: "LOOKBOOK", subtitle: "Коллекция сезона 2026", button: "Смотреть", height: "l", align: "center", overlay: "1", textColor: "light" },
+      branding: { accent: "#2c4a7c", bg: "#eef2f7", font: "clean" },
+      hero: { enabled: true, height: "l", search: false, autoplay: 0, slides: [
+        { title: "DENIM CO.", subtitle: "Джинс и casual оптом", button: "В каталог", link: "/", button2: "Акции", link2: "/", overlay: "2", textColor: "light", align: "left", textAnim: "left" },
+      ] },
       animations: true,
       sections: [
-        { id: "marquee", type: "marquee", enabled: true, text: "EDITORIAL · SS26 · WHOLESALE", size: "s", style: { mb: "l" } },
+        { id: "perks", type: "perks", enabled: true, items: [{ button: "👖", title: "Джинс премиум" }, { button: "🚚", title: "Доставка карго" }, { button: "📦", title: "Опт от серии" }], style: { mb: "l" } },
+        { id: "cat", type: "categories", enabled: true, title: "Категории", style: { mb: "l" } },
+        { id: "sale", type: "sale", enabled: true, title: "Распродажа", style: { mb: "l", cols: "4", anim: "up" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "4", anim: "up", animDelay: "s" } },
+        { id: "feat", type: "features", enabled: true, title: "Преимущества", items: [{ title: "Качество", text: "Плотный деним", button: "🏅" }, { title: "Размеры", text: "Полная сетка", button: "📏" }, { title: "Цена", text: "Прямой опт", button: "💰" }], style: { mb: "l", cols: "3" } },
+        { id: "cta", type: "cta", enabled: true, title: "Сделать заказ", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
+  {
+    id: "editorial",
+    name: "Editorial",
+    config: {
+      branding: { accent: "#6d28d9", bg: "#f7f4fb", font: "elegant", customFont: "Marcellus" },
+      hero: { enabled: true, height: "full", search: false, autoplay: 6, slides: [
+        { title: "EDITORIAL", subtitle: "Лукбук сезона 2026", button: "Смотреть", link: "/", overlay: "2", textColor: "light", align: "center", textAnim: "up", parallax: true },
+        { title: "SS26 STORY", subtitle: "Снято вживую", button: "Образы", overlay: "2", textColor: "light", align: "center", textAnim: "fade", parallax: true },
+      ] },
+      animations: true,
+      sections: [
+        { id: "marquee", type: "marquee", enabled: true, text: "EDITORIAL · SS26 · WHOLESALE ·", size: "s", style: { mb: "l" } },
         { id: "new", type: "new", enabled: true, title: "Образы недели", style: { mb: "l", cols: "3", anim: "up" } },
         { id: "gal", type: "gallery", enabled: true, title: "Галерея", items: [{}, {}, {}, {}], style: { mb: "l" } },
-        { id: "split", type: "split", enabled: true, title: "За кадром", text: "Снимаем каждую серию вживую.", button: "Instagram", size: "left", style: { mb: "l", anim: "left" } },
+        { id: "split1", type: "split", enabled: true, title: "За кадром", text: "Каждую серию снимаем вживую.", button: "Instagram", size: "left", style: { mb: "l", anim: "left" } },
+        { id: "split2", type: "split", enabled: true, title: "Команда", text: "Стилисты, фотографы, байеры.", button: "О нас", size: "right", style: { mb: "l", anim: "right" } },
         { id: "cta", type: "cta", enabled: true, title: "Запросить каталог", button: "Написать", style: { bg: "soft", full: true, pad: "l" } },
       ],
     },
   },
   {
-    id: "business",
-    name: "Business",
+    id: "active",
+    name: "Active",
     config: {
-      branding: { accent: "#0e7490", bg: "#ecfeff", font: "clean" },
-      hero: { enabled: true, title: "WHOLESALE", subtitle: "Надёжный B2B-партнёр", button: "Связаться", height: "m", align: "left", overlay: "1", textColor: "light" },
-      animations: true,
-      sections: [
-        { id: "feat", type: "features", enabled: true, title: "Почему мы", items: [{ title: "Доставка", text: "По всему миру", button: "🚚" }, { title: "Гарантия", text: "Проверка качества", button: "✅" }, { title: "Опт", text: "От 1 серии", button: "📦" }, { title: "Поддержка", text: "24/7 на связи", button: "💬" }], style: { mb: "l", cols: "4", anim: "up" } },
-        { id: "stats", type: "stats", enabled: true, items: [ti("1200+", "клиентов"), ti("40+", "стран"), ti("10 лет", "опыта")], style: { mb: "l", bg: "soft", pad: "l", cols: "3" } },
-        { id: "faq", type: "faq", enabled: true, title: "Частые вопросы", items: [ti("Минимальный заказ?", "Одна серия."), ti("Доставка?", "Карго по миру."), ti("Оплата?", "Обсуждается в WhatsApp.")], style: { mb: "l" } },
-        { id: "cta", type: "cta", enabled: true, title: "Начать сотрудничество", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
-      ],
-    },
-  },
-  {
-    id: "luxury",
-    name: "Luxury",
-    config: {
-      branding: { accent: "#1a1a1a", bg: "#f7f5f0", font: "elegant", customFont: "Cormorant Garamond" },
-      hero: { enabled: true, title: "ATELIER", subtitle: "Премиальный оптовый дом", button: "Коллекция", height: "l", align: "center", overlay: "2", textColor: "light" },
-      animations: true,
-      popup: { enabled: true, title: "VIP-доступ", text: "−15% на первый заказ по промокоду ATELIER", button: "Получить", delay: 3 },
-      sections: [
-        { id: "marquee", type: "marquee", enabled: true, text: "LUXURY · WHOLESALE · SS26", size: "s", style: { mb: "l" } },
-        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "up", animDelay: "0" } },
-        { id: "split", type: "split", enabled: true, title: "Философия дома", text: "Премиальные ткани, лимитированные серии.", button: "О бренде", size: "right", style: { mb: "l", anim: "left" } },
-        { id: "gal", type: "gallery", enabled: true, title: "Лукбук", items: [{}, {}, {}, {}], style: { mb: "l" } },
-        { id: "rt", type: "richtext", enabled: true, title: "CRAFTED IN ISTANBUL", text: "Каждая серия — ручной отбор.", button: "Прайс", style: { bg: "dark", full: true, pad: "xl", textColor: "light", mb: "l", anim: "fade" } },
-        { id: "cta", type: "cta", enabled: true, title: "Запросить прайс", button: "Связаться", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
-      ],
-    },
-  },
-  {
-    id: "sport",
-    name: "Sport",
-    config: {
-      branding: { accent: "#1d4ed8", bg: "#f1f5f9", font: "clean", customFont: "Oswald" },
-      hero: { enabled: true, title: "PRO SPORT", subtitle: "Опт спортивной одежды", button: "В каталог", height: "l", align: "left", overlay: "2", textColor: "light" },
+      branding: { accent: "#0ea5e9", bg: "#f0f9ff", font: "clean", customFont: "Oswald" },
+      hero: { enabled: true, height: "full", search: false, autoplay: 0, slides: [
+        { title: "ACTIVE", subtitle: "Спортивная одежда оптом", button: "В каталог", link: "/", button2: "Новинки", link2: "/", overlay: "2", textColor: "light", align: "left", textAnim: "up", parallax: true },
+      ] },
       animations: true,
       sections: [
         { id: "marquee", type: "marquee", enabled: true, text: "FAST SHIPPING · BULK · TEAMWEAR ·", size: "l", style: { mb: "m" } },
-        { id: "feat", type: "features", enabled: true, title: "Преимущества", items: [{ title: "Скорость", text: "Отгрузка 24ч", button: "⚡" }, { title: "Объём", text: "Любые партии", button: "📦" }, { title: "Качество", text: "Контроль ОТК", button: "🏅" }], style: { mb: "l", cols: "3", anim: "up", animDelay: "0" } },
+        { id: "perks", type: "perks", enabled: true, items: [{ button: "⚡", title: "Отгрузка 24ч" }, { button: "📦", title: "Любые партии" }, { button: "🏅", title: "Контроль ОТК" }], style: { mb: "l" } },
+        { id: "feat", type: "features", enabled: true, title: "Преимущества", items: [{ title: "Технологичные ткани", text: "Дышат и тянутся", button: "🧬" }, { title: "Команды", text: "Форма под клуб", button: "🏆" }, { title: "Опт", text: "От одной серии", button: "📦" }], style: { mb: "l", cols: "3", anim: "up" } },
+        { id: "stats", type: "stats", enabled: true, items: [ti("8K+", "позиций"), ti("24ч", "отгрузка"), ti("50+", "стран"), ti("99%", "в наличии")], style: { mb: "l", grad1: "#0ea5e9", grad2: "#1d4ed8", textColor: "light", full: true, pad: "l", cols: "4" } },
         { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "4", anim: "up", animDelay: "s" } },
         { id: "cd", type: "countdown", enabled: true, title: "Акция заканчивается через", date: "2026-12-31T23:59", style: { mb: "l", full: true } },
         { id: "cta", type: "cta", enabled: true, title: "Сделать заказ", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
@@ -288,19 +296,22 @@ const PAGE_TEMPLATES: PageTemplate[] = [
     },
   },
   {
-    id: "pastel",
-    name: "Pastel",
+    id: "noir",
+    name: "Noir",
     config: {
-      branding: { accent: "#ec4899", bg: "#fdf2f8", font: "modern", customFont: "Quicksand" },
-      hero: { enabled: true, title: "Sweet", subtitle: "Нежная оптовая мода", button: "Смотреть", height: "m", align: "center", overlay: "1", textColor: "light" },
+      branding: { accent: "#b8a06a", bg: "#f4f2ee", font: "elegant", customFont: "Cormorant Garamond" },
+      hero: { enabled: true, height: "full", search: false, autoplay: 5, slides: [
+        { title: "NOIR", subtitle: "Монохромная роскошь", button: "Коллекция", link: "/", button2: "О бренде", link2: "/", overlay: "2", textColor: "light", align: "center", textAnim: "fade", kenburns: true },
+      ] },
       animations: true,
-      popup: { enabled: true, title: "Привет! 🌸", text: "Дарим скидку на первую серию", button: "Хочу скидку", delay: 2 },
+      popup: { enabled: true, title: "Закрытый показ", text: "−15% по промокоду NOIR", button: "Получить", delay: 3 },
       sections: [
-        { id: "cat", type: "categories", enabled: true, title: "Категории", style: { mb: "l" } },
-        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "zoom", animDelay: "0" } },
-        { id: "split", type: "split", enabled: true, title: "О нас", text: "Делаем оптовые закупки приятными.", button: "Подробнее", size: "left", style: { mb: "l", bg: "soft", pad: "l", radius: "l", anim: "left" } },
-        { id: "tst", type: "testimonials", enabled: true, title: "Отзывы", items: [ti("Дина", "Милейшие модели!"), ti("Аня", "Беру каждый сезон"), ti("Кэт", "Сервис топ")], style: { mb: "l", cols: "3" } },
-        { id: "cta", type: "cta", enabled: true, title: "Готовы заказать?", button: "Написать", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+        { id: "perks", type: "perks", enabled: true, items: [{ button: "🖤", title: "Монохром" }, { button: "🧵", title: "Премиум крой" }, { button: "🚚", title: "Доставка по миру" }], style: { mb: "l" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "up" } },
+        { id: "rt", type: "richtext", enabled: true, title: "TIMELESS", text: "Вне сезона и трендов.", button: "Прайс", style: { full: true, pad: "xl", grad1: "#15130f", grad2: "#3a3220", textColor: "light", mb: "l", anim: "fade" } },
+        { id: "split", type: "split", enabled: true, title: "Философия", text: "Меньше цвета — больше смысла.", button: "О бренде", size: "right", style: { mb: "l", anim: "right" } },
+        { id: "tst", type: "testimonials", enabled: true, title: "Отзывы", items: [ti("Selin", "Безупречный крой."), ti("Igor", "Стильно и премиально."), ti("Mara", "Мой постоянный поставщик.")], style: { mb: "l", bg: "soft", pad: "l", cols: "3" } },
+        { id: "cta", type: "cta", enabled: true, title: "Запросить прайс", button: "Написать в WhatsApp", style: { grad1: "#15130f", grad2: "#3a3220", full: true, pad: "l", textColor: "light" } },
       ],
     },
   },
@@ -375,7 +386,9 @@ function tplMiniReal(s: HomeSection, b: Record<string, string>, photos: string[]
 
 function TemplateThumb({ tpl, photos }: { tpl: PageTemplate; photos: string[] }) {
   const b = tpl.config.branding;
-  const hero = tpl.config.hero;
+  const heroCfg = tpl.config.hero;
+  const slide0 = (Array.isArray(heroCfg.slides) && (heroCfg.slides as Record<string, unknown>[])[0]) || heroCfg;
+  const hero = { enabled: heroCfg.enabled, title: slide0.title, align: slide0.align } as Record<string, unknown>;
   const left = hero.align === "left";
   const fam = THUMB_FONT[b.font] || "inherit";
   const heroImg = photos[0];
@@ -639,7 +652,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const c = tpl.config;
     setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont(c.branding.customFont || "");
     const h = c.hero;
-    setHeroEnabled(h.enabled !== false); setHeroHeight((h.height as string) || "m"); setHeroSearch(false); setHeroAutoplay(0);
+    setHeroEnabled(h.enabled !== false); setHeroHeight((h.height as string) || "m"); setHeroSearch(h.search === true); setHeroAutoplay(Number(h.autoplay) || 0);
     setHeroSlides(heroToSlides(h)); setHeroSlideIdx(0);
     const stamp = Date.now();
     setSections(c.sections.map((s, i) => ({ ...s, id: `${s.type}_${stamp}_${i}` })));
