@@ -68,16 +68,19 @@ const TYPE_KEY: Record<string, string> = {
   stats: "adm.stats",
   faq: "adm.faq",
   features: "adm.features",
+  video: "adm.video",
+  logos: "adm.logos",
 };
 
 const TYPE_ICON: Record<string, string> = {
   categories: "▦", sale: "%", new: "✦", brands: "◈", colors: "◐", catalog: "▤",
   custom: "🖼", strip: "▬", duo: "▥", slider: "❮❯", richtext: "T", gallery: "▣", spacer: "↕",
   marquee: "🅰", countdown: "⏱", testimonials: "❝", stats: "📊", faq: "❓", features: "★",
+  video: "▶", logos: "◫",
 };
 
 const BUILTIN = new Set(["categories", "sale", "new", "brands", "colors", "catalog"]);
-const IMAGE_ITEMS = new Set(["duo", "slider", "gallery"]);
+const IMAGE_ITEMS = new Set(["duo", "slider", "gallery", "logos"]);
 const CONTENT_ITEMS = new Set(["testimonials", "stats", "faq", "features"]);
 
 const PALETTES: { name: string; accent: string; bg: string }[] = [
@@ -128,6 +131,15 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [sections, setSections] = useState<HomeSection[]>(sections0);
   const [animations, setAnimations] = useState(home0.animations === true);
 
+  const popup0 = (home0.popup as Record<string, unknown>) || {};
+  const [popupEnabled, setPopupEnabled] = useState(popup0.enabled === true);
+  const [popupImage, setPopupImage] = useState((popup0.image as string) || "");
+  const [popupTitle, setPopupTitle] = useState((popup0.title as string) || "");
+  const [popupText, setPopupText] = useState((popup0.text as string) || "");
+  const [popupButton, setPopupButton] = useState((popup0.button as string) || "");
+  const [popupLink, setPopupLink] = useState((popup0.link as string) || "");
+  const [popupDelay, setPopupDelay] = useState(Number(popup0.delay) || 2);
+
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [previewKey, setPreviewKey] = useState(0);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -142,10 +154,12 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
       hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign, overlay: heroOverlay, textColor: heroTextColor },
       sections,
       animations,
+      popup: { enabled: popupEnabled, image: popupImage, title: popupTitle, text: popupText, button: popupButton, link: popupLink, delay: popupDelay },
     };
   }
   function selectedId() {
     if (open === "hero") return "__hero__";
+    if (open === "popup") return "__popup__";
     if (open && open !== "design" && open !== "presets") return open;
     return "";
   }
@@ -183,7 +197,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const id = setTimeout(postPreview, 200);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, device, open]);
+  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay, device, open]);
 
   // click a block in the preview -> open its settings
   useEffect(() => {
@@ -230,7 +244,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     }, 450);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations]);
+  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay]);
   function applyHome(s: string) {
     const c = JSON.parse(s);
     applyingRef.current = true;
@@ -240,6 +254,9 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     setHeroAlign(c.hero.align || "center"); setHeroOverlay(c.hero.overlay || "1"); setHeroTextColor(c.hero.textColor || "light");
     setSections(c.sections || []);
     setAnimations(c.animations === true);
+    const pp = c.popup || {};
+    setPopupEnabled(pp.enabled === true); setPopupImage(pp.image || ""); setPopupTitle(pp.title || "");
+    setPopupText(pp.text || ""); setPopupButton(pp.button || ""); setPopupLink(pp.link || ""); setPopupDelay(Number(pp.delay) || 2);
   }
   function undo() { if (idxRef.current > 0) { idxRef.current--; applyHome(histRef.current[idxRef.current]); bumpHist(); } }
   function redo() { if (idxRef.current < histRef.current.length - 1) { idxRef.current++; applyHome(histRef.current[idxRef.current]); bumpHist(); } }
@@ -321,6 +338,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   }
   async function uploadItem(secId: string, idx: number, file?: File) { if (file) patchItem(secId, idx, { image: await fileToDataUrl(file) }); }
   async function uploadHero(file?: File) { if (file) setHeroImage(await fileToDataUrl(file)); }
+  async function uploadPopup(file?: File) { if (file) setPopupImage(await fileToDataUrl(file)); }
   async function uploadBlock(id: string, file?: File) { if (file) patchSection(id, { image: await fileToDataUrl(file) }); }
 
   async function save() {
@@ -463,6 +481,14 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         </div>
       );
     }
+    if (s.type === "video") {
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.section_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          <input className="input" placeholder={t("adm.video_url")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+        </div>
+      );
+    }
     if (s.type === "marquee") {
       return (
         <div className="space-y-2">
@@ -513,6 +539,8 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     { type: "gallery", key: "adm.add_gallery" },
     { type: "strip", key: "adm.add_strip" },
     { type: "richtext", key: "adm.add_text" },
+    { type: "video", key: "adm.add_video" },
+    { type: "logos", key: "adm.add_logos" },
     { type: "marquee", key: "adm.add_marquee" },
     { type: "countdown", key: "adm.add_countdown" },
     { type: "features", key: "adm.add_features" },
@@ -691,6 +719,42 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                     <option value="light">{t("adm.text_light")}</option><option value="dark">{t("adm.text_dark")}</option>
                   </select>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Promo popup */}
+          {accHeader("popup", t("adm.popup"), (
+            <span
+              role="checkbox"
+              aria-checked={popupEnabled}
+              onClick={(e) => { e.stopPropagation(); setPopupEnabled((v) => !v); }}
+              className={`relative inline-block h-4 w-7 rounded-full transition ${popupEnabled ? "bg-clay" : "bg-line"}`}
+            >
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${popupEnabled ? "left-3.5" : "left-0.5"}`} />
+            </span>
+          ))}
+          {open === "popup" && popupEnabled && (
+            <div className="space-y-3 px-1 pb-2 pt-1">
+              <div>
+                <label className="field-label">{t("adm.hero_image")}</label>
+                <div className="flex items-center gap-3">
+                  <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-line bg-sand">
+                    {popupImage && <img src={popupImage} alt="" className="h-full w-full object-cover" />}
+                  </div>
+                  <label className="btn-ghost cursor-pointer">{t("adm.upload")}<input type="file" accept="image/*" className="hidden" onChange={(e) => uploadPopup(e.target.files?.[0])} /></label>
+                  {popupImage && <button className="text-xs text-red-600 hover:underline" onClick={() => setPopupImage("")}>{t("adm.remove_image")}</button>}
+                </div>
+              </div>
+              <input className="input" placeholder={t("adm.hero_heading")} value={popupTitle} onChange={(e) => setPopupTitle(e.target.value)} />
+              <input className="input" placeholder={t("adm.block_text")} value={popupText} onChange={(e) => setPopupText(e.target.value)} />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="input" placeholder={t("adm.block_btn")} value={popupButton} onChange={(e) => setPopupButton(e.target.value)} />
+                <input className="input" placeholder={t("adm.block_link")} value={popupLink} onChange={(e) => setPopupLink(e.target.value)} />
+              </div>
+              <div>
+                <label className="field-label">{t("adm.popup_delay")}</label>
+                <input type="number" min={0} max={60} className="input" value={popupDelay} onChange={(e) => setPopupDelay(Number(e.target.value))} />
               </div>
             </div>
           )}

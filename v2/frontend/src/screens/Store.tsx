@@ -37,6 +37,33 @@ function slugify(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function ytId(url: string): string | null {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+function vimeoId(url: string): string | null {
+  const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return m ? m[1] : null;
+}
+
+/** Embedded video (YouTube / Vimeo / direct mp4-webm). */
+function VideoBlock({ url }: { url: string }) {
+  const yt = ytId(url);
+  const vm = vimeoId(url);
+  const src = yt ? `https://www.youtube.com/embed/${yt}` : vm ? `https://player.vimeo.com/video/${vm}` : null;
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-2xl bg-ink shadow-sm">
+      {src ? (
+        <iframe className="absolute inset-0 h-full w-full" src={src} title="video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+      ) : /\.(mp4|webm|ogg)(\?|$)/i.test(url) ? (
+        <video src={url} controls className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="grid h-full place-items-center text-white/50">▶</div>
+      )}
+    </div>
+  );
+}
+
 /** Running-text strip. speed: "s" slow, "m" medium, "l" fast. */
 function Marquee({ text, speed }: { text: string; speed?: string }) {
   const dur = speed === "l" ? 12 : speed === "s" ? 40 : 22;
@@ -248,6 +275,24 @@ export function Store({ template }: Props) {
     els.forEach((el) => io.observe(el));
     return () => { io.disconnect(); els.forEach((el) => el.classList.remove("pera-reveal", "pera-reveal-in")); };
   }, [animations, liveHome]);
+
+  // Promo popup (marketing modal). On the live site: shows once per session after a delay.
+  // In the builder: shows only while the "popup" panel is selected, so editing isn't blocked.
+  const popupCfg = (home.popup as Record<string, unknown>) || {};
+  const popupEnabled = popupCfg.enabled === true;
+  const [popupOpen, setPopupOpen] = useState(false);
+  useEffect(() => {
+    if (previewMode) { setPopupOpen(popupEnabled && selectedId === "__popup__"); return; }
+    if (!popupEnabled) { setPopupOpen(false); return; }
+    try { if (sessionStorage.getItem("pera_popup_seen")) return; } catch { /* ignore */ }
+    const delay = Math.max(0, Number(popupCfg.delay) || 2) * 1000;
+    const id = setTimeout(() => {
+      setPopupOpen(true);
+      try { sessionStorage.setItem("pera_popup_seen", "1"); } catch { /* ignore */ }
+    }, delay);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [popupEnabled, previewMode, selectedId]);
 
   /** Любую цену всегда приводим к валюте магазина (игнорируя символ, что ввёл сотрудник). */
   const money = (num: number) => {
@@ -797,6 +842,31 @@ export function Store({ template }: Props) {
       case "marquee":
         if (!sec.text) return null;
         return <section key={sec.id}><Marquee text={sec.text} speed={sec.size} /></section>;
+      case "video":
+        if (!sec.link) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <VideoBlock url={sec.link} />
+          </section>
+        );
+      case "logos": {
+        const logos = (sec.items || []).filter((it) => it.image);
+        if (!logos.length) return null;
+        const loop = [...logos, ...logos];
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="overflow-hidden">
+              <div className="pera-marquee-track items-center" style={{ animationDuration: "28s" }}>
+                {loop.map((it, i) => (
+                  <img key={i} src={it.image} alt="" className="mx-8 h-10 w-auto object-contain opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0" />
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
       case "countdown":
         return <section key={sec.id}><Countdown target={sec.date} title={sec.title} /></section>;
       case "features": {
@@ -1346,6 +1416,25 @@ export function Store({ template }: Props) {
         </div>
         <div className="text-ink/40">© {new Date().getFullYear()} {title} {subtitle}</div>
       </footer>
+
+      {/* Promo popup */}
+      {popupOpen && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/60 p-4 backdrop-blur-sm" onClick={() => setPopupOpen(false)}>
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setPopupOpen(false)} className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/80 text-ink/60 hover:bg-white" aria-label={t("common.close")}>✕</button>
+            {(popupCfg.image as string) && <img src={popupCfg.image as string} alt="" className="h-44 w-full object-cover" />}
+            <div className="p-6 text-center">
+              {(popupCfg.title as string) && <h3 className="font-serif text-2xl">{popupCfg.title as string}</h3>}
+              {(popupCfg.text as string) && <p className="mt-2 text-sm text-ink/70">{popupCfg.text as string}</p>}
+              {(popupCfg.button as string) && (
+                <button onClick={() => { goLink(popupCfg.link as string); setPopupOpen(false); }} className="btn-primary mt-4">
+                  {popupCfg.button as string}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Slide-in menu drawer (hamburger on mobile, "Catalog" on desktop) */}
       {menuOpen && (
