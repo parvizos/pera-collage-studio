@@ -20,6 +20,76 @@ LANGS = ["ru", "en", "tr", "ar"]
 # Keys whose string values are user-facing content worth translating.
 TEXT_KEYS = {"title", "subtitle", "text", "button", "button2"}
 
+# Curated e-commerce glossary: short CTA/store terms that generic machine
+# translation gets wrong out of context (e.g. "GET" -> "взять" instead of
+# "заказать"). Keys are normalized (lowercase, trimmed of punctuation). These
+# OVERRIDE the machine translation. Add more terms freely.
+STORE_GLOSSARY: dict[str, dict[str, str]] = {
+    "get": {"ru": "Заказать", "en": "Order now", "tr": "Sipariş ver", "ar": "اطلب الآن"},
+    "получить": {"ru": "Заказать", "en": "Order now", "tr": "Sipariş ver", "ar": "اطلب الآن"},
+    "order": {"ru": "Заказать", "en": "Order", "tr": "Sipariş ver", "ar": "اطلب"},
+    "order now": {"ru": "Заказать", "en": "Order now", "tr": "Sipariş ver", "ar": "اطلب الآن"},
+    "заказать": {"ru": "Заказать", "en": "Order now", "tr": "Sipariş ver", "ar": "اطلب الآن"},
+    "сделать заказ": {"ru": "Сделать заказ", "en": "Place an order", "tr": "Sipariş ver", "ar": "إجراء طلب"},
+    "buy": {"ru": "Купить", "en": "Buy", "tr": "Satın al", "ar": "اشترِ"},
+    "buy now": {"ru": "Купить", "en": "Buy now", "tr": "Hemen al", "ar": "اشترِ الآن"},
+    "купить": {"ru": "Купить", "en": "Buy", "tr": "Satın al", "ar": "اشترِ"},
+    "shop": {"ru": "В каталог", "en": "Shop", "tr": "Alışverişe başla", "ar": "تسوّق"},
+    "shop now": {"ru": "Купить", "en": "Shop now", "tr": "Hemen al", "ar": "تسوّق الآن"},
+    "add to cart": {"ru": "В корзину", "en": "Add to cart", "tr": "Sepete ekle", "ar": "أضف إلى السلة"},
+    "в корзину": {"ru": "В корзину", "en": "Add to cart", "tr": "Sepete ekle", "ar": "أضف إلى السلة"},
+    "cart": {"ru": "Корзина", "en": "Cart", "tr": "Sepet", "ar": "السلة"},
+    "корзина": {"ru": "Корзина", "en": "Cart", "tr": "Sepet", "ar": "السلة"},
+    "checkout": {"ru": "Оформить заказ", "en": "Checkout", "tr": "Ödeme", "ar": "إتمام الطلب"},
+    "catalog": {"ru": "Каталог", "en": "Catalog", "tr": "Katalog", "ar": "الكتالوج"},
+    "catalogue": {"ru": "Каталог", "en": "Catalog", "tr": "Katalog", "ar": "الكتالوج"},
+    "каталог": {"ru": "Каталог", "en": "Catalog", "tr": "Katalog", "ar": "الكتالوج"},
+    "в каталог": {"ru": "В каталог", "en": "Shop catalog", "tr": "Kataloğa git", "ar": "إلى الكتالوج"},
+    "смотреть каталог": {"ru": "Смотреть каталог", "en": "Browse catalog", "tr": "Kataloğa göz at", "ar": "تصفّح الكتالوج"},
+    "sale": {"ru": "Распродажа", "en": "Sale", "tr": "İndirim", "ar": "تخفيضات"},
+    "акции": {"ru": "Акции", "en": "Deals", "tr": "Kampanyalar", "ar": "عروض"},
+    "распродажа": {"ru": "Распродажа", "en": "Sale", "tr": "İndirim", "ar": "تخفيضات"},
+    "new": {"ru": "Новинки", "en": "New", "tr": "Yeni", "ar": "جديد"},
+    "new arrivals": {"ru": "Новинки", "en": "New arrivals", "tr": "Yeni ürünler", "ar": "وصل حديثًا"},
+    "new drop": {"ru": "Новый дроп", "en": "New drop", "tr": "Yeni koleksiyon", "ar": "تشكيلة جديدة"},
+    "новинки": {"ru": "Новинки", "en": "New arrivals", "tr": "Yeni ürünler", "ar": "وصل حديثًا"},
+    "view": {"ru": "Смотреть", "en": "View", "tr": "Görüntüle", "ar": "عرض"},
+    "view all": {"ru": "Смотреть всё", "en": "View all", "tr": "Tümünü gör", "ar": "عرض الكل"},
+    "смотреть": {"ru": "Смотреть", "en": "View", "tr": "İncele", "ar": "عرض"},
+    "смотреть всё": {"ru": "Смотреть всё", "en": "View all", "tr": "Tümünü gör", "ar": "عرض الكل"},
+    "смотреть коллекцию": {"ru": "Смотреть коллекцию", "en": "View collection", "tr": "Koleksiyonu gör", "ar": "عرض المجموعة"},
+    "see more": {"ru": "Показать ещё", "en": "See more", "tr": "Daha fazla gör", "ar": "عرض المزيد"},
+    "learn more": {"ru": "Подробнее", "en": "Learn more", "tr": "Daha fazla", "ar": "اعرف المزيد"},
+    "подробнее": {"ru": "Подробнее", "en": "Learn more", "tr": "Daha fazla", "ar": "اعرف المزيد"},
+    "узнать больше": {"ru": "Узнать больше", "en": "Learn more", "tr": "Daha fazla bilgi", "ar": "اعرف المزيد"},
+    "contact": {"ru": "Связаться", "en": "Contact us", "tr": "İletişime geç", "ar": "تواصل معنا"},
+    "contact us": {"ru": "Связаться", "en": "Contact us", "tr": "İletişime geç", "ar": "تواصل معنا"},
+    "связаться": {"ru": "Связаться", "en": "Contact us", "tr": "İletişime geç", "ar": "تواصل معنا"},
+    "написать": {"ru": "Написать", "en": "Message us", "tr": "Bize yazın", "ar": "راسلنا"},
+    "написать в whatsapp": {"ru": "Написать в WhatsApp", "en": "Message on WhatsApp", "tr": "WhatsApp'tan yaz", "ar": "راسلنا على واتساب"},
+    "wholesale": {"ru": "Опт", "en": "Wholesale", "tr": "Toptan", "ar": "بالجملة"},
+    "опт": {"ru": "Опт", "en": "Wholesale", "tr": "Toptan", "ar": "بالجملة"},
+    "collection": {"ru": "Коллекция", "en": "Collection", "tr": "Koleksiyon", "ar": "المجموعة"},
+    "коллекция": {"ru": "Коллекция", "en": "Collection", "tr": "Koleksiyon", "ar": "المجموعة"},
+    "about us": {"ru": "О нас", "en": "About us", "tr": "Hakkımızda", "ar": "من نحن"},
+    "о нас": {"ru": "О нас", "en": "About us", "tr": "Hakkımızda", "ar": "من نحن"},
+    "о бренде": {"ru": "О бренде", "en": "About the brand", "tr": "Marka hakkında", "ar": "عن العلامة"},
+    "free shipping": {"ru": "Бесплатная доставка", "en": "Free shipping", "tr": "Ücretsiz kargo", "ar": "شحن مجاني"},
+    "delivery": {"ru": "Доставка", "en": "Delivery", "tr": "Teslimat", "ar": "التوصيل"},
+    "доставка": {"ru": "Доставка", "en": "Delivery", "tr": "Teslimat", "ar": "التوصيل"},
+    "in stock": {"ru": "В наличии", "en": "In stock", "tr": "Stokta", "ar": "متوفر"},
+    "out of stock": {"ru": "Нет в наличии", "en": "Out of stock", "tr": "Tükendi", "ar": "غير متوفر"},
+    "sold out": {"ru": "Распродано", "en": "Sold out", "tr": "Tükendi", "ar": "نفد"},
+    "subscribe": {"ru": "Подписаться", "en": "Subscribe", "tr": "Abone ol", "ar": "اشترك"},
+    "get the discount": {"ru": "Получить скидку", "en": "Get the discount", "tr": "İndirimi al", "ar": "احصل على الخصم"},
+    "получить скидку": {"ru": "Получить скидку", "en": "Get the discount", "tr": "İndirimi al", "ar": "احصل على الخصم"},
+    "хочу скидку": {"ru": "Хочу скидку", "en": "I want the discount", "tr": "İndirim istiyorum", "ar": "أريد الخصم"},
+}
+
+
+def _normalize_term(s: str) -> str:
+    return re.sub(r"^[^0-9A-Za-zА-Яа-яЁё]+|[^0-9A-Za-zА-Яа-яЁё]+$", "", s.strip().lower())
+
 _HAS_LETTER = re.compile(r"[A-Za-zÀ-ɏЀ-ӿ؀-ۿ]")
 
 
@@ -74,6 +144,14 @@ def _mymemory(text: str, tl: str) -> str | None:
 
 
 def translate_one(text: str, tl: str) -> str:
+    # E-commerce glossary takes precedence for known short terms.
+    entry = STORE_GLOSSARY.get(_normalize_term(text))
+    if entry and entry.get(tl):
+        val = entry[tl]
+        # Preserve an all-caps button style (e.g. "GET" -> "ЗАКАЗАТЬ").
+        if len(text) > 1 and text == text.upper() and text != text.lower():
+            val = val.upper()
+        return val
     return _google(text, tl) or _mymemory(text, tl) or text
 
 

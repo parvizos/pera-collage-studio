@@ -747,6 +747,27 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     }
   }
 
+  async function retranslate() {
+    if (typeof window !== "undefined" && !window.confirm(t("adm.retranslate_confirm"))) return;
+    setStatus({ kind: "saving" });
+    try {
+      const next: Template = {
+        ...template,
+        store: { ...(template.store as Record<string, unknown>), home: { ...home0, ...currentHome(), translations: {} } },
+      };
+      await api.saveTemplate(next, adminPin);
+      onTemplateChange(next);
+      const fresh = await api.getTemplate();
+      const tr = ((fresh.store as Record<string, unknown>)?.home as Record<string, unknown>)?.translations;
+      setTranslations((tr as Record<string, Record<string, string>>) || {});
+      setStatus({ kind: "ok", msg: t("common.saved") });
+      setPreviewKey((k) => k + 1);
+      setTimeout(() => setStatus({ kind: "idle" }), 2500);
+    } catch (e) {
+      setStatus({ kind: "error", msg: e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail") });
+    }
+  }
+
   function sectionLabel(s: HomeSection) {
     if (BUILTIN.has(s.type)) return s.title || t(TYPE_KEY[s.type] || s.type);
     return s.title || s.text || t(TYPE_KEY[s.type] || s.type);
@@ -1394,6 +1415,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
           {open === "i18n" && (
             <div className="space-y-2 px-1 pb-2 pt-1">
               <p className="text-xs text-ink/40">{t("adm.tr_hint")}</p>
+              <button className="btn-ghost w-full text-sm" onClick={retranslate} disabled={status.kind === "saving"}>↻ {t("adm.retranslate")}</button>
               {Object.keys(translations).length === 0 ? (
                 <p className="rounded-lg bg-sand/60 px-3 py-2 text-xs text-ink/50">{t("adm.tr_empty")}</p>
               ) : (

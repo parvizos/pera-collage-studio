@@ -332,6 +332,8 @@ export const translations: Record<Lang, Dict> = {
     "adm.translations": "Переводы",
     "adm.tr_hint": "Поправь машинный перевод вручную, если звучит криво.",
     "adm.tr_empty": "Сохрани главную — переводы появятся здесь, и их можно будет править.",
+    "adm.retranslate": "Перевести заново",
+    "adm.retranslate_confirm": "Перевести весь текст заново? Ручные правки переводов будут заменены автоматическими.",
 
     "adm.ov_title": "Обзор",
     "adm.ov_sub": "Текущее состояние студии",
@@ -836,6 +838,8 @@ export const translations: Record<Lang, Dict> = {
     "adm.translations": "Translations",
     "adm.tr_hint": "Fix the machine translation by hand if anything reads oddly.",
     "adm.tr_empty": "Save the homepage — translations will appear here for editing.",
+    "adm.retranslate": "Re-translate all",
+    "adm.retranslate_confirm": "Re-translate all text? Manual translation edits will be replaced by automatic ones.",
 
     "adm.ov_title": "Overview",
     "adm.ov_sub": "Current studio status",
@@ -1340,6 +1344,8 @@ export const translations: Record<Lang, Dict> = {
     "adm.translations": "Çeviriler",
     "adm.tr_hint": "Makine çevirisi kötü görünüyorsa elle düzeltin.",
     "adm.tr_empty": "Ana sayfayı kaydedin — çeviriler burada düzenlenebilir olacak.",
+    "adm.retranslate": "Yeniden çevir",
+    "adm.retranslate_confirm": "Tüm metin yeniden çevrilsin mi? Elle yapılan çeviri düzenlemeleri otomatikle değiştirilecek.",
 
     "adm.ov_title": "Genel",
     "adm.ov_sub": "Stüdyonun mevcut durumu",
@@ -1844,6 +1850,8 @@ export const translations: Record<Lang, Dict> = {
     "adm.translations": "الترجمات",
     "adm.tr_hint": "صحّح الترجمة الآلية يدويًا إذا بدت ركيكة.",
     "adm.tr_empty": "احفظ الصفحة الرئيسية — ستظهر الترجمات هنا للتعديل.",
+    "adm.retranslate": "إعادة الترجمة",
+    "adm.retranslate_confirm": "إعادة ترجمة كل النصوص؟ سيتم استبدال التعديلات اليدوية بالترجمة الآلية.",
 
     "adm.ov_title": "نظرة عامة",
     "adm.ov_sub": "الحالة الحالية للاستوديو",
