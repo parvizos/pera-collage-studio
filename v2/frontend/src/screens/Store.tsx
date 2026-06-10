@@ -770,11 +770,12 @@ export function Store({ template }: Props) {
       style.marginRight = "calc(50% - 50vw)";
     }
     const hideCls = st.hide === "mobile" ? "hidden sm:block" : st.hide === "desktop" ? "sm:hidden" : "";
-    // video background for any block
+    // video background for any block (file URL / data: upload / blob: / YouTube / Vimeo)
     const bv = st.video || "";
     const bvYt = bv ? (bv.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/) || [])[1] : "";
-    const bvFile = bv && /\.(mp4|webm|ogg)(\?|$)/i.test(bv);
-    const hasVideo = !!(bvFile || bvYt);
+    const bvVm = bv ? (bv.match(/vimeo\.com\/(?:video\/)?(\d+)/) || [])[1] : "";
+    const bvFile = !!bv && !bvYt && !bvVm;
+    const hasVideo = !!bv;
     const vPad = hasVideo && !pad ? 56 : pad;
     if (hasVideo) { style.paddingTop = vPad; style.paddingBottom = vPad; }
     const videoTxt = hasVideo && st.textColor !== "dark" ? "text-white" : "";
@@ -788,7 +789,11 @@ export function Store({ template }: Props) {
     const videoLayer = hasVideo ? (
       <>
         {bvFile ? (
-          <video src={bv} autoPlay muted loop playsInline className={`absolute inset-0 h-full w-full object-cover ${vPar}`} />
+          <video src={bv} autoPlay muted loop playsInline preload="auto" className={`absolute inset-0 h-full w-full object-cover ${vPar}`} />
+        ) : bvVm ? (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <iframe title="block-video" className={`absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2 ${vPar}`} src={`https://player.vimeo.com/video/${bvVm}?autoplay=1&muted=1&loop=1&background=1`} allow="autoplay; encrypted-media" />
+          </div>
         ) : (
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <iframe title="block-video" className={`absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2 ${vPar}`} src={`https://www.youtube.com/embed/${bvYt}?autoplay=1&mute=1&loop=1&playlist=${bvYt}&controls=0&modestbranding=1&playsinline=1&rel=0`} allow="autoplay; encrypted-media" />
@@ -1620,7 +1625,9 @@ export function Store({ template }: Props) {
           const sImg = slide.image || "";
           const sVid = slide.video || "";
           const ytId = sVid ? (sVid.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/) || [])[1] : "";
-          const isFileVid = sVid && /\.(mp4|webm|ogg)(\?|$)/i.test(sVid);
+          const vmId = sVid ? (sVid.match(/vimeo\.com\/(?:video\/)?(\d+)/) || [])[1] : "";
+          // Anything that isn't a YouTube/Vimeo link is played directly: file URLs, data: uploads, blob:.
+          const isFileVid = !!sVid && !ytId && !vmId;
           const ov = slide.overlay || (sImg || sVid ? "1" : "0");
           const overlayCls = (sImg || sVid)
             ? ov === "2" ? "bg-gradient-to-br from-black/65 to-black/85" : ov === "0" ? "bg-gradient-to-br from-black/10 to-black/25" : ov === "3" ? "bg-black/40 backdrop-blur-[2px]" : "bg-gradient-to-br from-black/40 to-black/55"
@@ -1634,13 +1641,22 @@ export function Store({ template }: Props) {
             <section className={`relative overflow-hidden bg-clay ${textCls}`}>
               {/* background */}
               {isFileVid ? (
-                <video key={sVid} src={sVid} autoPlay muted loop playsInline className={`absolute inset-0 h-full w-full object-cover ${kb}`} />
+                <video key={sVid} src={sVid} autoPlay muted loop playsInline preload="auto" className={`absolute inset-0 h-full w-full object-cover ${kb}`} />
               ) : ytId ? (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   <iframe
                     title="hero-video"
                     className={`absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2 ${kb}`}
                     src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&modestbranding=1&playsinline=1&rel=0`}
+                    allow="autoplay; encrypted-media"
+                  />
+                </div>
+              ) : vmId ? (
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <iframe
+                    title="hero-video"
+                    className={`absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2 ${kb}`}
+                    src={`https://player.vimeo.com/video/${vmId}?autoplay=1&muted=1&loop=1&background=1`}
                     allow="autoplay; encrypted-media"
                   />
                 </div>
