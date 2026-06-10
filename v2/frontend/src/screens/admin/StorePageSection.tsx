@@ -19,6 +19,18 @@ interface HomeItem {
   button?: string;
 }
 
+interface HeroSlide {
+  image?: string;
+  video?: string;
+  title?: string;
+  subtitle?: string;
+  button?: string;
+  link?: string;
+  overlay?: string;
+  textColor?: string;
+  align?: string;
+}
+
 interface BlockStyle {
   mt?: string;
   mb?: string;
@@ -403,15 +415,16 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [font, setFont] = useState(b0.font || "serif");
   const [customFont, setCustomFont] = useState(b0.customFont || "");
 
+  function heroToSlides(h: Record<string, unknown>): HeroSlide[] {
+    if (Array.isArray(h.slides) && (h.slides as unknown[]).length) return h.slides as HeroSlide[];
+    return [{ image: (h.image as string) || "", video: "", title: (h.title as string) || "", subtitle: (h.subtitle as string) || "", button: (h.button as string) || "", link: (h.link as string) || "", overlay: (h.overlay as string) || "1", textColor: (h.textColor as string) || "light", align: (h.align as string) || "center" }];
+  }
   const [heroEnabled, setHeroEnabled] = useState(hero0.enabled !== false);
-  const [heroImage, setHeroImage] = useState((hero0.image as string) || "");
-  const [heroTitle, setHeroTitle] = useState((hero0.title as string) || "");
-  const [heroSubtitle, setHeroSubtitle] = useState((hero0.subtitle as string) || "");
-  const [heroButton, setHeroButton] = useState((hero0.button as string) || "");
   const [heroHeight, setHeroHeight] = useState((hero0.height as string) || "m");
-  const [heroAlign, setHeroAlign] = useState((hero0.align as string) || "center");
-  const [heroOverlay, setHeroOverlay] = useState((hero0.overlay as string) || "1");
-  const [heroTextColor, setHeroTextColor] = useState((hero0.textColor as string) || "light");
+  const [heroSearch, setHeroSearch] = useState(hero0.search === true);
+  const [heroAutoplay, setHeroAutoplay] = useState(Number(hero0.autoplay) || 0);
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(heroToSlides(hero0));
+  const [heroSlideIdx, setHeroSlideIdx] = useState(0);
 
   const [sections, setSections] = useState<HomeSection[]>(sections0);
   const [animations, setAnimations] = useState(home0.animations === true);
@@ -456,7 +469,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   function currentHome() {
     return {
       branding: { accent, bg, font, customFont },
-      hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign, overlay: heroOverlay, textColor: heroTextColor },
+      hero: { enabled: heroEnabled, height: heroHeight, search: heroSearch, autoplay: heroAutoplay, slides: heroSlides },
       sections,
       animations,
       popup: { enabled: popupEnabled, image: popupImage, title: popupTitle, text: popupText, button: popupButton, link: popupLink, delay: popupDelay },
@@ -492,17 +505,16 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
 
   function postPreview() {
     try {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "pera-home-preview", home: currentHome(), previewMode: true, selectedId: selectedId() },
-        "*",
-      );
+      const w = iframeRef.current?.contentWindow;
+      w?.postMessage({ type: "pera-home-preview", home: currentHome(), previewMode: true, selectedId: selectedId() }, "*");
+      w?.postMessage({ type: "pera-hero-slide", index: open === "hero" ? heroSlideIdx : 0 }, "*");
     } catch { /* ignore */ }
   }
   useEffect(() => {
     const id = setTimeout(postPreview, 200);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, customFont, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay, device, open]);
+  }, [accent, bg, font, customFont, heroEnabled, heroHeight, heroSearch, heroAutoplay, heroSlides, heroSlideIdx, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay, device, open]);
 
   // click a block in the preview -> open its settings
   useEffect(() => {
@@ -549,14 +561,14 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     }, 450);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, customFont, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay]);
+  }, [accent, bg, font, customFont, heroEnabled, heroHeight, heroSearch, heroAutoplay, heroSlides, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay]);
   function applyHome(s: string) {
     const c = JSON.parse(s);
     applyingRef.current = true;
     setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont(c.branding.customFont || "");
-    setHeroEnabled(c.hero.enabled !== false); setHeroImage(c.hero.image || ""); setHeroTitle(c.hero.title || "");
-    setHeroSubtitle(c.hero.subtitle || ""); setHeroButton(c.hero.button || ""); setHeroHeight(c.hero.height || "m");
-    setHeroAlign(c.hero.align || "center"); setHeroOverlay(c.hero.overlay || "1"); setHeroTextColor(c.hero.textColor || "light");
+    setHeroEnabled(c.hero.enabled !== false); setHeroHeight(c.hero.height || "m");
+    setHeroSearch(c.hero.search === true); setHeroAutoplay(Number(c.hero.autoplay) || 0);
+    setHeroSlides(heroToSlides(c.hero)); setHeroSlideIdx(0);
     setSections(c.sections || []);
     setAnimations(c.animations === true);
     const pp = c.popup || {};
@@ -615,9 +627,8 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const c = tpl.config;
     setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont(c.branding.customFont || "");
     const h = c.hero;
-    setHeroEnabled(h.enabled !== false); setHeroImage(""); setHeroTitle((h.title as string) || ""); setHeroSubtitle((h.subtitle as string) || "");
-    setHeroButton((h.button as string) || ""); setHeroHeight((h.height as string) || "m"); setHeroAlign((h.align as string) || "center");
-    setHeroOverlay((h.overlay as string) || "1"); setHeroTextColor((h.textColor as string) || "light");
+    setHeroEnabled(h.enabled !== false); setHeroHeight((h.height as string) || "m"); setHeroSearch(false); setHeroAutoplay(0);
+    setHeroSlides(heroToSlides(h)); setHeroSlideIdx(0);
     const stamp = Date.now();
     setSections(c.sections.map((s, i) => ({ ...s, id: `${s.type}_${stamp}_${i}` })));
     setAnimations(c.animations === true);
@@ -656,7 +667,29 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     }
   }
   async function uploadItem(secId: string, idx: number, file?: File) { if (file) patchItem(secId, idx, { image: await fileToDataUrl(file) }); }
-  async function uploadHero(file?: File) { if (file) setHeroImage(await fileToDataUrl(file)); }
+  function patchSlide(idx: number, patch: Partial<HeroSlide>) {
+    setHeroSlides((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  }
+  function addSlide() {
+    setHeroSlides((prev) => [...prev, { title: "", subtitle: "", overlay: "1", textColor: "light", align: "center" }]);
+    setHeroSlideIdx(heroSlides.length);
+  }
+  function removeSlide(idx: number) {
+    setHeroSlides((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+    setHeroSlideIdx((i) => Math.max(0, i - (idx <= i ? 1 : 0)));
+  }
+  function moveSlide(idx: number, dir: -1 | 1) {
+    setHeroSlides((prev) => {
+      const j = idx + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
+    setHeroSlideIdx((i) => i + dir);
+  }
+  async function uploadSlideImage(idx: number, file?: File) { if (file) patchSlide(idx, { image: await fileToDataUrl(file) }); }
+  async function uploadSlideVideo(idx: number, file?: File) { if (file) patchSlide(idx, { video: await fileToDataUrl(file) }); }
   async function uploadPopup(file?: File) { if (file) setPopupImage(await fileToDataUrl(file)); }
   async function uploadBlock(id: string, file?: File) { if (file) patchSection(id, { image: await fileToDataUrl(file) }); }
 
@@ -1110,58 +1143,94 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
               <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${heroEnabled ? "left-3.5" : "left-0.5"}`} />
             </span>
           ))}
-          {open === "hero" && heroEnabled && (
-            <div className="space-y-3 px-1 pb-2 pt-1">
-              <div>
-                <label className="field-label">{t("adm.hero_image")}</label>
-                <div className="flex items-center gap-3">
-                  <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-line bg-sand">
-                    {heroImage && <img src={heroImage} alt="" className="h-full w-full object-cover" />}
+          {open === "hero" && heroEnabled && (() => {
+            const idx = Math.min(heroSlideIdx, heroSlides.length - 1);
+            const sl = heroSlides[idx] || {};
+            const set = (p: Partial<HeroSlide>) => patchSlide(idx, p);
+            return (
+              <div className="space-y-3 px-1 pb-2 pt-1">
+                {/* global hero settings */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="field-label">{t("adm.hero_height")}</label>
+                    <select className="input" value={heroHeight} onChange={(e) => setHeroHeight(e.target.value)}>
+                      <option value="s">{t("adm.h_s")}</option><option value="m">{t("adm.h_m")}</option><option value="l">{t("adm.h_l")}</option>
+                    </select>
                   </div>
-                  <label className="btn-ghost cursor-pointer">{t("adm.upload")}<input type="file" accept="image/*" className="hidden" onChange={(e) => uploadHero(e.target.files?.[0])} /></label>
-                  {heroImage && <button className="text-xs text-red-600 hover:underline" onClick={() => setHeroImage("")}>{t("adm.remove_image")}</button>}
+                  <div>
+                    <label className="field-label">{t("adm.hero_autoplay")}</label>
+                    <select className="input" value={heroAutoplay} onChange={(e) => setHeroAutoplay(Number(e.target.value))}>
+                      <option value={0}>{t("adm.off")}</option>
+                      {[3, 5, 7, 10].map((n) => <option key={n} value={n}>{n}s</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg bg-sand/60 px-3 py-2">
+                  <span className="text-sm font-medium">{t("adm.hero_search")}</span>
+                  <input type="checkbox" checked={heroSearch} onChange={(e) => setHeroSearch(e.target.checked)} />
+                </label>
+
+                {/* slide tabs */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {heroSlides.map((_, i) => (
+                    <button key={i} onClick={() => setHeroSlideIdx(i)} className={`grid h-7 w-7 place-items-center rounded-lg text-xs font-bold transition ${i === idx ? "bg-ink text-white" : "bg-sand text-ink/60 hover:bg-line"}`}>{i + 1}</button>
+                  ))}
+                  <button onClick={addSlide} className="grid h-7 w-7 place-items-center rounded-lg border border-dashed border-line text-ink/50 hover:border-clay hover:text-clay" title={t("adm.add_slide")}>＋</button>
+                </div>
+
+                {/* active slide editor */}
+                <div className="space-y-2 rounded-xl border border-line p-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-ink/60">{t("adm.slide")} {idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <button className="px-1 text-ink/40 hover:text-ink disabled:opacity-30" onClick={() => moveSlide(idx, -1)} disabled={idx === 0}>◀</button>
+                      <button className="px-1 text-ink/40 hover:text-ink disabled:opacity-30" onClick={() => moveSlide(idx, 1)} disabled={idx === heroSlides.length - 1}>▶</button>
+                      {heroSlides.length > 1 && <button className="text-xs text-red-600 hover:underline" onClick={() => removeSlide(idx)}>{t("common.delete")}</button>}
+                    </div>
+                  </div>
+                  {/* media */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-lg border border-line bg-sand">
+                      {sl.image && <img src={sl.image} alt="" className="h-full w-full object-cover" />}
+                      {sl.video && !sl.image && <div className="grid h-full w-full place-items-center text-lg text-ink/40">▶</div>}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="btn-ghost cursor-pointer text-xs">{t("adm.hero_image")}<input type="file" accept="image/*" className="hidden" onChange={(e) => uploadSlideImage(idx, e.target.files?.[0])} /></label>
+                      <label className="btn-ghost cursor-pointer text-xs">{t("adm.upload_video")}<input type="file" accept="video/*" className="hidden" onChange={(e) => uploadSlideVideo(idx, e.target.files?.[0])} /></label>
+                    </div>
+                    {(sl.image || sl.video) && <button className="text-xs text-red-600 hover:underline" onClick={() => set({ image: "", video: "" })}>{t("adm.remove_image")}</button>}
+                  </div>
+                  <input className="input" placeholder={t("adm.hero_video_url")} value={sl.video || ""} onChange={(e) => set({ video: e.target.value })} />
+                  <input className="input" placeholder={t("adm.hero_heading")} value={sl.title || ""} onChange={(e) => set({ title: e.target.value })} />
+                  <input className="input" placeholder={t("adm.hero_sub")} value={sl.subtitle || ""} onChange={(e) => set({ subtitle: e.target.value })} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="input" placeholder={t("adm.hero_btn")} value={sl.button || ""} onChange={(e) => set({ button: e.target.value })} />
+                    <input className="input" placeholder={t("adm.block_link")} value={sl.link || ""} onChange={(e) => set({ link: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="field-label">{t("adm.hero_overlay")}</label>
+                      <select className="input" value={sl.overlay || "1"} onChange={(e) => set({ overlay: e.target.value })}>
+                        <option value="0">{t("adm.ov_0")}</option><option value="1">{t("adm.ov_1")}</option><option value="2">{t("adm.ov_2")}</option><option value="3">{t("adm.ov_blur")}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="field-label">{t("adm.hero_textcolor")}</label>
+                      <select className="input" value={sl.textColor || "light"} onChange={(e) => set({ textColor: e.target.value })}>
+                        <option value="light">{t("adm.text_light")}</option><option value="dark">{t("adm.text_dark")}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="field-label">{t("adm.hero_align")}</label>
+                      <select className="input" value={sl.align || "center"} onChange={(e) => set({ align: e.target.value })}>
+                        <option value="center">{t("se.align_center")}</option><option value="left">{t("se.align_left")}</option><option value="right">{t("adm.align_right")}</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="field-label">{t("adm.hero_heading")}</label>
-                <input className="input" value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} placeholder="PERA" />
-              </div>
-              <div>
-                <label className="field-label">{t("adm.hero_sub")}</label>
-                <input className="input" value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} />
-              </div>
-              <div>
-                <label className="field-label">{t("adm.hero_btn")}</label>
-                <input className="input" value={heroButton} onChange={(e) => setHeroButton(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="field-label">{t("adm.hero_height")}</label>
-                  <select className="input" value={heroHeight} onChange={(e) => setHeroHeight(e.target.value)}>
-                    <option value="s">{t("adm.h_s")}</option><option value="m">{t("adm.h_m")}</option><option value="l">{t("adm.h_l")}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label">{t("adm.hero_align")}</label>
-                  <select className="input" value={heroAlign} onChange={(e) => setHeroAlign(e.target.value)}>
-                    <option value="center">{t("se.align_center")}</option><option value="left">{t("se.align_left")}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label">{t("adm.hero_overlay")}</label>
-                  <select className="input" value={heroOverlay} onChange={(e) => setHeroOverlay(e.target.value)}>
-                    <option value="0">{t("adm.ov_0")}</option><option value="1">{t("adm.ov_1")}</option><option value="2">{t("adm.ov_2")}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label">{t("adm.hero_textcolor")}</label>
-                  <select className="input" value={heroTextColor} onChange={(e) => setHeroTextColor(e.target.value)}>
-                    <option value="light">{t("adm.text_light")}</option><option value="dark">{t("adm.text_dark")}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Promo popup */}
           {accHeader("popup", t("adm.popup"), (

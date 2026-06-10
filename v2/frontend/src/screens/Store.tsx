@@ -658,27 +658,33 @@ export function Store({ template }: Props) {
   }
 
   // ---- Homepage (configurable from admin "Homepage" editor) ----
+  type HeroSlide = { image?: string; video?: string; title?: string; subtitle?: string; button?: string; link?: string; overlay?: string; textColor?: string; align?: string };
+  const [heroIdx, setHeroIdx] = useState(0);
   const heroCfg = (home.hero as Record<string, unknown>) || {};
   const heroEnabled = heroCfg.enabled !== false;
-  const heroImage = (heroCfg.image as string) || "";
-  const heroTitle = (heroCfg.title as string) || title;
-  const heroSubtitle = (heroCfg.subtitle as string) ?? t("store.tagline");
-  const heroButton = (heroCfg.button as string) || t("store.view_catalog");
   const heroHeight = (heroCfg.height as string) || "m";
-  const heroAlign = (heroCfg.align as string) || "center";
-  const heroPad = heroHeight === "s" ? "py-8 sm:py-10" : heroHeight === "l" ? "py-24 sm:py-36" : "py-14 sm:py-20";
-  const heroAlignCls = heroAlign === "left" ? "items-start text-left" : "items-center text-center";
-  const heroOverlay = (heroCfg.overlay as string) || (heroImage ? "1" : "0");
-  const overlayCls = heroImage
-    ? heroOverlay === "2"
-      ? "bg-gradient-to-br from-black/60 to-black/80"
-      : heroOverlay === "0"
-        ? "bg-gradient-to-br from-black/10 to-black/25"
-        : "bg-gradient-to-br from-black/40 to-black/55"
-    : "bg-gradient-to-br from-white/15 to-black/25";
-  const heroText = (heroCfg.textColor as string) || "light";
-  const heroTextCls = heroText === "dark" ? "text-ink" : "text-white";
-  const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
+  const heroPad = heroHeight === "s" ? "py-12 sm:py-16" : heroHeight === "l" ? "py-28 sm:py-44" : "py-16 sm:py-28";
+  const heroSearch = heroCfg.search === true;
+  const heroAutoplay = Number(heroCfg.autoplay) || 0;
+  const heroSlides: HeroSlide[] = Array.isArray(heroCfg.slides) && (heroCfg.slides as unknown[]).length
+    ? (heroCfg.slides as HeroSlide[])
+    : [{ image: heroCfg.image as string, title: heroCfg.title as string, subtitle: heroCfg.subtitle as string, button: heroCfg.button as string, link: heroCfg.link as string, overlay: heroCfg.overlay as string, textColor: heroCfg.textColor as string, align: heroCfg.align as string }];
+  const heroLen = heroSlides.length;
+  const heroI = heroLen ? ((heroIdx % heroLen) + heroLen) % heroLen : 0;
+  useEffect(() => {
+    if (!heroAutoplay || heroLen < 2 || previewMode) return;
+    const id = setInterval(() => setHeroIdx((i) => i + 1), heroAutoplay * 1000);
+    return () => clearInterval(id);
+  }, [heroAutoplay, heroLen, previewMode]);
+  // In the builder, let the editor drive which slide is shown.
+  useEffect(() => {
+    function onSlide(e: MessageEvent) {
+      const d = e.data as { type?: string; index?: number } | null;
+      if (d && d.type === "pera-hero-slide" && typeof d.index === "number") setHeroIdx(d.index);
+    }
+    window.addEventListener("message", onSlide);
+    return () => window.removeEventListener("message", onSlide);
+  }, []);
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
   type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; textColor?: string; radius?: string; full?: boolean; hide?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
@@ -1537,30 +1543,85 @@ export function Store({ template }: Props) {
         );
       })() : (
       <>
-        {/* Hero */}
-        {heroEnabled && previewWrap("__hero__",
-          <section className={`relative overflow-hidden bg-clay ${heroTextCls}`}>
-            {heroImage && <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-            <div className={`pointer-events-none absolute inset-0 ${overlayCls}`} />
-            <div className={`relative mx-auto flex max-w-6xl flex-col ${heroAlignCls} px-4 ${heroPad} sm:px-6`}>
-              {!heroImage && logo && <img src={logo} alt={title} className="mb-4 h-14 w-auto" />}
-              <h1 className="font-serif text-4xl tracking-tight sm:text-6xl">{heroTitle}</h1>
-              {heroSubtitle && <p className={`mt-3 max-w-xl text-sm sm:text-base ${heroSubCls}`}>{heroSubtitle}</p>}
-              <div className="mt-7 flex w-full max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
-                <input
-                  className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
-                  placeholder={t("store.search_ph")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") scrollToCatalog(); }}
-                />
-                <button onClick={scrollToCatalog} className="shrink-0 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white">
-                  {heroButton}
-                </button>
+        {/* Hero (video / image slideshow) */}
+        {heroEnabled && (() => {
+          const slide = heroSlides[heroI] || {};
+          const sTitle = slide.title || title;
+          const sSub = slide.subtitle ?? t("store.tagline");
+          const sBtn = slide.button || "";
+          const sImg = slide.image || "";
+          const sVid = slide.video || "";
+          const ytId = sVid ? (sVid.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/) || [])[1] : "";
+          const isFileVid = sVid && /\.(mp4|webm|ogg)(\?|$)/i.test(sVid);
+          const ov = slide.overlay || (sImg || sVid ? "1" : "0");
+          const overlayCls = (sImg || sVid)
+            ? ov === "2" ? "bg-gradient-to-br from-black/65 to-black/85" : ov === "0" ? "bg-gradient-to-br from-black/10 to-black/25" : ov === "3" ? "bg-black/40 backdrop-blur-[2px]" : "bg-gradient-to-br from-black/40 to-black/55"
+            : "bg-gradient-to-br from-white/10 to-black/25";
+          const textCls = slide.textColor === "dark" ? "text-ink" : "text-white";
+          const subCls = slide.textColor === "dark" ? "text-ink/70" : "text-white/90";
+          const alignCls = slide.align === "left" ? "items-start text-left" : slide.align === "right" ? "items-end text-right" : "items-center text-center";
+          return previewWrap("__hero__",
+            <section className={`relative overflow-hidden bg-clay ${textCls}`}>
+              {/* background */}
+              {isFileVid ? (
+                <video key={sVid} src={sVid} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+              ) : ytId ? (
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <iframe
+                    title="hero-video"
+                    className="absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2"
+                    src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&modestbranding=1&playsinline=1&rel=0`}
+                    allow="autoplay; encrypted-media"
+                  />
+                </div>
+              ) : sImg ? (
+                <img src={sImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              ) : null}
+              <div className={`pointer-events-none absolute inset-0 ${overlayCls}`} />
+
+              <div className={`relative mx-auto flex max-w-6xl flex-col ${alignCls} px-4 ${heroPad} sm:px-6`}>
+                {!sImg && !sVid && logo && <img src={logo} alt={title} className="mb-4 h-14 w-auto" />}
+                <h1 className="font-serif text-4xl tracking-tight drop-shadow-sm sm:text-6xl">{sTitle}</h1>
+                {sSub && <p className={`mt-3 max-w-xl text-sm drop-shadow-sm sm:text-base ${subCls}`}>{sSub}</p>}
+
+                <div className="mt-7 flex flex-wrap items-center gap-3">
+                  {sBtn && (
+                    <button onClick={() => (slide.link ? goLink(slide.link) : scrollToCatalog())} className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-ink shadow-lg transition hover:brightness-95">
+                      {sBtn}
+                    </button>
+                  )}
+                  {heroSearch && (
+                    <div className="flex w-full max-w-md items-center gap-1.5 rounded-full bg-white p-1.5 shadow-xl">
+                      <input
+                        className="w-full bg-transparent px-4 py-2 text-ink outline-none placeholder:text-ink/40"
+                        placeholder={t("store.search_ph")}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") scrollToCatalog(); }}
+                      />
+                      <button onClick={scrollToCatalog} className="shrink-0 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white">
+                        {t("store.search_ph") ? "→" : ""}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </section>
-        )}
+
+              {/* arrows + dots */}
+              {heroLen > 1 && (
+                <>
+                  <button onClick={() => setHeroIdx(heroI - 1)} aria-label="prev" className="absolute left-3 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/30 text-white backdrop-blur transition hover:bg-white/50">‹</button>
+                  <button onClick={() => setHeroIdx(heroI + 1)} aria-label="next" className="absolute right-3 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/30 text-white backdrop-blur transition hover:bg-white/50">›</button>
+                  <div className="absolute inset-x-0 bottom-3 z-10 flex justify-center gap-1.5">
+                    {heroSlides.map((_, i) => (
+                      <button key={i} onClick={() => setHeroIdx(i)} aria-label={`slide ${i + 1}`} className={`h-1.5 rounded-full transition-all ${i === heroI ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          );
+        })()}
 
         <main ref={mainRef} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           {sectionList.map((sec) => applyBlockStyle(sec, previewWrap(sec.id, renderSection(sec))))}
