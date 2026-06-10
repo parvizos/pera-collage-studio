@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from . import config, store
+from . import config, store, translate
 from .db import init_database
 
 app = FastAPI(title="Pera Collage Studio API", version="2.0")
@@ -53,6 +53,13 @@ async def save_template(request: Request, x_admin_pin: str | None = Header(defau
         parsed = json.loads(await request.body())
     except json.JSONDecodeError:
         return json_response({"error": "invalid_json"}, 400)
+    # Auto-translate homepage content into the 4 languages (keyless, best-effort).
+    try:
+        home = (parsed.get("store") or {}).get("home")
+        if isinstance(home, dict):
+            await run_in_threadpool(translate.enrich_home_translations, home)
+    except Exception:
+        pass  # never block saving on translation
     saved = store.save_template_payload(parsed)
     if "security" in saved and "adminPin" in saved["security"]:
         saved["security"]["adminPin"] = ""

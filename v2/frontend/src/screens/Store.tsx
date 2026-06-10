@@ -52,6 +52,29 @@ function slugify(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** Replace content strings with their saved translation for the visitor's language. */
+function localizeHome(home: Record<string, unknown>, lang: string): Record<string, unknown> {
+  const map = home && (home.translations as Record<string, Record<string, string>> | undefined);
+  if (!map || typeof map !== "object") return home;
+  const tr = (s: string): string => {
+    const e = map[s];
+    return e && typeof e === "object" && e[lang] ? e[lang] : s;
+  };
+  const walk = (v: unknown): unknown => {
+    if (typeof v === "string") return tr(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      const o: Record<string, unknown> = {};
+      for (const k in v as Record<string, unknown>) {
+        o[k] = k === "translations" ? (v as Record<string, unknown>)[k] : walk((v as Record<string, unknown>)[k]);
+      }
+      return o;
+    }
+    return v;
+  };
+  return walk(home) as Record<string, unknown>;
+}
+
 function ytId(url: string): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([\w-]{11})/);
   return m ? m[1] : null;
@@ -259,7 +282,8 @@ export function Store({ template }: Props) {
     );
   }
 
-  const home = liveHome || (store.home as Record<string, unknown>) || {};
+  const rawHome = liveHome || (store.home as Record<string, unknown>) || {};
+  const home = useMemo(() => localizeHome(rawHome, lang), [rawHome, lang]);
   const branding = (home.branding as Record<string, string>) || {};
   const rootStyle: React.CSSProperties = {};
   const accRgb = hexToRgbTriplet(branding.accent);
