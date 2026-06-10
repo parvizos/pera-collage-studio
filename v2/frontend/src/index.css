@@ -56,6 +56,25 @@ body,
   transform: none;
 }
 
+/* Ken Burns slow zoom for hero/block backgrounds */
+@keyframes pera-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.14); }
+}
+.pera-kenburns { animation: pera-kenburns 16s ease-in-out infinite alternate; }
+
+/* Hero content entrance (replays per slide via React key) */
+@keyframes pera-in-up { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes pera-in-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pera-in-zoom { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes pera-in-left { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+@keyframes pera-in-right { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+.pera-in-up { animation: pera-in-up 0.7s ease both; }
+.pera-in-fade { animation: pera-in-fade 0.9s ease both; }
+.pera-in-zoom { animation: pera-in-zoom 0.7s ease both; }
+.pera-in-left { animation: pera-in-left 0.7s ease both; }
+.pera-in-right { animation: pera-in-right 0.7s ease both; }
+
 body {
   margin: 0;
   background: theme("colors.sand");

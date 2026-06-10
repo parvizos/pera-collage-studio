@@ -26,9 +26,13 @@ interface HeroSlide {
   subtitle?: string;
   button?: string;
   link?: string;
+  button2?: string;
+  link2?: string;
   overlay?: string;
   textColor?: string;
   align?: string;
+  textAnim?: string;
+  kenburns?: boolean;
 }
 
 interface BlockStyle {
@@ -37,6 +41,7 @@ interface BlockStyle {
   pad?: string;
   bg?: string;
   bgColor?: string;
+  video?: string;
   textColor?: string;
   radius?: string;
   full?: boolean;
@@ -690,6 +695,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   }
   async function uploadSlideImage(idx: number, file?: File) { if (file) patchSlide(idx, { image: await fileToDataUrl(file) }); }
   async function uploadSlideVideo(idx: number, file?: File) { if (file) patchSlide(idx, { video: await fileToDataUrl(file) }); }
+  async function uploadStyleVideo(secId: string, file?: File) { if (file) patchStyle(secId, { video: await fileToDataUrl(file) }); }
   async function uploadPopup(file?: File) { if (file) setPopupImage(await fileToDataUrl(file)); }
   async function uploadBlock(id: string, file?: File) { if (file) patchSection(id, { image: await fileToDataUrl(file) }); }
 
@@ -804,6 +810,14 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
           </div>
           {sel(t("adm.hero_textcolor"), st.textColor || "auto", opts(["auto", "light", "dark"], "adm.tc_"), (v) => patchStyle(sec.id, { textColor: v }))}
           {sel(t("adm.radius"), st.radius || "m", opts(["none", "s", "m", "l"], "adm.rad_"), (v) => patchStyle(sec.id, { radius: v }))}
+          <div className="col-span-2">
+            <label className="field-label">{t("adm.block_video")}</label>
+            <div className="flex items-center gap-1.5">
+              <input className="input" placeholder={t("adm.hero_video_url")} value={st.video || ""} onChange={(e) => patchStyle(sec.id, { video: e.target.value })} />
+              <label className="btn-ghost cursor-pointer shrink-0 text-xs">{t("adm.upload")}<input type="file" accept="video/*" className="hidden" onChange={(e) => uploadStyleVideo(sec.id, e.target.files?.[0])} /></label>
+              {st.video && <button className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => patchStyle(sec.id, { video: "" })}>✕</button>}
+            </div>
+          </div>
           {sel(t("adm.visibility"), st.hide || "all", opts(["all", "mobile", "desktop"], "adm.vis_"), (v) => patchStyle(sec.id, { hide: v === "all" ? "" : v }))}
           {GRID_TYPES.has(sec.type) && sel(t("adm.columns"), st.cols || "", colList, (v) => patchStyle(sec.id, { cols: v }))}
           {sel(t("adm.animation"), st.anim || "none", opts(ANIM_OPTS, "adm.an_"), (v) => patchStyle(sec.id, { anim: v }))}
@@ -1154,7 +1168,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                   <div>
                     <label className="field-label">{t("adm.hero_height")}</label>
                     <select className="input" value={heroHeight} onChange={(e) => setHeroHeight(e.target.value)}>
-                      <option value="s">{t("adm.h_s")}</option><option value="m">{t("adm.h_m")}</option><option value="l">{t("adm.h_l")}</option>
+                      <option value="s">{t("adm.h_s")}</option><option value="m">{t("adm.h_m")}</option><option value="l">{t("adm.h_l")}</option><option value="full">{t("adm.h_full")}</option>
                     </select>
                   </div>
                   <div>
@@ -1206,6 +1220,22 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                   <div className="grid grid-cols-2 gap-2">
                     <input className="input" placeholder={t("adm.hero_btn")} value={sl.button || ""} onChange={(e) => set({ button: e.target.value })} />
                     <input className="input" placeholder={t("adm.block_link")} value={sl.link || ""} onChange={(e) => set({ link: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="input" placeholder={t("adm.hero_btn2")} value={sl.button2 || ""} onChange={(e) => set({ button2: e.target.value })} />
+                    <input className="input" placeholder={t("adm.block_link")} value={sl.link2 || ""} onChange={(e) => set({ link2: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="field-label">{t("adm.text_anim")}</label>
+                      <select className="input" value={sl.textAnim || "none"} onChange={(e) => set({ textAnim: e.target.value })}>
+                        {["none", "fade", "up", "zoom", "left", "right"].map((v) => <option key={v} value={v}>{t("adm.an_" + v)}</option>)}
+                      </select>
+                    </div>
+                    <label className="flex cursor-pointer items-end gap-2 pb-2.5 text-sm">
+                      <input type="checkbox" checked={!!sl.kenburns} onChange={(e) => set({ kenburns: e.target.checked })} />
+                      {t("adm.kenburns")}
+                    </label>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>

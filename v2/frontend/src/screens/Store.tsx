@@ -658,12 +658,12 @@ export function Store({ template }: Props) {
   }
 
   // ---- Homepage (configurable from admin "Homepage" editor) ----
-  type HeroSlide = { image?: string; video?: string; title?: string; subtitle?: string; button?: string; link?: string; overlay?: string; textColor?: string; align?: string };
+  type HeroSlide = { image?: string; video?: string; title?: string; subtitle?: string; button?: string; link?: string; button2?: string; link2?: string; overlay?: string; textColor?: string; align?: string; textAnim?: string; kenburns?: boolean };
   const [heroIdx, setHeroIdx] = useState(0);
   const heroCfg = (home.hero as Record<string, unknown>) || {};
   const heroEnabled = heroCfg.enabled !== false;
   const heroHeight = (heroCfg.height as string) || "m";
-  const heroPad = heroHeight === "s" ? "py-12 sm:py-16" : heroHeight === "l" ? "py-28 sm:py-44" : "py-16 sm:py-28";
+  const heroPad = heroHeight === "s" ? "py-12 sm:py-16" : heroHeight === "l" ? "py-28 sm:py-44" : heroHeight === "full" ? "min-h-[88vh] justify-center py-16" : "py-16 sm:py-28";
   const heroSearch = heroCfg.search === true;
   const heroAutoplay = Number(heroCfg.autoplay) || 0;
   const heroSlides: HeroSlide[] = Array.isArray(heroCfg.slides) && (heroCfg.slides as unknown[]).length
@@ -687,7 +687,7 @@ export function Store({ template }: Props) {
   }, []);
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; textColor?: string; radius?: string; full?: boolean; hide?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
+  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; video?: string; textColor?: string; radius?: string; full?: boolean; hide?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
   type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string; style?: BlockStyle };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
@@ -745,14 +745,37 @@ export function Store({ template }: Props) {
       style.marginRight = "calc(50% - 50vw)";
     }
     const hideCls = st.hide === "mobile" ? "hidden sm:block" : st.hide === "desktop" ? "sm:hidden" : "";
+    // video background for any block
+    const bv = st.video || "";
+    const bvYt = bv ? (bv.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/) || [])[1] : "";
+    const bvFile = bv && /\.(mp4|webm|ogg)(\?|$)/i.test(bv);
+    const hasVideo = !!(bvFile || bvYt);
+    const vPad = hasVideo && !pad ? 56 : pad;
+    if (hasVideo) { style.paddingTop = vPad; style.paddingBottom = vPad; }
+    const videoTxt = hasVideo && st.textColor !== "dark" ? "text-white" : "";
     const cls = [
-      banded ? `${radius} px-4 sm:px-6 ${customBg ? "" : bgPreset} ${txtCls}` : txtCls,
+      banded || hasVideo ? `${radius} px-4 sm:px-6 ${customBg ? "" : bgPreset} ${txtCls} ${videoTxt}` : txtCls,
+      hasVideo ? "relative overflow-hidden" : "",
       animOn ? "pera-anim" : "",
       hideCls,
     ].filter((c) => c && c.trim()).join(" ");
-    const inner = st.full ? <div className="mx-auto max-w-6xl">{node}</div> : node;
+    const videoLayer = hasVideo ? (
+      <>
+        {bvFile ? (
+          <video src={bv} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <iframe title="block-video" className="absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2" src={`https://www.youtube.com/embed/${bvYt}?autoplay=1&mute=1&loop=1&playlist=${bvYt}&controls=0&modestbranding=1&playsinline=1&rel=0`} allow="autoplay; encrypted-media" />
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-black/45" />
+      </>
+    ) : null;
+    const innerCls = [st.full ? "mx-auto max-w-6xl" : "", hasVideo ? "relative z-10" : ""].filter(Boolean).join(" ");
+    const inner = innerCls ? <div className={innerCls}>{node}</div> : node;
     return (
       <div key={sec.id} className={cls || undefined} style={style} data-anim={animOn ? effAnim : undefined}>
+        {videoLayer}
         {inner}
       </div>
     );
@@ -1560,34 +1583,41 @@ export function Store({ template }: Props) {
           const textCls = slide.textColor === "dark" ? "text-ink" : "text-white";
           const subCls = slide.textColor === "dark" ? "text-ink/70" : "text-white/90";
           const alignCls = slide.align === "left" ? "items-start text-left" : slide.align === "right" ? "items-end text-right" : "items-center text-center";
+          const kb = slide.kenburns ? "pera-kenburns" : "";
+          const inAnim = slide.textAnim === "fade" ? "pera-in-fade" : slide.textAnim === "zoom" ? "pera-in-zoom" : slide.textAnim === "left" ? "pera-in-left" : slide.textAnim === "right" ? "pera-in-right" : slide.textAnim === "up" ? "pera-in-up" : "";
           return previewWrap("__hero__",
             <section className={`relative overflow-hidden bg-clay ${textCls}`}>
               {/* background */}
               {isFileVid ? (
-                <video key={sVid} src={sVid} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+                <video key={sVid} src={sVid} autoPlay muted loop playsInline className={`absolute inset-0 h-full w-full object-cover ${kb}`} />
               ) : ytId ? (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   <iframe
                     title="hero-video"
-                    className="absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2"
+                    className={`absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2 ${kb}`}
                     src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&modestbranding=1&playsinline=1&rel=0`}
                     allow="autoplay; encrypted-media"
                   />
                 </div>
               ) : sImg ? (
-                <img src={sImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={sImg} alt="" className={`absolute inset-0 h-full w-full object-cover ${kb}`} />
               ) : null}
               <div className={`pointer-events-none absolute inset-0 ${overlayCls}`} />
 
-              <div className={`relative mx-auto flex max-w-6xl flex-col ${alignCls} px-4 ${heroPad} sm:px-6`}>
+              <div key={heroI} className={`relative mx-auto flex max-w-6xl flex-col ${alignCls} px-4 ${heroPad} sm:px-6 ${inAnim}`}>
                 {!sImg && !sVid && logo && <img src={logo} alt={title} className="mb-4 h-14 w-auto" />}
                 <h1 className="font-serif text-4xl tracking-tight drop-shadow-sm sm:text-6xl">{sTitle}</h1>
                 {sSub && <p className={`mt-3 max-w-xl text-sm drop-shadow-sm sm:text-base ${subCls}`}>{sSub}</p>}
 
-                <div className="mt-7 flex flex-wrap items-center gap-3">
+                <div className={`mt-7 flex flex-wrap items-center gap-3 ${slide.align === "center" || !slide.align ? "justify-center" : slide.align === "right" ? "justify-end" : ""}`}>
                   {sBtn && (
                     <button onClick={() => (slide.link ? goLink(slide.link) : scrollToCatalog())} className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-ink shadow-lg transition hover:brightness-95">
                       {sBtn}
+                    </button>
+                  )}
+                  {slide.button2 && (
+                    <button onClick={() => goLink(slide.link2)} className={`rounded-full border-2 px-6 py-2.5 text-sm font-semibold transition hover:bg-white/10 ${slide.textColor === "dark" ? "border-ink/40 text-ink" : "border-white/70 text-white"}`}>
+                      {slide.button2}
                     </button>
                   )}
                   {heroSearch && (
