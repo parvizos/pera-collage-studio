@@ -181,6 +181,51 @@ function seriesCount(size?: string): number {
   return 1;
 }
 
+/** Actual list of sizes in a wholesale series (mirrors seriesCount). */
+function seriesSizes(size?: string): string[] {
+  if (!size) return [];
+  const tokens = size.trim().split(/[\s,/-]+/).filter(Boolean);
+  const letters = tokens.filter((t) => LETTER_SIZE.test(t));
+  if (letters.length) return letters;
+  const nums = (size.match(/\d+/g) || []).map(Number);
+  if (nums.length >= 3) return nums.map(String);
+  if (nums.length === 2) {
+    const lo = Math.min(nums[0], nums[1]);
+    const hi = Math.max(nums[0], nums[1]);
+    if (hi > lo) {
+      const out: string[] = [];
+      for (let v = lo; v <= hi; v += 2) out.push(String(v));
+      return out;
+    }
+  }
+  return nums.length === 1 ? [String(nums[0])] : size ? [size.trim()] : [];
+}
+
+/** Main product photo with magnify-on-hover. */
+function ZoomImage({ src, alt, badge }: { src: string; alt: string; badge?: React.ReactNode }) {
+  const [zoom, setZoom] = useState(false);
+  const [pos, setPos] = useState({ x: 50, y: 50 });
+  return (
+    <div
+      className="relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-2xl bg-white shadow-sm"
+      onMouseEnter={() => setZoom(true)}
+      onMouseLeave={() => setZoom(false)}
+      onMouseMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setPos({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover transition-transform duration-150 ease-out"
+        style={{ transform: zoom ? "scale(2.2)" : "scale(1)", transformOrigin: `${pos.x}% ${pos.y}%` }}
+      />
+      {badge && <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-1.5">{badge}</div>}
+    </div>
+  );
+}
+
 export interface CartItem {
   key: string;
   id: string;
@@ -1528,16 +1573,20 @@ export function Store({ template }: Props) {
             <div className="grid gap-6 sm:grid-cols-2">
               {/* Photos */}
               <div>
-                <div className="aspect-[3/4] overflow-hidden rounded-2xl bg-white shadow-sm">
-                  {(() => {
-                    const src = gallery[quickPhoto] || gallery[0];
-                    return src ? (
-                      <img src={src} alt={quick.code} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="grid h-full place-items-center text-sm text-ink/30">{t("store.no_photo")}</div>
-                    );
-                  })()}
-                </div>
+                {(() => {
+                  const src = gallery[quickPhoto] || gallery[0];
+                  const badge = (
+                    <>
+                      {disc && <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-extrabold text-white shadow">−{disc.pct}%</span>}
+                      {isNew(quick) && <span className="rounded-full bg-clay px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow">{t("store.badge_new")}</span>}
+                    </>
+                  );
+                  return src ? (
+                    <ZoomImage src={src} alt={quick.code} badge={badge} />
+                  ) : (
+                    <div className="grid aspect-[3/4] place-items-center rounded-2xl bg-white text-sm text-ink/30 shadow-sm">{t("store.no_photo")}</div>
+                  );
+                })()}
                 {gallery.length > 1 && (
                   <div className="mt-3 flex gap-2 overflow-x-auto">
                     {gallery.map((src, i) => (
@@ -1566,6 +1615,18 @@ export function Store({ template }: Props) {
                     />
                   )}
                 </dl>
+
+                {count > 1 && seriesSizes(variation.size).length > 1 && (
+                  <div className="mt-4 rounded-xl border border-line bg-white p-3">
+                    <div className="field-label mb-2">{t("product.series_pieces")}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {seriesSizes(variation.size).map((s, i) => (
+                        <span key={i} className="grid h-9 min-w-9 place-items-center rounded-lg border border-line bg-sand px-2.5 text-sm font-semibold">{s}</span>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-ink/50">{t("product.series_note", { n: count })}</p>
+                  </div>
+                )}
                 {unitPrice > 0 && (
                   <div className="mt-4">
                     <div className="flex flex-wrap items-baseline gap-2">
