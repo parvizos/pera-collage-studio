@@ -23,6 +23,10 @@ interface BlockStyle {
   mb?: string;
   pad?: string;
   bg?: string;
+  bgColor?: string;
+  textColor?: string;
+  radius?: string;
+  full?: boolean;
   cols?: string;
   anim?: string;
   animDur?: string;
@@ -78,6 +82,8 @@ const TYPE_KEY: Record<string, string> = {
   richtext: "adm.richtext",
   gallery: "adm.gallery",
   spacer: "adm.spacer",
+  split: "adm.split",
+  cta: "adm.cta",
   marquee: "adm.marquee",
   countdown: "adm.countdown",
   testimonials: "adm.testimonials",
@@ -92,7 +98,7 @@ const TYPE_ICON: Record<string, string> = {
   categories: "▦", sale: "%", new: "✦", brands: "◈", colors: "◐", catalog: "▤",
   custom: "🖼", strip: "▬", duo: "▥", slider: "❮❯", richtext: "T", gallery: "▣", spacer: "↕",
   marquee: "🅰", countdown: "⏱", testimonials: "❝", stats: "📊", faq: "❓", features: "★",
-  video: "▶", logos: "◫",
+  video: "▶", logos: "◫", split: "◧", cta: "⬢",
 };
 
 const BUILTIN = new Set(["categories", "sale", "new", "brands", "colors", "catalog"]);
@@ -161,6 +167,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  const [copiedStyle, setCopiedStyle] = useState<BlockStyle | null>(null);
   const [open, setOpen] = useState<string>("design"); // "design" | "hero" | "presets" | sectionId
 
   // ---------- live config ----------
@@ -462,10 +469,27 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
           {sel(t("adm.margin_bottom"), st.mb || "m", opts(SPACE_OPTS, "adm.sz_"), (v) => patchStyle(sec.id, { mb: v }))}
           {sel(t("adm.padding"), st.pad || "none", opts(SPACE_OPTS, "adm.sz_"), (v) => patchStyle(sec.id, { pad: v }))}
           {sel(t("adm.bg_block"), st.bg || "none", opts(["none", "soft", "accent", "dark"], "adm.bg_"), (v) => patchStyle(sec.id, { bg: v }))}
+          <div>
+            <label className="field-label">{t("adm.bg_custom")}</label>
+            <div className="flex items-center gap-1.5">
+              <input type="color" className="h-9 w-9 shrink-0 cursor-pointer rounded border border-line" value={st.bgColor || "#ffffff"} onChange={(e) => patchStyle(sec.id, { bgColor: e.target.value })} />
+              {st.bgColor && <button className="text-xs text-red-600 hover:underline" onClick={() => patchStyle(sec.id, { bgColor: "" })}>✕</button>}
+            </div>
+          </div>
+          {sel(t("adm.hero_textcolor"), st.textColor || "auto", opts(["auto", "light", "dark"], "adm.tc_"), (v) => patchStyle(sec.id, { textColor: v }))}
+          {sel(t("adm.radius"), st.radius || "m", opts(["none", "s", "m", "l"], "adm.rad_"), (v) => patchStyle(sec.id, { radius: v }))}
           {GRID_TYPES.has(sec.type) && sel(t("adm.columns"), st.cols || "", colList, (v) => patchStyle(sec.id, { cols: v }))}
           {sel(t("adm.animation"), st.anim || "none", opts(ANIM_OPTS, "adm.an_"), (v) => patchStyle(sec.id, { anim: v }))}
           {sel(t("adm.anim_speed"), st.animDur || "normal", opts(["fast", "normal", "slow"], "adm.spd_"), (v) => patchStyle(sec.id, { animDur: v }))}
           {sel(t("adm.anim_delay"), st.animDelay || "0", opts(["0", "s", "m"], "adm.dly_"), (v) => patchStyle(sec.id, { animDelay: v }))}
+        </div>
+        <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 rounded-lg bg-white px-3 py-1.5">
+          <span className="text-xs font-medium">{t("adm.full_width")}</span>
+          <input type="checkbox" checked={!!st.full} onChange={(e) => patchStyle(sec.id, { full: e.target.checked })} />
+        </label>
+        <div className="mt-2 flex gap-2">
+          <button className="flex-1 rounded-lg border border-line py-1.5 text-xs font-medium hover:bg-white" onClick={() => setCopiedStyle(st)}>⧉ {t("adm.copy_style")}</button>
+          <button className="flex-1 rounded-lg border border-line py-1.5 text-xs font-medium hover:bg-white disabled:opacity-40" disabled={!copiedStyle} onClick={() => copiedStyle && patchSection(sec.id, { style: { ...copiedStyle } })}>⤵ {t("adm.paste_style")}</button>
         </div>
       </details>
     );
@@ -538,6 +562,44 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         </div>
       );
     }
+    if (s.type === "split") {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-line bg-sand">
+              {s.image && <img src={s.image} alt="" className="h-full w-full object-cover" />}
+            </div>
+            <label className="btn-ghost cursor-pointer">{t("adm.upload")}<input type="file" accept="image/*" className="hidden" onChange={(e) => uploadBlock(s.id, e.target.files?.[0])} /></label>
+            {s.image && <button className="text-xs text-red-600 hover:underline" onClick={() => patchSection(s.id, { image: "" })}>{t("adm.remove_image")}</button>}
+          </div>
+          <input className="input" placeholder={t("adm.hero_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input" placeholder={t("adm.block_btn")} value={s.button || ""} onChange={(e) => patchSection(s.id, { button: e.target.value })} />
+            <input className="input" placeholder={t("adm.block_link")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+          </div>
+          <div>
+            <label className="field-label">{t("adm.image_side")}</label>
+            <select className="input" value={s.size || "left"} onChange={(e) => patchSection(s.id, { size: e.target.value })}>
+              <option value="left">{t("adm.side_left")}</option>
+              <option value="right">{t("adm.side_right")}</option>
+            </select>
+          </div>
+        </div>
+      );
+    }
+    if (s.type === "cta") {
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.hero_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          <input className="input" placeholder={t("adm.block_text")} value={s.text || ""} onChange={(e) => patchSection(s.id, { text: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input" placeholder={t("adm.block_btn")} value={s.button || ""} onChange={(e) => patchSection(s.id, { button: e.target.value })} />
+            <input className="input" placeholder={t("adm.block_link")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+          </div>
+        </div>
+      );
+    }
     if (s.type === "marquee") {
       return (
         <div className="space-y-2">
@@ -588,6 +650,8 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     { type: "gallery", key: "adm.add_gallery" },
     { type: "strip", key: "adm.add_strip" },
     { type: "richtext", key: "adm.add_text" },
+    { type: "split", key: "adm.add_split" },
+    { type: "cta", key: "adm.add_cta" },
     { type: "video", key: "adm.add_video" },
     { type: "logos", key: "adm.add_logos" },
     { type: "marquee", key: "adm.add_marquee" },

@@ -653,7 +653,7 @@ export function Store({ template }: Props) {
   const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
+  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; textColor?: string; radius?: string; full?: boolean; cols?: string; anim?: string; animDur?: string; animDelay?: string };
   type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string; style?: BlockStyle };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
@@ -692,19 +692,32 @@ export function Store({ template }: Props) {
     const mt = st.mt !== undefined ? SPACE_PX[st.mt] ?? 0 : 0;
     const mb = st.mb !== undefined ? SPACE_PX[st.mb] ?? 40 : 40;
     const pad = st.pad ? SPACE_PX[st.pad] ?? 0 : 0;
-    const banded = st.bg && st.bg !== "none";
-    const bgCls = st.bg === "accent" ? "bg-clay text-white" : st.bg === "dark" ? "bg-ink text-white" : st.bg === "soft" ? "bg-clay/[0.06]" : "";
+    const customBg = st.bgColor;
+    const banded = (st.bg && st.bg !== "none") || !!customBg;
+    const bgPreset = st.bg === "accent" ? "bg-clay" : st.bg === "dark" ? "bg-ink" : st.bg === "soft" ? "bg-clay/[0.06]" : "";
+    const txtCls = st.textColor === "light" ? "text-white" : st.textColor === "dark" ? "text-ink" : st.bg === "accent" || st.bg === "dark" ? "text-white" : "";
+    const radius = st.radius === "none" ? "" : st.radius === "s" ? "rounded-xl" : st.radius === "l" ? "rounded-3xl" : "rounded-2xl";
     const effAnim = st.anim && st.anim !== "none" ? st.anim : home.animations ? "up" : "none";
     const animOn = effAnim !== "none" && !previewMode;
     const style: React.CSSProperties = { marginTop: mt || undefined, marginBottom: mb, paddingTop: pad || undefined, paddingBottom: pad || undefined };
+    if (customBg) style.backgroundColor = customBg;
     if (animOn) {
       (style as Record<string, string>)["--anim-dur"] = ANIM_DUR[st.animDur || "normal"] || "0.65s";
       (style as Record<string, string>)["--anim-delay"] = ANIM_DELAY[st.animDelay || "0"] || "0s";
     }
-    const cls = [banded ? `rounded-2xl px-4 sm:px-6 ${bgCls}` : "", animOn ? "pera-anim" : ""].filter(Boolean).join(" ");
+    if (st.full) {
+      style.width = "100vw";
+      style.marginLeft = "calc(50% - 50vw)";
+      style.marginRight = "calc(50% - 50vw)";
+    }
+    const cls = [
+      banded ? `${radius} px-4 sm:px-6 ${customBg ? "" : bgPreset} ${txtCls}` : txtCls,
+      animOn ? "pera-anim" : "",
+    ].filter((c) => c && c.trim()).join(" ");
+    const inner = st.full ? <div className="mx-auto max-w-6xl">{node}</div> : node;
     return (
       <div key={sec.id} className={cls || undefined} style={style} data-anim={animOn ? effAnim : undefined}>
-        {node}
+        {inner}
       </div>
     );
   }
@@ -896,6 +909,47 @@ export function Store({ template }: Props) {
             <VideoBlock url={sec.link} />
           </section>
         );
+      case "split": {
+        if (!sec.image && !sec.title && !sec.text) return null;
+        const right = sec.size === "right";
+        return (
+          <section key={sec.id}>
+            <div className="grid items-center gap-6 sm:grid-cols-2 sm:gap-10">
+              <div className={right ? "sm:order-2" : ""}>
+                {sec.image ? (
+                  <img src={sec.image} alt="" className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm" />
+                ) : (
+                  <div className="aspect-[4/3] w-full rounded-2xl bg-clay/15" />
+                )}
+              </div>
+              <div className={right ? "sm:order-1" : ""}>
+                {sec.title && <h2 className="font-serif text-3xl">{sec.title}</h2>}
+                {sec.text && <p className="mt-3 text-ink/70">{sec.text}</p>}
+                {sec.button && (
+                  <button onClick={() => goLink(sec.link)} className="mt-5 rounded-full bg-clay px-6 py-2.5 text-sm font-semibold text-white">
+                    {sec.button}
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      }
+      case "cta":
+        if (!sec.title && !sec.button) return null;
+        return (
+          <section key={sec.id}>
+            <div className="rounded-2xl bg-clay/10 px-6 py-12 text-center">
+              {sec.title && <h2 className="font-serif text-3xl sm:text-4xl">{sec.title}</h2>}
+              {sec.text && <p className="mx-auto mt-3 max-w-xl text-ink/70">{sec.text}</p>}
+              {sec.button && (
+                <button onClick={() => goLink(sec.link)} className="mt-6 rounded-full bg-clay px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:brightness-95">
+                  {sec.button}
+                </button>
+              )}
+            </div>
+          </section>
+        );
       case "logos": {
         const logos = (sec.items || []).filter((it) => it.image);
         if (!logos.length) return null;
@@ -1071,7 +1125,7 @@ export function Store({ template }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-sand" style={rootStyle}>
+    <div className="min-h-screen overflow-x-clip bg-sand" style={rootStyle}>
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-line bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
