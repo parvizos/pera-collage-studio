@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import type { Template } from "../../api/types";
 import { api, ApiError } from "../../api/client";
+import { thumbUrl } from "../../components/Thumb";
 import { useI18n } from "../../i18n";
 
 interface Props {
@@ -126,6 +127,7 @@ interface PageTemplate {
     hero: Record<string, unknown>;
     sections: HomeSection[];
     animations: boolean;
+    popup?: Record<string, unknown>;
   };
 }
 
@@ -136,9 +138,10 @@ const PAGE_TEMPLATES: PageTemplate[] = [
     id: "boutique",
     name: "Boutique",
     config: {
-      branding: { accent: "#a98467", bg: "#f7f3ee", font: "elegant" },
+      branding: { accent: "#a98467", bg: "#f7f3ee", font: "elegant", customFont: "Marcellus" },
       hero: { enabled: true, title: "Maison", subtitle: "Оптовая мода из Стамбула", button: "Смотреть коллекцию", height: "l", align: "center", overlay: "1", textColor: "light" },
       animations: true,
+      popup: { enabled: true, title: "Добро пожаловать", text: "Скидка −10% на первую серию", button: "Получить", delay: 3 },
       sections: [
         { id: "marquee", type: "marquee", enabled: true, text: "NEW SEASON · WHOLESALE · ISTANBUL", size: "m", style: { mb: "m" } },
         { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "up" } },
@@ -227,40 +230,147 @@ const PAGE_TEMPLATES: PageTemplate[] = [
       ],
     },
   },
+  {
+    id: "luxury",
+    name: "Luxury",
+    config: {
+      branding: { accent: "#1a1a1a", bg: "#f7f5f0", font: "elegant", customFont: "Cormorant Garamond" },
+      hero: { enabled: true, title: "ATELIER", subtitle: "Премиальный оптовый дом", button: "Коллекция", height: "l", align: "center", overlay: "2", textColor: "light" },
+      animations: true,
+      popup: { enabled: true, title: "VIP-доступ", text: "−15% на первый заказ по промокоду ATELIER", button: "Получить", delay: 3 },
+      sections: [
+        { id: "marquee", type: "marquee", enabled: true, text: "LUXURY · WHOLESALE · SS26", size: "s", style: { mb: "l" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "up", animDelay: "0" } },
+        { id: "split", type: "split", enabled: true, title: "Философия дома", text: "Премиальные ткани, лимитированные серии.", button: "О бренде", size: "right", style: { mb: "l", anim: "left" } },
+        { id: "gal", type: "gallery", enabled: true, title: "Лукбук", items: [{}, {}, {}, {}], style: { mb: "l" } },
+        { id: "rt", type: "richtext", enabled: true, title: "CRAFTED IN ISTANBUL", text: "Каждая серия — ручной отбор.", button: "Прайс", style: { bg: "dark", full: true, pad: "xl", textColor: "light", mb: "l", anim: "fade" } },
+        { id: "cta", type: "cta", enabled: true, title: "Запросить прайс", button: "Связаться", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
+  {
+    id: "sport",
+    name: "Sport",
+    config: {
+      branding: { accent: "#1d4ed8", bg: "#f1f5f9", font: "clean", customFont: "Oswald" },
+      hero: { enabled: true, title: "PRO SPORT", subtitle: "Опт спортивной одежды", button: "В каталог", height: "l", align: "left", overlay: "2", textColor: "light" },
+      animations: true,
+      sections: [
+        { id: "marquee", type: "marquee", enabled: true, text: "FAST SHIPPING · BULK · TEAMWEAR ·", size: "l", style: { mb: "m" } },
+        { id: "feat", type: "features", enabled: true, title: "Преимущества", items: [{ title: "Скорость", text: "Отгрузка 24ч", button: "⚡" }, { title: "Объём", text: "Любые партии", button: "📦" }, { title: "Качество", text: "Контроль ОТК", button: "🏅" }], style: { mb: "l", cols: "3", anim: "up", animDelay: "0" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "4", anim: "up", animDelay: "s" } },
+        { id: "cd", type: "countdown", enabled: true, title: "Акция заканчивается через", date: "2026-12-31T23:59", style: { mb: "l", full: true } },
+        { id: "cta", type: "cta", enabled: true, title: "Сделать заказ", button: "Написать в WhatsApp", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
+  {
+    id: "pastel",
+    name: "Pastel",
+    config: {
+      branding: { accent: "#ec4899", bg: "#fdf2f8", font: "modern", customFont: "Quicksand" },
+      hero: { enabled: true, title: "Sweet", subtitle: "Нежная оптовая мода", button: "Смотреть", height: "m", align: "center", overlay: "1", textColor: "light" },
+      animations: true,
+      popup: { enabled: true, title: "Привет! 🌸", text: "Дарим скидку на первую серию", button: "Хочу скидку", delay: 2 },
+      sections: [
+        { id: "cat", type: "categories", enabled: true, title: "Категории", style: { mb: "l" } },
+        { id: "new", type: "new", enabled: true, title: "Новинки", style: { mb: "l", cols: "3", anim: "zoom", animDelay: "0" } },
+        { id: "split", type: "split", enabled: true, title: "О нас", text: "Делаем оптовые закупки приятными.", button: "Подробнее", size: "left", style: { mb: "l", bg: "soft", pad: "l", radius: "l", anim: "left" } },
+        { id: "tst", type: "testimonials", enabled: true, title: "Отзывы", items: [ti("Дина", "Милейшие модели!"), ti("Аня", "Беру каждый сезон"), ti("Кэт", "Сервис топ")], style: { mb: "l", cols: "3" } },
+        { id: "cta", type: "cta", enabled: true, title: "Готовы заказать?", button: "Написать", style: { bg: "accent", full: true, pad: "l", textColor: "light" } },
+      ],
+    },
+  },
 ];
 
-/** Tiny visual mock of a template for the gallery card. */
-function tplMini(s: HomeSection, b: Record<string, string>) {
-  const grid = new Set(["new", "sale", "catalog", "gallery", "features", "stats", "testimonials", "logos", "duo", "slider", "categories"]);
-  const bar = new Set(["marquee", "strip", "cta", "countdown", "socials", "richtext"]);
-  if (grid.has(s.type)) {
-    return <div className="flex gap-0.5">{[0, 1, 2].map((i) => <div key={i} className="h-3 flex-1 rounded-sm" style={{ backgroundColor: b.accent + "30" }} />)}</div>;
+const THUMB_FONT: Record<string, string> = {
+  serif: '"Instrument Serif", serif',
+  modern: '"Poppins", sans-serif',
+  elegant: '"Playfair Display", serif',
+  clean: '"Montserrat", sans-serif',
+};
+
+const PHOTO_GRID = new Set(["new", "sale", "catalog", "gallery", "logos", "duo", "slider", "categories"]);
+const CONTENT_GRID = new Set(["features", "stats", "testimonials", "faq"]);
+const BAR_TYPES = new Set(["marquee", "strip", "cta", "countdown", "socials", "richtext"]);
+
+/** Realistic mini-render of one section using real product photos. */
+function tplMiniReal(s: HomeSection, b: Record<string, string>, photos: string[], idx: number) {
+  const pic = (k: number) => (photos.length ? photos[(idx + k) % photos.length] : "");
+  if (PHOTO_GRID.has(s.type)) {
+    return (
+      <div className="flex gap-1">
+        {[0, 1, 2].map((k) => (
+          <div key={k} className="aspect-[3/4] flex-1 overflow-hidden rounded-[3px] bg-black/5">
+            {pic(k + 1) && <img src={pic(k + 1)} alt="" className="h-full w-full object-cover" />}
+          </div>
+        ))}
+      </div>
+    );
   }
   if (s.type === "split") {
-    return <div className="flex gap-0.5"><div className="h-3 w-1/2 rounded-sm" style={{ backgroundColor: b.accent + "55" }} /><div className="h-3 w-1/2 rounded-sm bg-black/10" /></div>;
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="aspect-[4/3] w-1/2 overflow-hidden rounded-[3px] bg-black/5">{pic(1) && <img src={pic(1)} alt="" className="h-full w-full object-cover" />}</div>
+        <div className="flex w-1/2 flex-col gap-1">
+          <div className="h-[4px] w-3/4 rounded-full" style={{ backgroundColor: b.accent + "99" }} />
+          <div className="h-[3px] w-full rounded-full bg-black/10" />
+          <div className="h-[3px] w-2/3 rounded-full bg-black/10" />
+        </div>
+      </div>
+    );
   }
-  if (bar.has(s.type)) {
-    const accent = s.style?.bg === "accent" || s.type === "marquee" || s.type === "cta";
-    return <div className="h-2 w-full rounded-sm" style={{ backgroundColor: accent ? b.accent : b.accent + "55" }} />;
+  if (CONTENT_GRID.has(s.type)) {
+    const n = s.type === "testimonials" ? 2 : s.type === "faq" ? 1 : 3;
+    return (
+      <div className={`flex gap-1 ${s.type === "faq" ? "flex-col" : ""}`}>
+        {Array.from({ length: n }).map((_, k) => (
+          <div key={k} className="flex flex-1 flex-col gap-0.5 rounded-[3px] bg-black/[0.04] p-1">
+            <div className="h-[4px] w-2/3 rounded-full" style={{ backgroundColor: b.accent + "88" }} />
+            <div className="h-[3px] w-full rounded-full bg-black/10" />
+          </div>
+        ))}
+      </div>
+    );
   }
-  if (s.type === "spacer") return <div className="h-1.5" />;
-  return <div className="h-2 w-2/3 rounded-sm bg-black/10" />;
+  if (s.type === "video" || s.type === "map") {
+    return <div className="grid aspect-[16/7] w-full place-items-center rounded-[3px] bg-ink/80 text-[8px] text-white/80">{s.type === "video" ? "▶" : "📍"}</div>;
+  }
+  if (s.type === "spacer") return <div className="h-2" />;
+  if (BAR_TYPES.has(s.type)) {
+    const dark = s.style?.bg === "dark";
+    const accent = dark ? false : s.style?.bg === "accent" || s.type === "marquee" || s.type === "cta";
+    const label = (s.text || s.title || "").slice(0, 22);
+    return (
+      <div className="flex h-3 w-full items-center justify-center rounded-[3px] text-[5px] font-semibold text-white" style={{ backgroundColor: dark ? "#15130f" : accent ? b.accent : b.accent + "33", color: accent || dark ? "#fff" : "#555" }}>
+        {(accent || dark) && label}
+      </div>
+    );
+  }
+  return <div className="h-2.5 w-2/3 rounded-full bg-black/10" />;
 }
 
-function TemplateThumb({ tpl }: { tpl: PageTemplate }) {
+function TemplateThumb({ tpl, photos }: { tpl: PageTemplate; photos: string[] }) {
   const b = tpl.config.branding;
   const hero = tpl.config.hero;
   const left = hero.align === "left";
+  const fam = THUMB_FONT[b.font] || "inherit";
+  const heroImg = photos[0];
   return (
-    <div className="aspect-[4/3] w-full overflow-hidden" style={{ backgroundColor: b.bg }}>
+    <div className="aspect-[4/3] w-full overflow-hidden" style={{ backgroundColor: b.bg, fontFamily: fam }}>
       {hero.enabled !== false && (
-        <div className={`flex h-[36%] w-full flex-col justify-center gap-1 px-2 ${left ? "items-start" : "items-center"}`} style={{ backgroundColor: b.accent }}>
-          <div className="h-1.5 w-1/2 rounded-full bg-white/85" />
-          <div className="h-1 w-1/3 rounded-full bg-white/55" />
+        <div className="relative h-[44%] w-full overflow-hidden" style={{ backgroundColor: b.accent }}>
+          {heroImg && <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover opacity-75" />}
+          <div className="absolute inset-0" style={{ background: `linear-gradient(120deg, ${b.accent}dd, ${b.accent}66)` }} />
+          <div className={`absolute inset-0 flex flex-col justify-center gap-1 px-2.5 text-white ${left ? "items-start" : "items-center"}`}>
+            <div className="text-[8px] font-bold leading-none tracking-wide drop-shadow">{String(hero.title || "")}</div>
+            <div className="h-[3px] w-10 rounded-full bg-white/60" />
+            {hero.button ? <div className="mt-0.5 rounded-full bg-white px-1.5 py-[1px] text-[5px] font-bold leading-tight" style={{ color: b.accent }}>{String(hero.button)}</div> : null}
+          </div>
         </div>
       )}
-      <div className="space-y-1 p-2">
-        {tpl.config.sections.slice(0, 5).map((s, i) => <div key={i}>{tplMini(s, b)}</div>)}
+      <div className="space-y-1 p-1.5">
+        {tpl.config.sections.slice(0, 4).map((s, i) => <div key={i}>{tplMiniReal(s, b, photos, i + 1)}</div>)}
       </div>
     </div>
   );
@@ -322,6 +432,25 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const [copiedStyle, setCopiedStyle] = useState<BlockStyle | null>(null);
   const [open, setOpen] = useState<string>("design"); // "design" | "hero" | "presets" | sectionId
+  const [demoPhotos, setDemoPhotos] = useState<string[]>([]);
+
+  // Real product photos for template previews.
+  useEffect(() => {
+    let alive = true;
+    api.getStoreProducts({}).then((d) => {
+      if (!alive) return;
+      const prods = (d.products || []) as Array<{ variations?: { photos?: string[]; collageImage?: string }[]; collageImage?: string }>;
+      const out: string[] = [];
+      for (const p of prods) {
+        const v = p.variations && p.variations[0];
+        const src = (v && v.photos && v.photos[0]) || (v && v.collageImage) || p.collageImage;
+        if (src) out.push(thumbUrl(src, 320));
+        if (out.length >= 10) break;
+      }
+      setDemoPhotos(out);
+    }).catch(() => { /* preview falls back to color blocks */ });
+    return () => { alive = false; };
+  }, []);
 
   // ---------- live config ----------
   function currentHome() {
@@ -484,7 +613,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   }
   function applyTemplate(tpl: PageTemplate) {
     const c = tpl.config;
-    setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont("");
+    setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont(c.branding.customFont || "");
     const h = c.hero;
     setHeroEnabled(h.enabled !== false); setHeroImage(""); setHeroTitle((h.title as string) || ""); setHeroSubtitle((h.subtitle as string) || "");
     setHeroButton((h.button as string) || ""); setHeroHeight((h.height as string) || "m"); setHeroAlign((h.align as string) || "center");
@@ -492,7 +621,9 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const stamp = Date.now();
     setSections(c.sections.map((s, i) => ({ ...s, id: `${s.type}_${stamp}_${i}` })));
     setAnimations(c.animations === true);
-    setPopupEnabled(false);
+    const pp = c.popup || {};
+    setPopupEnabled(pp.enabled === true); setPopupImage((pp.image as string) || ""); setPopupTitle((pp.title as string) || "");
+    setPopupText((pp.text as string) || ""); setPopupButton((pp.button as string) || ""); setPopupLink((pp.link as string) || ""); setPopupDelay(Number(pp.delay) || 2);
     setOpen("design");
   }
   function patchItem(secId: string, idx: number, patch: Partial<HomeItem>) {
@@ -1080,7 +1211,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                     onClick={() => applyTemplate(tpl)}
                     className="group overflow-hidden rounded-xl border border-line bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-clay hover:shadow-md"
                   >
-                    <TemplateThumb tpl={tpl} />
+                    <TemplateThumb tpl={tpl} photos={demoPhotos} />
                     <div className="flex items-center justify-between px-2.5 py-1.5">
                       <span className="text-xs font-semibold">{tpl.name}</span>
                       <span className="text-[10px] text-clay opacity-0 transition group-hover:opacity-100">{t("adm.apply")} →</span>
