@@ -468,8 +468,11 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const [copiedStyle, setCopiedStyle] = useState<BlockStyle | null>(null);
-  const [open, setOpen] = useState<string>("design"); // "design" | "hero" | "presets" | sectionId
+  const [open, setOpen] = useState<string>("design"); // "design" | "hero" | "presets" | "i18n" | sectionId
   const [demoPhotos, setDemoPhotos] = useState<string[]>([]);
+  const [translations, setTranslations] = useState<Record<string, Record<string, string>>>(
+    (home0.translations as Record<string, Record<string, string>>) || {},
+  );
 
   // Real product photos for template previews.
   useEffect(() => {
@@ -497,6 +500,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
       sections,
       animations,
       popup: { enabled: popupEnabled, image: popupImage, title: popupTitle, text: popupText, button: popupButton, link: popupLink, delay: popupDelay },
+      translations,
     };
   }
   function selectedId() {
@@ -654,6 +658,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const h = c.hero;
     setHeroEnabled(h.enabled !== false); setHeroHeight((h.height as string) || "m"); setHeroSearch(h.search === true); setHeroAutoplay(Number(h.autoplay) || 0);
     setHeroSlides(heroToSlides(h)); setHeroSlideIdx(0);
+    setTranslations({});
     const stamp = Date.now();
     setSections(c.sections.map((s, i) => ({ ...s, id: `${s.type}_${stamp}_${i}` })));
     setAnimations(c.animations === true);
@@ -731,6 +736,12 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
       setStatus({ kind: "ok", msg: t("common.saved") });
       setPreviewKey((k) => k + 1);
       setTimeout(() => setStatus({ kind: "idle" }), 2500);
+      // Pull back the freshly machine-translated strings so they can be edited.
+      try {
+        const fresh = await api.getTemplate();
+        const tr = ((fresh.store as Record<string, unknown>)?.home as Record<string, unknown>)?.translations;
+        if (tr && typeof tr === "object") setTranslations(tr as Record<string, Record<string, string>>);
+      } catch { /* ignore */ }
     } catch (e) {
       setStatus({ kind: "error", msg: e instanceof ApiError && e.status === 401 ? t("common.no_access") : t("common.save_fail") });
     }
@@ -1375,6 +1386,38 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Manual translations */}
+          {accHeader("i18n", t("adm.translations"))}
+          {open === "i18n" && (
+            <div className="space-y-2 px-1 pb-2 pt-1">
+              <p className="text-xs text-ink/40">{t("adm.tr_hint")}</p>
+              {Object.keys(translations).length === 0 ? (
+                <p className="rounded-lg bg-sand/60 px-3 py-2 text-xs text-ink/50">{t("adm.tr_empty")}</p>
+              ) : (
+                <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+                  {Object.keys(translations).map((src) => (
+                    <div key={src} className="rounded-xl border border-line p-2.5">
+                      <div className="mb-1.5 truncate text-xs font-semibold text-ink/70" title={src}>{src}</div>
+                      <div className="space-y-1.5">
+                        {(["en", "tr", "ar"] as const).map((lng) => (
+                          <div key={lng} className="flex items-center gap-2">
+                            <span className="w-7 shrink-0 text-[11px] font-bold uppercase text-ink/40">{lng}</span>
+                            <input
+                              className="input !py-2"
+                              dir={lng === "ar" ? "rtl" : "ltr"}
+                              value={(translations[src] && translations[src][lng]) || ""}
+                              onChange={(e) => setTranslations((prev) => ({ ...prev, [src]: { ...(prev[src] || {}), [lng]: e.target.value } }))}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

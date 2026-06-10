@@ -283,7 +283,9 @@ export function Store({ template }: Props) {
   }
 
   const rawHome = liveHome || (store.home as Record<string, unknown>) || {};
-  const home = useMemo(() => localizeHome(rawHome, lang), [rawHome, lang]);
+  // In the builder preview show the base (source) text the admin is editing;
+  // on the live site show the visitor's language.
+  const home = useMemo(() => (previewMode ? rawHome : localizeHome(rawHome, lang)), [rawHome, lang, previewMode]);
   const branding = (home.branding as Record<string, string>) || {};
   const rootStyle: React.CSSProperties = {};
   const accRgb = hexToRgbTriplet(branding.accent);

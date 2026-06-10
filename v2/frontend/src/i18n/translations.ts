@@ -329,6 +329,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.page_templates": "Шаблоны страниц",
     "adm.tpl_hint": "Клик — соберётся вся главная. Заменит текущий дизайн.",
     "adm.apply": "Применить",
+    "adm.translations": "Переводы",
+    "adm.tr_hint": "Поправь машинный перевод вручную, если звучит криво.",
+    "adm.tr_empty": "Сохрани главную — переводы появятся здесь, и их можно будет править.",
 
     "adm.ov_title": "Обзор",
     "adm.ov_sub": "Текущее состояние студии",
@@ -830,6 +833,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.page_templates": "Page templates",
     "adm.tpl_hint": "One click builds the whole homepage. Replaces current design.",
     "adm.apply": "Apply",
+    "adm.translations": "Translations",
+    "adm.tr_hint": "Fix the machine translation by hand if anything reads oddly.",
+    "adm.tr_empty": "Save the homepage — translations will appear here for editing.",
 
     "adm.ov_title": "Overview",
     "adm.ov_sub": "Current studio status",
@@ -1331,6 +1337,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.page_templates": "Sayfa şablonları",
     "adm.tpl_hint": "Tek tıkla tüm ana sayfa oluşur. Mevcut tasarımı değiştirir.",
     "adm.apply": "Uygula",
+    "adm.translations": "Çeviriler",
+    "adm.tr_hint": "Makine çevirisi kötü görünüyorsa elle düzeltin.",
+    "adm.tr_empty": "Ana sayfayı kaydedin — çeviriler burada düzenlenebilir olacak.",
 
     "adm.ov_title": "Genel",
     "adm.ov_sub": "Stüdyonun mevcut durumu",
@@ -1832,6 +1841,9 @@ export const translations: Record<Lang, Dict> = {
     "adm.page_templates": "قوالب الصفحة",
     "adm.tpl_hint": "نقرة واحدة تبني الصفحة كاملة. تستبدل التصميم الحالي.",
     "adm.apply": "تطبيق",
+    "adm.translations": "الترجمات",
+    "adm.tr_hint": "صحّح الترجمة الآلية يدويًا إذا بدت ركيكة.",
+    "adm.tr_empty": "احفظ الصفحة الرئيسية — ستظهر الترجمات هنا للتعديل.",
 
     "adm.ov_title": "نظرة عامة",
     "adm.ov_sub": "الحالة الحالية للاستوديو",
