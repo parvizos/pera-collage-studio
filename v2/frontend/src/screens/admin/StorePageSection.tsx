@@ -27,6 +27,7 @@ interface BlockStyle {
   textColor?: string;
   radius?: string;
   full?: boolean;
+  hide?: string;
   cols?: string;
   anim?: string;
   animDur?: string;
@@ -92,13 +93,15 @@ const TYPE_KEY: Record<string, string> = {
   features: "adm.features",
   video: "adm.video",
   logos: "adm.logos",
+  socials: "adm.socials",
+  map: "adm.map",
 };
 
 const TYPE_ICON: Record<string, string> = {
   categories: "▦", sale: "%", new: "✦", brands: "◈", colors: "◐", catalog: "▤",
   custom: "🖼", strip: "▬", duo: "▥", slider: "❮❯", richtext: "T", gallery: "▣", spacer: "↕",
   marquee: "🅰", countdown: "⏱", testimonials: "❝", stats: "📊", faq: "❓", features: "★",
-  video: "▶", logos: "◫", split: "◧", cta: "⬢",
+  video: "▶", logos: "◫", split: "◧", cta: "⬢", socials: "♥", map: "📍",
 };
 
 const BUILTIN = new Set(["categories", "sale", "new", "brands", "colors", "catalog"]);
@@ -139,6 +142,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   const [accent, setAccent] = useState(b0.accent || "#d47516");
   const [bg, setBg] = useState(b0.bg || "#f6f1ea");
   const [font, setFont] = useState(b0.font || "serif");
+  const [customFont, setCustomFont] = useState(b0.customFont || "");
 
   const [heroEnabled, setHeroEnabled] = useState(hero0.enabled !== false);
   const [heroImage, setHeroImage] = useState((hero0.image as string) || "");
@@ -173,7 +177,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
   // ---------- live config ----------
   function currentHome() {
     return {
-      branding: { accent, bg, font },
+      branding: { accent, bg, font, customFont },
       hero: { enabled: heroEnabled, image: heroImage, title: heroTitle, subtitle: heroSubtitle, button: heroButton, height: heroHeight, align: heroAlign, overlay: heroOverlay, textColor: heroTextColor },
       sections,
       animations,
@@ -220,7 +224,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const id = setTimeout(postPreview, 200);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay, device, open]);
+  }, [accent, bg, font, customFont, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay, device, open]);
 
   // click a block in the preview -> open its settings
   useEffect(() => {
@@ -267,11 +271,11 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     }, 450);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, bg, font, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay]);
+  }, [accent, bg, font, customFont, heroEnabled, heroImage, heroTitle, heroSubtitle, heroButton, heroHeight, heroAlign, heroOverlay, heroTextColor, sections, animations, popupEnabled, popupImage, popupTitle, popupText, popupButton, popupLink, popupDelay]);
   function applyHome(s: string) {
     const c = JSON.parse(s);
     applyingRef.current = true;
-    setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font);
+    setAccent(c.branding.accent); setBg(c.branding.bg); setFont(c.branding.font); setCustomFont(c.branding.customFont || "");
     setHeroEnabled(c.hero.enabled !== false); setHeroImage(c.hero.image || ""); setHeroTitle(c.hero.title || "");
     setHeroSubtitle(c.hero.subtitle || ""); setHeroButton(c.hero.button || ""); setHeroHeight(c.hero.height || "m");
     setHeroAlign(c.hero.align || "center"); setHeroOverlay(c.hero.overlay || "1"); setHeroTextColor(c.hero.textColor || "light");
@@ -309,6 +313,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     const base: HomeSection = { id, type, enabled: true };
     if (type === "duo") base.items = [{}, {}];
     else if (type === "slider" || type === "gallery") base.items = [{}];
+    else if (type === "socials") base.items = [{ title: "instagram" }];
     else if (CONTENT_ITEMS.has(type)) base.items = [{}, {}, {}];
     else if (type === "spacer" || type === "marquee") base.size = "m";
     setSections((prev) => [...prev, base]);
@@ -478,6 +483,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
           </div>
           {sel(t("adm.hero_textcolor"), st.textColor || "auto", opts(["auto", "light", "dark"], "adm.tc_"), (v) => patchStyle(sec.id, { textColor: v }))}
           {sel(t("adm.radius"), st.radius || "m", opts(["none", "s", "m", "l"], "adm.rad_"), (v) => patchStyle(sec.id, { radius: v }))}
+          {sel(t("adm.visibility"), st.hide || "all", opts(["all", "mobile", "desktop"], "adm.vis_"), (v) => patchStyle(sec.id, { hide: v === "all" ? "" : v }))}
           {GRID_TYPES.has(sec.type) && sel(t("adm.columns"), st.cols || "", colList, (v) => patchStyle(sec.id, { cols: v }))}
           {sel(t("adm.animation"), st.anim || "none", opts(ANIM_OPTS, "adm.an_"), (v) => patchStyle(sec.id, { anim: v }))}
           {sel(t("adm.anim_speed"), st.animDur || "normal", opts(["fast", "normal", "slow"], "adm.spd_"), (v) => patchStyle(sec.id, { animDur: v }))}
@@ -600,6 +606,32 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         </div>
       );
     }
+    if (s.type === "map") {
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.section_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          <input className="input" placeholder={t("adm.map_address")} value={s.link || ""} onChange={(e) => patchSection(s.id, { link: e.target.value })} />
+        </div>
+      );
+    }
+    if (s.type === "socials") {
+      const items = s.items || [];
+      return (
+        <div className="space-y-2">
+          <input className="input" placeholder={t("adm.section_heading")} value={s.title || ""} onChange={(e) => patchSection(s.id, { title: e.target.value })} />
+          {items.map((it, idx) => (
+            <div key={idx} className="flex items-center gap-2 rounded-lg bg-sand/60 p-2">
+              <select className="input !w-32 shrink-0" value={it.title || "instagram"} onChange={(e) => patchItem(s.id, idx, { title: e.target.value })}>
+                {["instagram", "whatsapp", "telegram", "tiktok", "facebook", "youtube", "site"].map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <input className="input" placeholder="https://..." value={it.link || ""} onChange={(e) => patchItem(s.id, idx, { link: e.target.value })} />
+              <button className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => removeItem(s.id, idx)}>✕</button>
+            </div>
+          ))}
+          <button className="btn-ghost w-full text-sm" onClick={() => addItem(s.id)}>{t("adm.add_item")}</button>
+        </div>
+      );
+    }
     if (s.type === "marquee") {
       return (
         <div className="space-y-2">
@@ -654,6 +686,8 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     { type: "cta", key: "adm.add_cta" },
     { type: "video", key: "adm.add_video" },
     { type: "logos", key: "adm.add_logos" },
+    { type: "socials", key: "adm.add_socials" },
+    { type: "map", key: "adm.add_map" },
     { type: "marquee", key: "adm.add_marquee" },
     { type: "countdown", key: "adm.add_countdown" },
     { type: "features", key: "adm.add_features" },
@@ -743,6 +777,11 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                 <select className="input" value={font} onChange={(e) => setFont(e.target.value)}>
                   {FONT_OPTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="field-label">{t("adm.custom_font")}</label>
+                <input className="input" placeholder="Montserrat, Lobster…" value={customFont} onChange={(e) => setCustomFont(e.target.value)} />
+                <p className="mt-1 text-[11px] text-ink/40">{t("adm.custom_font_hint")}</p>
               </div>
               <div>
                 <label className="field-label">{t("adm.palette")}</label>

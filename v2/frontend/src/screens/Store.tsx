@@ -20,6 +20,16 @@ const FONTS: Record<string, { head: string; body: string }> = {
   clean: { head: '"Montserrat", sans-serif', body: '"Montserrat", sans-serif' },
 };
 
+const SOCIALS: Record<string, { label: string; bg: string }> = {
+  instagram: { label: "Instagram", bg: "#E1306C" },
+  whatsapp: { label: "WhatsApp", bg: "#25D366" },
+  telegram: { label: "Telegram", bg: "#229ED9" },
+  tiktok: { label: "TikTok", bg: "#111111" },
+  facebook: { label: "Facebook", bg: "#1877F2" },
+  youtube: { label: "YouTube", bg: "#FF0000" },
+  site: { label: "Website", bg: "#444444" },
+};
+
 // Per-block style value maps (shared with the admin builder).
 const SPACE_PX: Record<string, number> = { none: 0, s: 16, m: 32, l: 56, xl: 96 };
 const ANIM_DUR: Record<string, string> = { fast: "0.4s", normal: "0.65s", slow: "1s" };
@@ -261,6 +271,24 @@ export function Store({ template }: Props) {
     (rootStyle as Record<string, string>)["--font-head"] = fontPreset.head;
     (rootStyle as Record<string, string>)["--font-body"] = fontPreset.body;
   }
+  // Custom Google Font (typed by name in the builder): override both font vars + load it.
+  const customFont = (branding.customFont || "").trim();
+  if (customFont) {
+    (rootStyle as Record<string, string>)["--font-head"] = `"${customFont}", system-ui, sans-serif`;
+    (rootStyle as Record<string, string>)["--font-body"] = `"${customFont}", system-ui, sans-serif`;
+  }
+  useEffect(() => {
+    if (!customFont) return;
+    const id = "pera-custom-font";
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(customFont).replace(/%20/g, "+")}:wght@400;500;600;700&display=swap`;
+  }, [customFont]);
 
   // Entrance animation: reveal .pera-anim blocks as they scroll into view.
   // Guarded with a timeout fallback so a block can never stay hidden.
@@ -653,7 +681,7 @@ export function Store({ template }: Props) {
   const heroSubCls = heroText === "dark" ? "text-ink/70" : "text-white/90";
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; textColor?: string; radius?: string; full?: boolean; cols?: string; anim?: string; animDur?: string; animDelay?: string };
+  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; textColor?: string; radius?: string; full?: boolean; hide?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
   type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string; style?: BlockStyle };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
@@ -710,9 +738,11 @@ export function Store({ template }: Props) {
       style.marginLeft = "calc(50% - 50vw)";
       style.marginRight = "calc(50% - 50vw)";
     }
+    const hideCls = st.hide === "mobile" ? "hidden sm:block" : st.hide === "desktop" ? "sm:hidden" : "";
     const cls = [
       banded ? `${radius} px-4 sm:px-6 ${customBg ? "" : bgPreset} ${txtCls}` : txtCls,
       animOn ? "pera-anim" : "",
+      hideCls,
     ].filter((c) => c && c.trim()).join(" ");
     const inner = st.full ? <div className="mx-auto max-w-6xl">{node}</div> : node;
     return (
@@ -931,6 +961,37 @@ export function Store({ template }: Props) {
                   </button>
                 )}
               </div>
+            </div>
+          </section>
+        );
+      }
+      case "socials": {
+        const items = (sec.items || []).filter((it) => it.link);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="flex flex-wrap gap-3">
+              {items.map((it, i) => {
+                const sc = SOCIALS[(it.title || "site").toLowerCase()] || SOCIALS.site;
+                return (
+                  <a key={i} href={it.link} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110" style={{ backgroundColor: sc.bg }}>
+                    {sc.label}
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        );
+      }
+      case "map": {
+        if (!sec.link) return null;
+        const src = /maps\/embed|output=embed/.test(sec.link) ? sec.link : `https://www.google.com/maps?q=${encodeURIComponent(sec.link)}&output=embed`;
+        return (
+          <section key={sec.id}>
+            {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
+            <div className="aspect-video overflow-hidden rounded-2xl border border-line">
+              <iframe src={src} title="map" className="h-full w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
             </div>
           </section>
         );
