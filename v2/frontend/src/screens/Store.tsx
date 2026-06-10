@@ -313,6 +313,25 @@ export function Store({ template }: Props) {
     return () => { io.disconnect(); clearTimeout(safety); };
   }, [liveHome, previewMode]);
 
+  // Parallax: move .pera-parallax backgrounds slower than scroll.
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const vh = window.innerHeight || 1;
+      document.querySelectorAll<HTMLElement>(".pera-parallax").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        const off = r.top + r.height / 2 - vh / 2;
+        el.style.transform = `translateY(${(off * -0.14).toFixed(1)}px) scale(1.25)`;
+      });
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    update();
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(raf); };
+  }, [liveHome]);
+
   // Promo popup (marketing modal). On the live site: shows once per session after a delay.
   // In the builder: shows only while the "popup" panel is selected, so editing isn't blocked.
   const popupCfg = (home.popup as Record<string, unknown>) || {};
@@ -555,6 +574,9 @@ export function Store({ template }: Props) {
               {t("store.colors_n", { n: p.colors.length })}
             </span>
           )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-full justify-center bg-gradient-to-t from-black/55 to-transparent p-3 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+            <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-ink shadow">{t("store.quick_view")}</span>
+          </div>
         </div>
         <div className="flex flex-1 flex-col p-3">
           <div className="truncate text-sm font-semibold">{p.code}</div>
@@ -658,7 +680,7 @@ export function Store({ template }: Props) {
   }
 
   // ---- Homepage (configurable from admin "Homepage" editor) ----
-  type HeroSlide = { image?: string; video?: string; title?: string; subtitle?: string; button?: string; link?: string; button2?: string; link2?: string; overlay?: string; textColor?: string; align?: string; textAnim?: string; kenburns?: boolean };
+  type HeroSlide = { image?: string; video?: string; title?: string; subtitle?: string; button?: string; link?: string; button2?: string; link2?: string; overlay?: string; textColor?: string; align?: string; textAnim?: string; kenburns?: boolean; parallax?: boolean };
   const [heroIdx, setHeroIdx] = useState(0);
   const heroCfg = (home.hero as Record<string, unknown>) || {};
   const heroEnabled = heroCfg.enabled !== false;
@@ -687,7 +709,7 @@ export function Store({ template }: Props) {
   }, []);
 
   type HomeItem = { image?: string; title?: string; text?: string; link?: string; button?: string };
-  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; video?: string; textColor?: string; radius?: string; full?: boolean; hide?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
+  type BlockStyle = { mt?: string; mb?: string; pad?: string; bg?: string; bgColor?: string; grad1?: string; grad2?: string; gradDir?: string; video?: string; parallax?: boolean; textColor?: string; radius?: string; full?: boolean; hide?: string; cols?: string; anim?: string; animDur?: string; animDelay?: string };
   type HomeSection = { id: string; type: string; enabled?: boolean; image?: string; title?: string; text?: string; link?: string; button?: string; items?: HomeItem[]; size?: string; date?: string; style?: BlockStyle };
   const DEFAULT_SECTIONS: HomeSection[] = [
     { id: "categories", type: "categories" },
@@ -727,14 +749,17 @@ export function Store({ template }: Props) {
     const mb = st.mb !== undefined ? SPACE_PX[st.mb] ?? 40 : 40;
     const pad = st.pad ? SPACE_PX[st.pad] ?? 0 : 0;
     const customBg = st.bgColor;
-    const banded = (st.bg && st.bg !== "none") || !!customBg;
+    const grad = st.grad1 && st.grad2 ? `linear-gradient(${st.gradDir || "135deg"}, ${st.grad1}, ${st.grad2})` : "";
+    const banded = (st.bg && st.bg !== "none") || !!customBg || !!grad;
     const bgPreset = st.bg === "accent" ? "bg-clay" : st.bg === "dark" ? "bg-ink" : st.bg === "soft" ? "bg-clay/[0.06]" : "";
-    const txtCls = st.textColor === "light" ? "text-white" : st.textColor === "dark" ? "text-ink" : st.bg === "accent" || st.bg === "dark" ? "text-white" : "";
+    const txtCls = st.textColor === "light" ? "text-white" : st.textColor === "dark" ? "text-ink" : grad || st.bg === "accent" || st.bg === "dark" ? "text-white" : "";
     const radius = st.radius === "none" ? "" : st.radius === "s" ? "rounded-xl" : st.radius === "l" ? "rounded-3xl" : "rounded-2xl";
     const effAnim = st.anim && st.anim !== "none" ? st.anim : home.animations ? "up" : "none";
     const animOn = effAnim !== "none" && !previewMode;
     const style: React.CSSProperties = { marginTop: mt || undefined, marginBottom: mb, paddingTop: pad || undefined, paddingBottom: pad || undefined };
-    if (customBg) style.backgroundColor = customBg;
+    if (grad) style.background = grad;
+    else if (customBg) style.backgroundColor = customBg;
+    if (grad && !pad) { style.paddingTop = 56; style.paddingBottom = 56; }
     if (animOn) {
       (style as Record<string, string>)["--anim-dur"] = ANIM_DUR[st.animDur || "normal"] || "0.65s";
       (style as Record<string, string>)["--anim-delay"] = ANIM_DELAY[st.animDelay || "0"] || "0s";
@@ -759,13 +784,14 @@ export function Store({ template }: Props) {
       animOn ? "pera-anim" : "",
       hideCls,
     ].filter((c) => c && c.trim()).join(" ");
+    const vPar = st.parallax && !previewMode ? "pera-parallax" : "";
     const videoLayer = hasVideo ? (
       <>
         {bvFile ? (
-          <video src={bv} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+          <video src={bv} autoPlay muted loop playsInline className={`absolute inset-0 h-full w-full object-cover ${vPar}`} />
         ) : (
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <iframe title="block-video" className="absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2" src={`https://www.youtube.com/embed/${bvYt}?autoplay=1&mute=1&loop=1&playlist=${bvYt}&controls=0&modestbranding=1&playsinline=1&rel=0`} allow="autoplay; encrypted-media" />
+            <iframe title="block-video" className={`absolute left-1/2 top-1/2 h-[300%] w-[300%] -translate-x-1/2 -translate-y-1/2 ${vPar}`} src={`https://www.youtube.com/embed/${bvYt}?autoplay=1&mute=1&loop=1&playlist=${bvYt}&controls=0&modestbranding=1&playsinline=1&rel=0`} allow="autoplay; encrypted-media" />
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-black/45" />
@@ -1021,6 +1047,25 @@ export function Store({ template }: Props) {
             {sec.title && <h2 className="mb-4 font-serif text-2xl">{sec.title}</h2>}
             <div className="aspect-video overflow-hidden rounded-2xl border border-line">
               <iframe src={src} title="map" className="h-full w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            </div>
+          </section>
+        );
+      }
+      case "perks": {
+        const items = (sec.items || []).filter((it) => it.title || it.button);
+        if (!items.length) return null;
+        return (
+          <section key={sec.id}>
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-line bg-white px-6 py-5">
+              {items.map((it, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-2xl leading-none">{it.button || "✓"}</span>
+                  <div>
+                    <div className="text-sm font-semibold">{it.title}</div>
+                    {it.text && <div className="text-xs text-ink/50">{it.text}</div>}
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         );
@@ -1583,7 +1628,7 @@ export function Store({ template }: Props) {
           const textCls = slide.textColor === "dark" ? "text-ink" : "text-white";
           const subCls = slide.textColor === "dark" ? "text-ink/70" : "text-white/90";
           const alignCls = slide.align === "left" ? "items-start text-left" : slide.align === "right" ? "items-end text-right" : "items-center text-center";
-          const kb = slide.kenburns ? "pera-kenburns" : "";
+          const kb = slide.parallax ? "pera-parallax" : slide.kenburns ? "pera-kenburns" : "";
           const inAnim = slide.textAnim === "fade" ? "pera-in-fade" : slide.textAnim === "zoom" ? "pera-in-zoom" : slide.textAnim === "left" ? "pera-in-left" : slide.textAnim === "right" ? "pera-in-right" : slide.textAnim === "up" ? "pera-in-up" : "";
           return previewWrap("__hero__",
             <section className={`relative overflow-hidden bg-clay ${textCls}`}>

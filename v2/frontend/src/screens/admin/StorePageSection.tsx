@@ -33,6 +33,7 @@ interface HeroSlide {
   align?: string;
   textAnim?: string;
   kenburns?: boolean;
+  parallax?: boolean;
 }
 
 interface BlockStyle {
@@ -41,7 +42,11 @@ interface BlockStyle {
   pad?: string;
   bg?: string;
   bgColor?: string;
+  grad1?: string;
+  grad2?: string;
+  gradDir?: string;
   video?: string;
+  parallax?: boolean;
   textColor?: string;
   radius?: string;
   full?: boolean;
@@ -113,13 +118,14 @@ const TYPE_KEY: Record<string, string> = {
   logos: "adm.logos",
   socials: "adm.socials",
   map: "adm.map",
+  perks: "adm.perks",
 };
 
 const TYPE_ICON: Record<string, string> = {
   categories: "▦", sale: "%", new: "✦", brands: "◈", colors: "◐", catalog: "▤",
   custom: "🖼", strip: "▬", duo: "▥", slider: "❮❯", richtext: "T", gallery: "▣", spacer: "↕",
   marquee: "🅰", countdown: "⏱", testimonials: "❝", stats: "📊", faq: "❓", features: "★",
-  video: "▶", logos: "◫", split: "◧", cta: "⬢", socials: "♥", map: "📍",
+  video: "▶", logos: "◫", split: "◧", cta: "⬢", socials: "♥", map: "📍", perks: "✦",
 };
 
 const BUILTIN = new Set(["categories", "sale", "new", "brands", "colors", "catalog"]);
@@ -609,6 +615,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     if (type === "duo") base.items = [{}, {}];
     else if (type === "slider" || type === "gallery") base.items = [{}];
     else if (type === "socials") base.items = [{ title: "instagram" }];
+    else if (type === "perks") base.items = [{ button: "🚚", title: "Доставка" }, { button: "✅", title: "Гарантия" }, { button: "💳", title: "Оплата" }];
     else if (CONTENT_ITEMS.has(type)) base.items = [{}, {}, {}];
     else if (type === "spacer" || type === "marquee") base.size = "m";
     setSections((prev) => [...prev, base]);
@@ -811,6 +818,17 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
           {sel(t("adm.hero_textcolor"), st.textColor || "auto", opts(["auto", "light", "dark"], "adm.tc_"), (v) => patchStyle(sec.id, { textColor: v }))}
           {sel(t("adm.radius"), st.radius || "m", opts(["none", "s", "m", "l"], "adm.rad_"), (v) => patchStyle(sec.id, { radius: v }))}
           <div className="col-span-2">
+            <label className="field-label">{t("adm.gradient")}</label>
+            <div className="flex items-center gap-1.5">
+              <input type="color" className="h-9 w-9 shrink-0 cursor-pointer rounded border border-line" value={st.grad1 || "#d47516"} onChange={(e) => patchStyle(sec.id, { grad1: e.target.value })} />
+              <input type="color" className="h-9 w-9 shrink-0 cursor-pointer rounded border border-line" value={st.grad2 || "#1a1a1a"} onChange={(e) => patchStyle(sec.id, { grad2: e.target.value })} />
+              <select className="input" value={st.gradDir || "135deg"} onChange={(e) => patchStyle(sec.id, { gradDir: e.target.value })}>
+                <option value="135deg">↘</option><option value="90deg">→</option><option value="180deg">↓</option><option value="45deg">↗</option>
+              </select>
+              {(st.grad1 || st.grad2) && <button className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => patchStyle(sec.id, { grad1: "", grad2: "" })}>✕</button>}
+            </div>
+          </div>
+          <div className="col-span-2">
             <label className="field-label">{t("adm.block_video")}</label>
             <div className="flex items-center gap-1.5">
               <input className="input" placeholder={t("adm.hero_video_url")} value={st.video || ""} onChange={(e) => patchStyle(sec.id, { video: e.target.value })} />
@@ -818,6 +836,10 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
               {st.video && <button className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => patchStyle(sec.id, { video: "" })}>✕</button>}
             </div>
           </div>
+          <label className="col-span-2 flex cursor-pointer items-center justify-between gap-2 rounded-lg bg-white px-3 py-1.5">
+            <span className="text-sm font-medium">{t("adm.parallax")}</span>
+            <input type="checkbox" checked={!!st.parallax} onChange={(e) => patchStyle(sec.id, { parallax: e.target.checked })} />
+          </label>
           {sel(t("adm.visibility"), st.hide || "all", opts(["all", "mobile", "desktop"], "adm.vis_"), (v) => patchStyle(sec.id, { hide: v === "all" ? "" : v }))}
           {GRID_TYPES.has(sec.type) && sel(t("adm.columns"), st.cols || "", colList, (v) => patchStyle(sec.id, { cols: v }))}
           {sel(t("adm.animation"), st.anim || "none", opts(ANIM_OPTS, "adm.an_"), (v) => patchStyle(sec.id, { anim: v }))}
@@ -949,6 +971,21 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
         </div>
       );
     }
+    if (s.type === "perks") {
+      const items = s.items || [];
+      return (
+        <div className="space-y-2">
+          {items.map((it, idx) => (
+            <div key={idx} className="flex items-center gap-2 rounded-lg bg-sand/60 p-2">
+              <input className="input !w-14 shrink-0 text-center" placeholder="🚚" value={it.button || ""} onChange={(e) => patchItem(s.id, idx, { button: e.target.value })} />
+              <input className="input" placeholder={t("adm.hero_heading")} value={it.title || ""} onChange={(e) => patchItem(s.id, idx, { title: e.target.value })} />
+              <button className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => removeItem(s.id, idx)}>✕</button>
+            </div>
+          ))}
+          <button className="btn-ghost w-full text-sm" onClick={() => addItem(s.id)}>{t("adm.add_item")}</button>
+        </div>
+      );
+    }
     if (s.type === "socials") {
       const items = s.items || [];
       return (
@@ -1026,6 +1063,7 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
     { type: "marquee", key: "adm.add_marquee" },
     { type: "countdown", key: "adm.add_countdown" },
     { type: "features", key: "adm.add_features" },
+    { type: "perks", key: "adm.add_perks" },
     { type: "stats", key: "adm.add_stats" },
     { type: "testimonials", key: "adm.add_testimonials" },
     { type: "faq", key: "adm.add_faq" },
@@ -1232,10 +1270,16 @@ export function StorePageSection({ template, adminPin, onTemplateChange, onClose
                         {["none", "fade", "up", "zoom", "left", "right"].map((v) => <option key={v} value={v}>{t("adm.an_" + v)}</option>)}
                       </select>
                     </div>
-                    <label className="flex cursor-pointer items-end gap-2 pb-2.5 text-sm">
-                      <input type="checkbox" checked={!!sl.kenburns} onChange={(e) => set({ kenburns: e.target.checked })} />
-                      {t("adm.kenburns")}
-                    </label>
+                    <div className="flex flex-col justify-end gap-1 pb-1 text-sm">
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input type="checkbox" checked={!!sl.kenburns} onChange={(e) => set({ kenburns: e.target.checked, parallax: false })} />
+                        {t("adm.kenburns")}
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input type="checkbox" checked={!!sl.parallax} onChange={(e) => set({ parallax: e.target.checked, kenburns: false })} />
+                        {t("adm.parallax")}
+                      </label>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
