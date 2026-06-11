@@ -5,13 +5,15 @@ import json
 from fastapi import BackgroundTasks, FastAPI, Header, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from . import config, store, translate
+from . import config, media, store, translate
 from .db import init_database
 
 app = FastAPI(title="Pera Collage Studio API", version="2.0")
 
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,6 +27,13 @@ def _startup() -> None:
     store.ensure_directories()
     init_database()
     store.bootstrap_users_from_template_if_needed()
+    # One-time migration: move any embedded base64 media in the template to files.
+    try:
+        data = store.load_template_payload_from_db() or store.load_template_payload_from_files()
+        if data and media.has_media_data_urls(data):
+            store.save_template_payload(media.extract_media(data))
+    except Exception:
+        pass
 
 
 def json_response(payload, status: int = 200) -> JSONResponse:
@@ -81,6 +90,13 @@ async def save_template(request: Request, x_admin_pin: str | None = Header(defau
         parsed = json.loads(await request.body())
     except json.JSONDecodeError:
         return json_response({"error": "invalid_json"}, 400)
+    # Move uploaded base64 images/videos out of the JSON into files (keeps the
+    # template tiny and fast to load).
+    try:
+        if media.has_media_data_urls(parsed):
+            parsed = await run_in_threadpool(media.extract_media, parsed)
+    except Exception:
+        pass
     # Auto-translate homepage content into the 4 languages (keyless, best-effort).
     try:
         home = (parsed.get("store") or {}).get("home")
@@ -383,6 +399,14 @@ def history_asset(path: str):
 @app.get("/templates/{path:path}")
 def templates_asset(path: str):
     return _serve_data_asset(f"templates/{path}")
+
+
+@app.get("/uploads/{path:path}")
+def uploads_asset(path: str):
+    resp = _serve_data_asset(f"uploads/{path}")
+    if isinstance(resp, FileResponse):
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return resp
 
 
 def _serve_data_asset(url_path: str):

@@ -41,9 +41,9 @@ export default defineConfig({
             options: { cacheName: "pera-thumbs", expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 } },
           },
           {
-            urlPattern: /\/history\//,
+            urlPattern: /\/(history|uploads)\//,
             handler: "CacheFirst",
-            options: { cacheName: "pera-images", expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+            options: { cacheName: "pera-images", expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 } },
           },
           {
             urlPattern: /\/api\/store\//,
