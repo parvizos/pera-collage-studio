@@ -202,12 +202,13 @@ function seriesSizes(size?: string): string[] {
 }
 
 /** Main product photo with magnify-on-hover. */
-function ZoomImage({ src, alt, badge }: { src: string; alt: string; badge?: React.ReactNode }) {
+function ZoomImage({ src, alt, badge, onExpand }: { src: string; alt: string; badge?: React.ReactNode; onExpand?: () => void }) {
   const [zoom, setZoom] = useState(false);
   const [pos, setPos] = useState({ x: 50, y: 50 });
   return (
     <div
       className="relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-2xl bg-white shadow-sm"
+      onClick={onExpand}
       onMouseEnter={() => setZoom(true)}
       onMouseLeave={() => setZoom(false)}
       onMouseMove={(e) => {
@@ -444,6 +445,9 @@ export function Store({ template }: Props) {
   const [quick, setQuick] = useState<StoreProduct | null>(null);
   const [variationIdx, setVariationIdx] = useState(0);
   const [quickPhoto, setQuickPhoto] = useState(0);
+  const [seriesQty, setSeriesQty] = useState(1);
+  const [lightbox, setLightbox] = useState(false);
+  const [shared, setShared] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>(() => loadCart());
   const [cartPage, setCartPage] = useState(false);
@@ -466,7 +470,7 @@ export function Store({ template }: Props) {
   const cartCount = cart.reduce((n, i) => n + i.qty, 0);
   const cartTotal = cart.reduce((sum, i) => sum + parsePrice(i.price) * i.qty, 0);
 
-  function addToCart(p: StoreProduct, v: StoreVariation) {
+  function addToCart(p: StoreProduct, v: StoreVariation, addQty = 1) {
     const key = v.id;
     const count = seriesCount(v.size);
     const unitNum = parsePrice(v.price);
@@ -474,7 +478,7 @@ export function Store({ template }: Props) {
     const unit = money(unitNum);
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
-      if (existing) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + 1 } : i));
+      if (existing) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + addQty } : i));
       return [
         ...prev,
         {
@@ -487,7 +491,7 @@ export function Store({ template }: Props) {
           photo: v.photos[0] || v.collageImage,
           color: v.color,
           size: v.size,
-          qty: 1,
+          qty: addQty,
         },
       ];
     });
@@ -689,6 +693,8 @@ export function Store({ template }: Props) {
   function showProduct(p: StoreProduct, push: boolean) {
     clearViews();
     setQuick(p);
+    setSeriesQty(1);
+    setLightbox(false);
     applyVariation(p, 0);
     if (push) window.history.pushState({}, "", `/product/${p.slug}`);
     window.scrollTo({ top: 0 });
@@ -744,12 +750,13 @@ export function Store({ template }: Props) {
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
-  function whatsappLink(p: StoreProduct, v: StoreVariation): string {
+  function whatsappLink(p: StoreProduct, v: StoreVariation, qty = 1): string {
     const count = seriesCount(v.size);
-    const series = money(parsePrice(v.price) * count);
+    const series = money(parsePrice(v.price) * count * qty);
     const colorPart = v.color ? `, ${t("wa.color")} ${v.color}` : "";
     const sizePart = v.size ? `, ${t("wa.size")} ${v.size}${count > 1 ? ` (${t("wa.series", { n: count })})` : ""}` : "";
-    const text = `${t("wa.greeting")} ${p.code}${colorPart}${sizePart} — ${series}`;
+    const qtyPart = qty > 1 ? ` ×${qty}` : "";
+    const text = `${t("wa.greeting")} ${p.code}${colorPart}${sizePart}${qtyPart} — ${series}`;
     return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
@@ -1582,7 +1589,7 @@ export function Store({ template }: Props) {
                     </>
                   );
                   return src ? (
-                    <ZoomImage src={src} alt={quick.code} badge={badge} />
+                    <ZoomImage src={src} alt={quick.code} badge={badge} onExpand={() => setLightbox(true)} />
                   ) : (
                     <div className="grid aspect-[3/4] place-items-center rounded-2xl bg-white text-sm text-ink/30 shadow-sm">{t("store.no_photo")}</div>
                   );
@@ -1672,24 +1679,52 @@ export function Store({ template }: Props) {
                   </div>
                 )}
 
-                <div className="mt-6 max-w-sm space-y-2">
+                <div className="mt-6 max-w-sm space-y-3">
+                  {/* Quantity of series */}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-ink/70">{t("product.qty")}</span>
+                    <div className="flex items-center gap-1 rounded-full border border-line p-1">
+                      <button onClick={() => setSeriesQty((q) => Math.max(1, q - 1))} className="grid h-8 w-8 place-items-center rounded-full text-lg hover:bg-sand">−</button>
+                      <span className="min-w-8 text-center font-semibold tabular-nums">{seriesQty}</span>
+                      <button onClick={() => setSeriesQty((q) => Math.min(999, q + 1))} className="grid h-8 w-8 place-items-center rounded-full text-lg hover:bg-sand">+</button>
+                    </div>
+                  </div>
+                  {unitPrice > 0 && (
+                    <div className="flex items-baseline justify-between rounded-xl bg-sand/70 px-3 py-2">
+                      <span className="text-sm text-ink/60">{t("product.grand_total")}</span>
+                      <span className="font-serif text-2xl">{money(unitPrice * count * seriesQty)}</span>
+                    </div>
+                  )}
                   <button
                     className="btn-primary w-full"
                     onClick={() => {
-                      addToCart(quick, variation);
+                      addToCart(quick, variation, seriesQty);
                       goCart();
                     }}
                   >
                     {t("product.add_cart")}
                   </button>
                   <a
-                    href={whatsappLink(quick, variation)}
+                    href={whatsappLink(quick, variation, seriesQty)}
                     target="_blank"
                     rel="noreferrer"
                     className="block rounded-full bg-[#25D366] py-3 text-center font-semibold text-white"
                   >
                     {t("product.order_wa")}
                   </a>
+                  <button
+                    onClick={async () => {
+                      const url = window.location.href;
+                      const data = { title: quick.code, text: quick.code, url };
+                      try {
+                        if (navigator.share) await navigator.share(data);
+                        else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1500); }
+                      } catch { /* cancelled */ }
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-full border border-line py-2.5 text-sm font-semibold text-ink/70 hover:border-ink/40"
+                  >
+                    ↗ {shared ? t("product.copied") : t("product.share")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1701,6 +1736,31 @@ export function Store({ template }: Props) {
                   {related.map((p) => renderCard(p))}
                 </div>
               </section>
+            )}
+
+            {/* Fullscreen lightbox */}
+            {lightbox && gallery.length > 0 && (
+              <div className="fixed inset-0 z-[70] flex flex-col bg-black/92" onClick={() => setLightbox(false)}>
+                <button onClick={() => setLightbox(false)} aria-label={t("common.close")} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-xl text-white hover:bg-white/30">✕</button>
+                <div className="relative flex flex-1 items-center justify-center p-4 sm:p-10" onClick={(e) => e.stopPropagation()}>
+                  {gallery.length > 1 && (
+                    <button onClick={() => setQuickPhoto((quickPhoto - 1 + gallery.length) % gallery.length)} aria-label="prev" className="absolute left-3 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-2xl text-white hover:bg-white/30">‹</button>
+                  )}
+                  <img src={gallery[quickPhoto] || gallery[0]} alt={quick.code} className="max-h-full max-w-full rounded-lg object-contain" />
+                  {gallery.length > 1 && (
+                    <button onClick={() => setQuickPhoto((quickPhoto + 1) % gallery.length)} aria-label="next" className="absolute right-3 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-2xl text-white hover:bg-white/30">›</button>
+                  )}
+                </div>
+                {gallery.length > 1 && (
+                  <div className="flex justify-center gap-2 pb-5" onClick={(e) => e.stopPropagation()}>
+                    {gallery.map((src, i) => (
+                      <button key={i} onClick={() => setQuickPhoto(i)} className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 ${i === quickPhoto ? "border-white" : "border-transparent opacity-60"}`}>
+                        <Thumb src={src} w={160} className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </main>
         );
