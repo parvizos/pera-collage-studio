@@ -1381,6 +1381,14 @@ export function Store({ template }: Props) {
     }
   }
 
+  // Avoid flashing the homepage when a deep route (product/cart/etc.) is still
+  // resolving on a direct load / refresh — show a loader until the view is ready.
+  const path = (typeof window !== "undefined" ? window.location.pathname : "/").replace(/\/+$/, "") || "/";
+  const isProductPath = /^\/product\//.test(path);
+  const isDeepView = isProductPath || path === "/cart" || path === "/favorites" || path === "/about" || /^\/(brand|category|color)\//.test(path);
+  const anyView = !!quick || cartPage || favPage || aboutPage || !!listing;
+  const resolving = !previewMode && isDeepView && !anyView && (loading || isProductPath);
+
   return (
     <div className="min-h-screen overflow-x-clip bg-sand" style={rootStyle}>
       {/* Header */}
@@ -1860,7 +1868,11 @@ export function Store({ template }: Props) {
             })()}
           </main>
         );
-      })() : (
+      })() : resolving ? (
+        <main className="grid min-h-[70vh] place-items-center">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-line border-t-clay" />
+        </main>
+      ) : (
       <>
         {/* Hero (video / image slideshow) */}
         {heroEnabled && (() => {
