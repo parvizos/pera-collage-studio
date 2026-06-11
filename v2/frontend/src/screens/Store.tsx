@@ -201,29 +201,14 @@ function seriesSizes(size?: string): string[] {
   return nums.length === 1 ? [String(nums[0])] : size ? [size.trim()] : [];
 }
 
-/** Main product photo with magnify-on-hover. */
-function ZoomImage({ src, alt, badge, onExpand }: { src: string; alt: string; badge?: React.ReactNode; onExpand?: () => void }) {
-  const [zoom, setZoom] = useState(false);
-  const [pos, setPos] = useState({ x: 50, y: 50 });
+/** Main product photo — click to open the fullscreen lightbox. */
+function ProductImage({ src, alt, badge, onExpand }: { src: string; alt: string; badge?: React.ReactNode; onExpand?: () => void }) {
   return (
-    <div
-      className="relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-2xl bg-white shadow-sm"
-      onClick={onExpand}
-      onMouseEnter={() => setZoom(true)}
-      onMouseLeave={() => setZoom(false)}
-      onMouseMove={(e) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        setPos({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
-      }}
-    >
-      <img
-        src={src}
-        alt={alt}
-        className="h-full w-full object-cover transition-transform duration-150 ease-out"
-        style={{ transform: zoom ? "scale(2.2)" : "scale(1)", transformOrigin: `${pos.x}% ${pos.y}%` }}
-      />
+    <button onClick={onExpand} className="group relative block aspect-[3/4] w-full cursor-zoom-in overflow-hidden rounded-2xl bg-white shadow-sm">
+      <img src={src} alt={alt} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+      <span className="pointer-events-none absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition group-hover:bg-white">⛶</span>
       {badge && <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-1.5">{badge}</div>}
-    </div>
+    </button>
   );
 }
 
@@ -448,6 +433,24 @@ export function Store({ template }: Props) {
   const [seriesQty, setSeriesQty] = useState(1);
   const [lightbox, setLightbox] = useState(false);
   const [shared, setShared] = useState(false);
+  const touchStartX = useRef(0);
+
+  // Lightbox keyboard nav (←/→/Esc) + lock page scroll while open.
+  useEffect(() => {
+    if (!lightbox || !quick) return;
+    const v = quick.variations[variationIdx] ?? quick.variations[0];
+    const g = [...v.photos, v.collageImage].filter(Boolean);
+    const len = g.length || 1;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(false);
+      else if (e.key === "ArrowRight") setQuickPhoto((p) => (p + 1) % len);
+      else if (e.key === "ArrowLeft") setQuickPhoto((p) => (p - 1 + len) % len);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightbox, quick, variationIdx]);
 
   const [cart, setCart] = useState<CartItem[]>(() => loadCart());
   const [cartPage, setCartPage] = useState(false);
@@ -1589,7 +1592,7 @@ export function Store({ template }: Props) {
                     </>
                   );
                   return src ? (
-                    <ZoomImage src={src} alt={quick.code} badge={badge} onExpand={() => setLightbox(true)} />
+                    <ProductImage src={src} alt={quick.code} badge={badge} onExpand={() => setLightbox(true)} />
                   ) : (
                     <div className="grid aspect-[3/4] place-items-center rounded-2xl bg-white text-sm text-ink/30 shadow-sm">{t("store.no_photo")}</div>
                   );
@@ -1739,29 +1742,47 @@ export function Store({ template }: Props) {
             )}
 
             {/* Fullscreen lightbox */}
-            {lightbox && gallery.length > 0 && (
-              <div className="fixed inset-0 z-[70] flex flex-col bg-black/92" onClick={() => setLightbox(false)}>
-                <button onClick={() => setLightbox(false)} aria-label={t("common.close")} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-xl text-white hover:bg-white/30">✕</button>
-                <div className="relative flex flex-1 items-center justify-center p-4 sm:p-10" onClick={(e) => e.stopPropagation()}>
+            {lightbox && gallery.length > 0 && (() => {
+              const idx = ((quickPhoto % gallery.length) + gallery.length) % gallery.length;
+              const go = (d: number) => setQuickPhoto((idx + d + gallery.length) % gallery.length);
+              return (
+                <div className="fixed inset-0 z-[70] flex flex-col bg-black/95 backdrop-blur-sm" onClick={() => setLightbox(false)}>
+                  {/* top bar */}
+                  <div className="flex items-center justify-between px-4 py-3 text-white/90" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-sm font-medium tabular-nums">{gallery.length > 1 ? `${idx + 1} / ${gallery.length}` : quick.code}</span>
+                    <button onClick={() => setLightbox(false)} aria-label={t("common.close")} className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-xl hover:bg-white/25">✕</button>
+                  </div>
+                  {/* image */}
+                  <div
+                    className="relative flex flex-1 select-none items-center justify-center overflow-hidden px-3 pb-2 sm:px-16"
+                    onClick={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+                    onTouchEnd={(e) => {
+                      const dx = e.changedTouches[0].clientX - touchStartX.current;
+                      if (Math.abs(dx) > 45 && gallery.length > 1) go(dx < 0 ? 1 : -1);
+                    }}
+                  >
+                    {gallery.length > 1 && (
+                      <button onClick={() => go(-1)} aria-label="prev" className="absolute left-2 z-10 hidden h-12 w-12 place-items-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/25 sm:grid">‹</button>
+                    )}
+                    <img key={idx} src={gallery[idx]} alt={quick.code} className="max-h-full max-w-full animate-[pera-in-fade_0.25s_ease] rounded-lg object-contain shadow-2xl" />
+                    {gallery.length > 1 && (
+                      <button onClick={() => go(1)} aria-label="next" className="absolute right-2 z-10 hidden h-12 w-12 place-items-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/25 sm:grid">›</button>
+                    )}
+                  </div>
+                  {/* thumbnails */}
                   {gallery.length > 1 && (
-                    <button onClick={() => setQuickPhoto((quickPhoto - 1 + gallery.length) % gallery.length)} aria-label="prev" className="absolute left-3 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-2xl text-white hover:bg-white/30">‹</button>
-                  )}
-                  <img src={gallery[quickPhoto] || gallery[0]} alt={quick.code} className="max-h-full max-w-full rounded-lg object-contain" />
-                  {gallery.length > 1 && (
-                    <button onClick={() => setQuickPhoto((quickPhoto + 1) % gallery.length)} aria-label="next" className="absolute right-3 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-2xl text-white hover:bg-white/30">›</button>
+                    <div className="flex justify-center gap-2 overflow-x-auto px-4 pb-5 pt-1" onClick={(e) => e.stopPropagation()}>
+                      {gallery.map((src, i) => (
+                        <button key={i} onClick={() => setQuickPhoto(i)} className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition ${i === idx ? "border-white" : "border-transparent opacity-50 hover:opacity-90"}`}>
+                          <Thumb src={src} w={180} className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {gallery.length > 1 && (
-                  <div className="flex justify-center gap-2 pb-5" onClick={(e) => e.stopPropagation()}>
-                    {gallery.map((src, i) => (
-                      <button key={i} onClick={() => setQuickPhoto(i)} className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 ${i === quickPhoto ? "border-white" : "border-transparent opacity-60"}`}>
-                        <Thumb src={src} w={160} className="h-full w-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+              );
+            })()}
           </main>
         );
       })() : (
