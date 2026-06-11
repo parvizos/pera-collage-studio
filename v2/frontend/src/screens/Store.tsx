@@ -12,6 +12,7 @@ interface Props {
 
 const WHATSAPP = "905339178551"; // +90 533 917 85 51
 const CART_KEY = "pera_cart";
+const FAV_KEY = "pera_favs";
 
 const FONTS: Record<string, { head: string; body: string }> = {
   serif: { head: '"Instrument Serif", serif', body: '"DM Sans", system-ui, sans-serif' },
@@ -454,6 +455,10 @@ export function Store({ template }: Props) {
 
   const [cart, setCart] = useState<CartItem[]>(() => loadCart());
   const [cartPage, setCartPage] = useState(false);
+  const [favs, setFavs] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]"); } catch { return []; }
+  });
+  const [favPage, setFavPage] = useState(false);
   const [aboutPage, setAboutPage] = useState(false);
   const [listing, setListing] = useState<{ type: "brand" | "category" | "color"; value: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -472,6 +477,15 @@ export function Store({ template }: Props) {
 
   const cartCount = cart.reduce((n, i) => n + i.qty, 0);
   const cartTotal = cart.reduce((sum, i) => sum + parsePrice(i.price) * i.qty, 0);
+
+  useEffect(() => {
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* ignore */ }
+  }, [favs]);
+  const isFav = (key: string) => favs.includes(key);
+  function toggleFav(key: string) {
+    setFavs((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+  const favProducts = products.filter((p) => favs.includes(p.key));
 
   function addToCart(p: StoreProduct, v: StoreVariation, addQty = 1) {
     const key = v.id;
@@ -520,11 +534,13 @@ export function Store({ template }: Props) {
   const resolveRoute = useCallback(() => {
     setQuick(null);
     setCartPage(false);
+    setFavPage(false);
     setAboutPage(false);
     setListing(null);
 
     const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
     if (path === "/cart") { setCartPage(true); return; }
+    if (path === "/favorites") { setFavPage(true); return; }
     if (path === "/about") { setAboutPage(true); return; }
 
     const dec = decodeURIComponent(path);
@@ -650,8 +666,17 @@ export function Store({ template }: Props) {
               {t("store.badge_new")}
             </span>
           ) : null}
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={t("store.favorite")}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleFav(p.key); }}
+            className={`absolute right-2 top-2 z-10 grid h-8 w-8 cursor-pointer place-items-center rounded-full text-lg leading-none shadow-sm transition ${isFav(p.key) ? "bg-white text-red-500" : "bg-white/85 text-ink/45 hover:text-red-500"}`}
+          >
+            {isFav(p.key) ? "♥" : "♡"}
+          </span>
           {p.colors.length > 1 && (
-            <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm">
+            <span className="absolute right-2 top-11 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm">
               {t("store.colors_n", { n: p.colors.length })}
             </span>
           )}
@@ -688,6 +713,7 @@ export function Store({ template }: Props) {
   function clearViews() {
     setQuick(null);
     setCartPage(false);
+    setFavPage(false);
     setAboutPage(false);
     setListing(null);
     setMenuOpen(false);
@@ -717,6 +743,13 @@ export function Store({ template }: Props) {
     clearViews();
     setCartPage(true);
     window.history.pushState({}, "", "/cart");
+    window.scrollTo({ top: 0 });
+  }
+
+  function goFavorites() {
+    clearViews();
+    setFavPage(true);
+    window.history.pushState({}, "", "/favorites");
     window.scrollTo({ top: 0 });
   }
 
@@ -1378,6 +1411,18 @@ export function Store({ template }: Props) {
             </a>
             <LanguageSwitcher />
             <button
+              className="relative grid h-10 w-10 place-items-center rounded-full border border-line text-xl leading-none text-ink/60 transition hover:border-clay/50 hover:text-red-500"
+              onClick={() => goFavorites()}
+              aria-label={t("store.favorites")}
+            >
+              {favs.length > 0 ? "♥" : "♡"}
+              {favs.length > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
+                  {favs.length}
+                </span>
+              )}
+            </button>
+            <button
               className="relative flex items-center gap-1.5 rounded-full bg-ink px-3 py-2 font-semibold text-white sm:px-4"
               onClick={() => goCart()}
               aria-label={t("store.cart")}
@@ -1480,7 +1525,28 @@ export function Store({ template }: Props) {
             )}
           </main>
         );
-      })() : cartPage ? (
+      })() : favPage ? (
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+          <button
+            onClick={() => backToCatalog()}
+            className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/60 hover:text-ink"
+          >
+            {t("cart.continue")}
+          </button>
+          <h1 className="mb-5 font-serif text-3xl">{t("store.favorites")} {favProducts.length > 0 && <span className="text-ink/40">({favProducts.length})</span>}</h1>
+          {favProducts.length === 0 ? (
+            <div className="card grid min-h-[220px] place-items-center gap-3 text-center text-ink/50">
+              <div className="text-4xl">♡</div>
+              <div>{t("store.fav_empty")}</div>
+              <button className="btn-primary" onClick={() => backToCatalog()}>{t("cart.to_catalog")}</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+              {favProducts.map((p) => renderCard(p))}
+            </div>
+          )}
+        </main>
+      ) : cartPage ? (
         <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
           <button
             onClick={() => backToCatalog()}
@@ -1613,7 +1679,16 @@ export function Store({ template }: Props) {
               </div>
               {/* Info */}
               <div className="flex flex-col">
-                <h1 className="font-serif text-3xl">{quick.code}</h1>
+                <div className="flex items-start justify-between gap-3">
+                  <h1 className="font-serif text-3xl">{quick.code}</h1>
+                  <button
+                    onClick={() => toggleFav(quick.key)}
+                    aria-label={t("store.favorite")}
+                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border text-2xl leading-none transition ${isFav(quick.key) ? "border-red-200 bg-red-50 text-red-500" : "border-line text-ink/40 hover:border-red-300 hover:text-red-500"}`}
+                  >
+                    {isFav(quick.key) ? "♥" : "♡"}
+                  </button>
+                </div>
                 {quick.brandName && <div className="mt-1 text-sm text-ink/50">{quick.brandName}</div>}
                 <dl className="mt-4 space-y-1 text-sm">
                   {quick.category && <Row label={t("product.category")} value={term(quick.category)} />}
