@@ -107,22 +107,31 @@ def init_database() -> None:
             )
             """
         )
+        # Wholesale shipping destinations: cargo company / buyer-agent / pickup.
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS customer_addresses (
                 id TEXT PRIMARY KEY,
                 customer_id TEXT NOT NULL,
-                label TEXT,
+                kind TEXT NOT NULL DEFAULT 'cargo',
+                cargo TEXT,
+                code TEXT,
                 recipient TEXT,
                 phone TEXT,
                 country TEXT,
                 city TEXT,
-                address TEXT,
+                note TEXT,
                 is_default INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        # Migrate older installs that created the table with the generic schema.
+        existing_cols = {r[1] for r in conn.execute("PRAGMA table_info(customer_addresses)").fetchall()}
+        for col in ("kind", "cargo", "code", "note"):
+            if col not in existing_cols:
+                default = " DEFAULT 'cargo'" if col == "kind" else ""
+                conn.execute(f"ALTER TABLE customer_addresses ADD COLUMN {col} TEXT{default}")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS orders (

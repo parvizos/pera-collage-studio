@@ -182,6 +182,42 @@ async def account_profile(request: Request):
     return json_response({"customer": updated})
 
 
+@app.get("/api/account/destinations")
+def account_destinations(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    return json_response({"destinations": account.list_destinations(cust["id"])})
+
+
+@app.post("/api/account/destinations")
+async def account_destinations_create(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    return json_response(account.create_destination(cust["id"], p))
+
+
+@app.post("/api/account/destinations/{dest_id}")
+async def account_destinations_update(dest_id: str, request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    if p.get("_action") == "delete":
+        return json_response(account.delete_destination(cust["id"], dest_id))
+    if p.get("_action") == "default":
+        return json_response(account.set_default_destination(cust["id"], dest_id))
+    return json_response(account.update_destination(cust["id"], dest_id, p))
+
+
 @app.post("/api/account/password")
 async def account_password(request: Request):
     cust = account.customer_by_token(_bearer(request))

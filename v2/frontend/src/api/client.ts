@@ -32,6 +32,19 @@ export interface Customer {
   createdAt: string;
 }
 
+export interface Destination {
+  id: string;
+  kind: "cargo" | "bayer" | "pickup";
+  cargo: string;
+  code: string;
+  recipient: string;
+  phone: string;
+  country: string;
+  city: string;
+  note: string;
+  isDefault: boolean;
+}
+
 export const api = {
   // ---- Customer account ----
   async accountRegister(phone: string, name: string, password: string): Promise<{ customer: Customer; token: string }> {
@@ -54,6 +67,21 @@ export const api = {
   },
   async accountProfile(token: string, data: { name?: string; email?: string }): Promise<{ customer: Customer }> {
     return asJson(await fetch("/api/account/profile", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    }));
+  },
+  async accountDestinations(token: string): Promise<{ destinations: Destination[] }> {
+    return asJson(await fetch("/api/account/destinations", { headers: { Authorization: `Bearer ${token}` } }));
+  },
+  async accountDestinationCreate(token: string, data: Partial<Destination>): Promise<{ destinations: Destination[] }> {
+    return asJson(await fetch("/api/account/destinations", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    }));
+  },
+  async accountDestinationSave(token: string, id: string, data: Record<string, unknown>): Promise<{ destinations: Destination[] }> {
+    return asJson(await fetch(`/api/account/destinations/${id}`, {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(data),
     }));

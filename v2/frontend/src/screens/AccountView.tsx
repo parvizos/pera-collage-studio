@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api, ApiError, type Customer } from "../api/client";
+import { useEffect, useState } from "react";
+import { api, ApiError, type Customer, type Destination } from "../api/client";
 import { useI18n } from "../i18n";
 
 interface Props {
@@ -109,7 +109,7 @@ function Dashboard({ account, token, onLogout, onUpdate, onClose, onFavorites, t
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "profile", label: t("acc.profile"), icon: "👤" },
     { id: "orders", label: t("acc.orders"), icon: "📦" },
-    { id: "addresses", label: t("acc.addresses"), icon: "📍" },
+    { id: "addresses", label: t("acc.shipping"), icon: "🚚" },
     { id: "favorites", label: t("acc.favorites"), icon: "♥" },
   ];
 
@@ -157,14 +157,136 @@ function Dashboard({ account, token, onLogout, onUpdate, onClose, onFavorites, t
               </div>
             </div>
           )}
-          {(tab === "orders" || tab === "addresses") && (
+          {tab === "addresses" && <DestinationsTab token={token} t={t} />}
+          {tab === "orders" && (
             <div className="card grid min-h-[220px] place-items-center gap-2 p-5 text-center text-ink/50">
-              <div className="text-4xl">{tab === "orders" ? "📦" : "📍"}</div>
+              <div className="text-4xl">📦</div>
               <div>{t("acc.soon")}</div>
             </div>
           )}
         </div>
       </div>
     </main>
+  );
+}
+
+const KIND_ICON: Record<string, string> = { cargo: "📦", bayer: "🤝", pickup: "🏬" };
+const EMPTY_DEST: Partial<Destination> = { kind: "cargo", cargo: "", code: "", recipient: "", phone: "", country: "", city: "", note: "" };
+
+function DestinationsTab({ token, t }: { token: string; t: (k: string, v?: Record<string, string | number>) => string }) {
+  const [list, setList] = useState<Destination[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Partial<Destination> | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.accountDestinations(token).then((r) => setList(r.destinations)).catch(() => {}).finally(() => setLoading(false));
+  }, [token]);
+
+  async function save() {
+    if (!editing) return;
+    setBusy(true);
+    try {
+      const r = editing.id
+        ? await api.accountDestinationSave(token, editing.id, editing as Record<string, unknown>)
+        : await api.accountDestinationCreate(token, editing);
+      setList(r.destinations);
+      setEditing(null);
+    } catch { /* ignore */ } finally { setBusy(false); }
+  }
+  async function act(id: string, action: "delete" | "default") {
+    const r = await api.accountDestinationSave(token, id, { _action: action });
+    setList(r.destinations);
+  }
+
+  const kindLabel = (k: string) => t(`acc.kind_${k}`);
+  const set = (patch: Partial<Destination>) => setEditing((e) => ({ ...(e || {}), ...patch }));
+
+  if (loading) return <div className="card grid min-h-[160px] place-items-center p-5"><div className="h-7 w-7 animate-spin rounded-full border-2 border-line border-t-clay" /></div>;
+
+  if (editing) {
+    const k = editing.kind || "cargo";
+    return (
+      <div className="card space-y-3 p-5">
+        <h2 className="font-serif text-xl">{editing.id ? t("acc.edit_dest") : t("acc.add_dest")}</h2>
+        <div>
+          <label className="field-label">{t("acc.dest_type")}</label>
+          <div className="flex flex-wrap gap-2">
+            {(["cargo", "bayer", "pickup"] as const).map((kk) => (
+              <button key={kk} onClick={() => set({ kind: kk })} className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium ${k === kk ? "border-ink bg-ink text-white" : "border-line hover:border-ink/40"}`}>
+                {KIND_ICON[kk]} {kindLabel(kk)}
+              </button>
+            ))}
+          </div>
+        </div>
+        {k !== "pickup" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="field-label">{k === "cargo" ? t("acc.cargo_name") : t("acc.bayer_name")}</label>
+              <input className="input" value={editing.cargo || ""} onChange={(e) => set({ cargo: e.target.value })} />
+            </div>
+            <div>
+              <label className="field-label">{k === "cargo" ? t("acc.cargo_code") : t("acc.bayer_code")}</label>
+              <input className="input" value={editing.code || ""} onChange={(e) => set({ code: e.target.value })} />
+            </div>
+          </div>
+        )}
+        {k === "cargo" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><label className="field-label">{t("acc.country")}</label><input className="input" value={editing.country || ""} onChange={(e) => set({ country: e.target.value })} /></div>
+            <div><label className="field-label">{t("acc.city")}</label><input className="input" value={editing.city || ""} onChange={(e) => set({ city: e.target.value })} /></div>
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className="field-label">{t("acc.recipient")}</label><input className="input" value={editing.recipient || ""} onChange={(e) => set({ recipient: e.target.value })} /></div>
+          <div><label className="field-label">{t("acc.phone")}</label><input className="input" value={editing.phone || ""} onChange={(e) => set({ phone: e.target.value })} /></div>
+        </div>
+        <div><label className="field-label">{t("acc.note")}</label><input className="input" value={editing.note || ""} onChange={(e) => set({ note: e.target.value })} /></div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!editing.isDefault} onChange={(e) => set({ isDefault: e.target.checked })} />
+          {t("acc.set_default")}
+        </label>
+        <div className="flex items-center gap-2">
+          <button className="btn-primary" onClick={save} disabled={busy}>{busy ? "…" : t("acc.save")}</button>
+          <button className="btn-ghost" onClick={() => setEditing(null)}>{t("acc.cancel")}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-serif text-xl">{t("acc.shipping")}</h2>
+        <button className="btn-primary" onClick={() => setEditing({ ...EMPTY_DEST })}>+ {t("acc.add_dest")}</button>
+      </div>
+      {list.length === 0 ? (
+        <div className="card grid min-h-[180px] place-items-center gap-2 p-5 text-center text-ink/50">
+          <div className="text-4xl">🚚</div>
+          <div>{t("acc.dest_empty")}</div>
+        </div>
+      ) : (
+        list.map((d) => (
+          <div key={d.id} className="card flex items-start gap-3 p-4">
+            <div className="text-2xl">{KIND_ICON[d.kind]}</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{d.kind === "pickup" ? (d.recipient || kindLabel("pickup")) : (d.cargo || kindLabel(d.kind))}</span>
+                {d.code && <span className="rounded bg-sand px-1.5 py-0.5 text-xs font-medium">{t("acc.code_short")}: {d.code}</span>}
+                {d.isDefault && <span className="rounded-full bg-clay/15 px-2 py-0.5 text-xs font-semibold text-clay">{t("acc.default")}</span>}
+              </div>
+              <div className="mt-0.5 text-sm text-ink/55">
+                {[d.kind === "cargo" ? [d.country, d.city].filter(Boolean).join(", ") : "", d.recipient && d.kind !== "pickup" ? d.recipient : "", d.phone, d.note].filter(Boolean).join(" · ")}
+              </div>
+              <div className="mt-2 flex gap-3 text-xs">
+                {!d.isDefault && <button onClick={() => act(d.id, "default")} className="font-medium text-clay hover:underline">{t("acc.make_default")}</button>}
+                <button onClick={() => setEditing({ ...d })} className="font-medium text-ink/60 hover:text-ink hover:underline">{t("acc.edit")}</button>
+                <button onClick={() => act(d.id, "delete")} className="font-medium text-red-600 hover:underline">{t("acc.delete")}</button>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
   );
 }
