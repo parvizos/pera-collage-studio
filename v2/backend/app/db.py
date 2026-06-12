@@ -148,6 +148,16 @@ def init_database() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS customer_favorites (
+                customer_id TEXT NOT NULL,
+                product_key TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (customer_id, product_key)
+            )
+            """
+        )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_cust_token ON customer_tokens(customer_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_addr_cust ON customer_addresses(customer_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_cust ON orders(customer_id, created_at DESC)")

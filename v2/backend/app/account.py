@@ -131,6 +131,40 @@ def update_profile(customer_id: str, name: str | None, email: str | None) -> dic
 
 
 # ---------------------------------------------------------------------------
+# Favorites (synced to account)
+# ---------------------------------------------------------------------------
+def list_favorites(customer_id: str) -> list[str]:
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT product_key FROM customer_favorites WHERE customer_id = ? ORDER BY created_at DESC",
+            (customer_id,),
+        ).fetchall()
+    return [r["product_key"] for r in rows]
+
+
+def add_favorite(customer_id: str, key: str) -> None:
+    if not key:
+        return
+    with get_db_connection() as conn:
+        conn.execute("INSERT OR IGNORE INTO customer_favorites (customer_id, product_key) VALUES (?, ?)", (customer_id, key))
+        conn.commit()
+
+
+def remove_favorite(customer_id: str, key: str) -> None:
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM customer_favorites WHERE customer_id = ? AND product_key = ?", (customer_id, key))
+        conn.commit()
+
+
+def merge_favorites(customer_id: str, keys: list) -> None:
+    with get_db_connection() as conn:
+        for k in keys or []:
+            if k:
+                conn.execute("INSERT OR IGNORE INTO customer_favorites (customer_id, product_key) VALUES (?, ?)", (customer_id, str(k)))
+        conn.commit()
+
+
+# ---------------------------------------------------------------------------
 # Shipping destinations (cargo / bayer / pickup)
 # ---------------------------------------------------------------------------
 _DEST_FIELDS = ("kind", "cargo", "code", "recipient", "phone", "country", "city", "note")

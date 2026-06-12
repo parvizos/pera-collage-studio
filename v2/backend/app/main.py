@@ -182,6 +182,32 @@ async def account_profile(request: Request):
     return json_response({"customer": updated})
 
 
+@app.get("/api/account/favorites")
+def account_favorites_get(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    return json_response({"favorites": account.list_favorites(cust["id"])})
+
+
+@app.post("/api/account/favorites")
+async def account_favorites_post(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    if isinstance(p.get("merge"), list):
+        account.merge_favorites(cust["id"], p["merge"])
+    if p.get("add"):
+        account.add_favorite(cust["id"], str(p["add"]))
+    if p.get("remove"):
+        account.remove_favorite(cust["id"], str(p["remove"]))
+    return json_response({"favorites": account.list_favorites(cust["id"])})
+
+
 @app.get("/api/account/destinations")
 def account_destinations(request: Request):
     cust = account.customer_by_token(_bearer(request))

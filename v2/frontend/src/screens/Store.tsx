@@ -517,9 +517,35 @@ export function Store({ template }: Props) {
   useEffect(() => {
     try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch { /* ignore */ }
   }, [favs]);
+
+  // On login: merge this device's guest favorites into the account, then use
+  // the account's synced list (works across devices).
+  useEffect(() => {
+    if (!account || !accToken) return;
+    let alive = true;
+    (async () => {
+      try {
+        let guest: string[] = [];
+        try { guest = JSON.parse(localStorage.getItem(FAV_KEY) || "[]"); } catch { /* ignore */ }
+        const r = guest.length
+          ? await api.accountFavoritesPost(accToken, { merge: guest })
+          : await api.accountFavorites(accToken);
+        if (alive) setFavs(r.favorites);
+      } catch { /* ignore */ }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account, accToken]);
+
   const isFav = (key: string) => favs.includes(key);
   function toggleFav(key: string) {
-    setFavs((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    const has = favs.includes(key);
+    setFavs((prev) => (has ? prev.filter((k) => k !== key) : [...prev, key]));
+    if (account && accToken) {
+      api.accountFavoritesPost(accToken, has ? { remove: key } : { add: key })
+        .then((r) => setFavs(r.favorites))
+        .catch(() => {});
+    }
   }
   const favProducts = products.filter((p) => favs.includes(p.key));
 

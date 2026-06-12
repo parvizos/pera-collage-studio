@@ -71,6 +71,15 @@ export const api = {
       body: JSON.stringify(data),
     }));
   },
+  async accountFavorites(token: string): Promise<{ favorites: string[] }> {
+    return asJson(await fetch("/api/account/favorites", { headers: { Authorization: `Bearer ${token}` } }));
+  },
+  async accountFavoritesPost(token: string, body: { add?: string; remove?: string; merge?: string[] }): Promise<{ favorites: string[] }> {
+    return asJson(await fetch("/api/account/favorites", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    }));
+  },
   async accountDestinations(token: string): Promise<{ destinations: Destination[] }> {
     return asJson(await fetch("/api/account/destinations", { headers: { Authorization: `Bearer ${token}` } }));
   },
