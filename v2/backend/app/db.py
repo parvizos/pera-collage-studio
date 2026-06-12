@@ -85,6 +85,64 @@ def init_database() -> None:
             )
             """
         )
+        # ---- Customer accounts (storefront) ----
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS customers (
+                id TEXT PRIMARY KEY,
+                phone TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL DEFAULT '',
+                email TEXT,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS customer_tokens (
+                token TEXT PRIMARY KEY,
+                customer_id TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS customer_addresses (
+                id TEXT PRIMARY KEY,
+                customer_id TEXT NOT NULL,
+                label TEXT,
+                recipient TEXT,
+                phone TEXT,
+                country TEXT,
+                city TEXT,
+                address TEXT,
+                is_default INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS orders (
+                id TEXT PRIMARY KEY,
+                customer_id TEXT NOT NULL,
+                number TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'new',
+                total REAL NOT NULL DEFAULT 0,
+                currency TEXT,
+                items_json TEXT NOT NULL DEFAULT '[]',
+                address_json TEXT,
+                comment TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_cust_token ON customer_tokens(customer_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_addr_cust ON customer_addresses(customer_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_cust ON orders(customer_id, created_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at DESC)")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_collage_user ON collage_records(user_id, created_at DESC)"
         )

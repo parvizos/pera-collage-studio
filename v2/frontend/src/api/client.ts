@@ -24,7 +24,47 @@ export class ApiError extends Error {
   }
 }
 
+export interface Customer {
+  id: string;
+  phone: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
 export const api = {
+  // ---- Customer account ----
+  async accountRegister(phone: string, name: string, password: string): Promise<{ customer: Customer; token: string }> {
+    return asJson(await fetch("/api/account/register", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, name, password }),
+    }));
+  },
+  async accountLogin(phone: string, password: string): Promise<{ customer: Customer; token: string }> {
+    return asJson(await fetch("/api/account/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, password }),
+    }));
+  },
+  async accountMe(token: string): Promise<{ customer: Customer }> {
+    return asJson(await fetch("/api/account/me", { headers: { Authorization: `Bearer ${token}` } }));
+  },
+  async accountLogout(token: string): Promise<void> {
+    await fetch("/api/account/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  },
+  async accountProfile(token: string, data: { name?: string; email?: string }): Promise<{ customer: Customer }> {
+    return asJson(await fetch("/api/account/profile", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    }));
+  },
+  async accountPassword(token: string, oldPw: string, newPw: string): Promise<void> {
+    await asJson(await fetch("/api/account/password", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ old: oldPw, new: newPw }),
+    }));
+  },
+
   async getTemplate(): Promise<Template> {
     return asJson<Template>(await fetch("/api/template"));
   },

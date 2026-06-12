@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from . import config, media, store, translate
+from . import account, config, media, store, translate
 from .db import init_database
 
 app = FastAPI(title="Pera Collage Studio API", version="2.0")
@@ -110,6 +110,92 @@ async def save_template(request: Request, x_admin_pin: str | None = Header(defau
     return json_response(
         {"ok": True, "storage": "database", "path": store.to_public_data_url(config.TEMPLATE_FILE)}
     )
+
+
+# ---------------------------------------------------------------------------
+# Customer accounts (storefront)
+# ---------------------------------------------------------------------------
+
+def _bearer(request: Request) -> str | None:
+    h = request.headers.get("authorization") or ""
+    return h[7:].strip() if h.lower().startswith("bearer ") else None
+
+
+_ACCOUNT_ERR = {
+    "bad_phone": ("Введите корректный телефон", 400),
+    "weak_password": ("Пароль слишком короткий", 400),
+    "phone_taken": ("Этот телефон уже зарегистрирован", 409),
+    "bad_credentials": ("Неверный телефон или пароль", 401),
+}
+
+
+@app.post("/api/account/register")
+async def account_register(request: Request):
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    result, err = account.register(str(p.get("phone") or ""), str(p.get("name") or ""), str(p.get("password") or ""))
+    if err:
+        msg, code = _ACCOUNT_ERR.get(err, ("Ошибка", 400))
+        return json_response({"error": err, "message": msg}, code)
+    return json_response(result)
+
+
+@app.post("/api/account/login")
+async def account_login(request: Request):
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    result, err = account.login(str(p.get("phone") or ""), str(p.get("password") or ""))
+    if err:
+        msg, code = _ACCOUNT_ERR.get(err, ("Ошибка", 400))
+        return json_response({"error": err, "message": msg}, code)
+    return json_response(result)
+
+
+@app.get("/api/account/me")
+def account_me(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    return json_response({"customer": cust})
+
+
+@app.post("/api/account/logout")
+async def account_logout(request: Request):
+    account.logout(_bearer(request) or "")
+    return json_response({"ok": True})
+
+
+@app.post("/api/account/profile")
+async def account_profile(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    updated = account.update_profile(cust["id"], p.get("name"), p.get("email"))
+    return json_response({"customer": updated})
+
+
+@app.post("/api/account/password")
+async def account_password(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    err = account.change_password(cust["id"], str(p.get("old") or ""), str(p.get("new") or ""))
+    if err:
+        msg, code = _ACCOUNT_ERR.get(err, ("Ошибка", 400))
+        return json_response({"error": err, "message": msg}, code)
+    return json_response({"ok": True})
 
 
 # ---------------------------------------------------------------------------

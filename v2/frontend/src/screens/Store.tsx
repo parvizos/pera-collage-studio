@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Template } from "../api/types";
-import { api, type StoreProduct, type StoreVariation } from "../api/client";
+import { api, type StoreProduct, type StoreVariation, type Customer } from "../api/client";
 import { Thumb } from "../components/Thumb";
 import { useI18n } from "../i18n";
 import { translateTerm } from "../i18n/glossary";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { AccountView } from "./AccountView";
+
+const ACC_TOKEN_KEY = "pera_acc_token";
 
 interface Props {
   template: Template;
@@ -459,7 +462,40 @@ export function Store({ template }: Props) {
     try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]"); } catch { return []; }
   });
   const [favPage, setFavPage] = useState(false);
+  const [accountPage, setAccountPage] = useState(false);
+  const [accToken, setAccToken] = useState<string | null>(() => {
+    try { return localStorage.getItem(ACC_TOKEN_KEY); } catch { return null; }
+  });
+  const [account, setAccount] = useState<Customer | null>(null);
   const [aboutPage, setAboutPage] = useState(false);
+
+  // Load the logged-in customer from the saved token.
+  useEffect(() => {
+    if (!accToken) { setAccount(null); return; }
+    let alive = true;
+    api.accountMe(accToken)
+      .then((r) => { if (alive) setAccount(r.customer); })
+      .catch(() => { if (alive) { setAccount(null); setAccToken(null); try { localStorage.removeItem(ACC_TOKEN_KEY); } catch { /* ignore */ } } });
+    return () => { alive = false; };
+  }, [accToken]);
+
+  function onAuthed(customer: Customer, token: string) {
+    setAccount(customer);
+    setAccToken(token);
+    try { localStorage.setItem(ACC_TOKEN_KEY, token); } catch { /* ignore */ }
+  }
+  function onAccountLogout() {
+    if (accToken) api.accountLogout(accToken).catch(() => {});
+    setAccount(null);
+    setAccToken(null);
+    try { localStorage.removeItem(ACC_TOKEN_KEY); } catch { /* ignore */ }
+  }
+  function goAccount() {
+    clearViews();
+    setAccountPage(true);
+    window.history.pushState({}, "", "/account");
+    window.scrollTo({ top: 0 });
+  }
   const [listing, setListing] = useState<{ type: "brand" | "category" | "color"; value: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [lColor, setLColor] = useState("");
@@ -535,12 +571,14 @@ export function Store({ template }: Props) {
     setQuick(null);
     setCartPage(false);
     setFavPage(false);
+    setAccountPage(false);
     setAboutPage(false);
     setListing(null);
 
     const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
     if (path === "/cart") { setCartPage(true); return; }
     if (path === "/favorites") { setFavPage(true); return; }
+    if (path === "/account") { setAccountPage(true); return; }
     if (path === "/about") { setAboutPage(true); return; }
 
     const dec = decodeURIComponent(path);
@@ -714,6 +752,7 @@ export function Store({ template }: Props) {
     setQuick(null);
     setCartPage(false);
     setFavPage(false);
+    setAccountPage(false);
     setAboutPage(false);
     setListing(null);
     setMenuOpen(false);
@@ -1385,8 +1424,8 @@ export function Store({ template }: Props) {
   // resolving on a direct load / refresh — show a loader until the view is ready.
   const path = (typeof window !== "undefined" ? window.location.pathname : "/").replace(/\/+$/, "") || "/";
   const isProductPath = /^\/product\//.test(path);
-  const isDeepView = isProductPath || path === "/cart" || path === "/favorites" || path === "/about" || /^\/(brand|category|color)\//.test(path);
-  const anyView = !!quick || cartPage || favPage || aboutPage || !!listing;
+  const isDeepView = isProductPath || path === "/cart" || path === "/favorites" || path === "/account" || path === "/about" || /^\/(brand|category|color)\//.test(path);
+  const anyView = !!quick || cartPage || favPage || accountPage || aboutPage || !!listing;
   const resolving = !previewMode && isDeepView && !anyView && (loading || isProductPath);
 
   return (
@@ -1418,6 +1457,14 @@ export function Store({ template }: Props) {
               {t("store.staff")}
             </a>
             <LanguageSwitcher />
+            <button
+              className="grid h-10 w-10 place-items-center rounded-full border border-line text-lg leading-none text-ink/70 transition hover:border-clay/50 hover:text-ink"
+              onClick={() => goAccount()}
+              aria-label={t("acc.title")}
+              title={account ? (account.name || account.phone) : t("acc.login")}
+            >
+              {account ? <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-xs font-bold text-white">{(account.name || account.phone || "?").slice(0, 1).toUpperCase()}</span> : "👤"}
+            </button>
             <button
               className="relative grid h-10 w-10 place-items-center rounded-full border border-line text-xl leading-none text-ink/60 transition hover:border-clay/50 hover:text-red-500"
               onClick={() => goFavorites()}
@@ -1533,7 +1580,17 @@ export function Store({ template }: Props) {
             )}
           </main>
         );
-      })() : favPage ? (
+      })() : accountPage ? (
+        <AccountView
+          account={account}
+          token={accToken}
+          onAuthed={onAuthed}
+          onLogout={onAccountLogout}
+          onUpdate={setAccount}
+          onClose={() => backToCatalog()}
+          onFavorites={() => goFavorites()}
+        />
+      ) : favPage ? (
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
           <button
             onClick={() => backToCatalog()}
