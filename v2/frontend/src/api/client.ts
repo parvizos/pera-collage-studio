@@ -71,6 +71,15 @@ export const api = {
       body: JSON.stringify(data),
     }));
   },
+  async accountOrders(token: string): Promise<{ orders: Order[] }> {
+    return asJson(await fetch("/api/account/orders", { headers: { Authorization: `Bearer ${token}` } }));
+  },
+  async accountOrderCreate(token: string, data: Record<string, unknown>): Promise<{ order: Order }> {
+    return asJson(await fetch("/api/account/orders", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data),
+    }));
+  },
   async accountFavorites(token: string): Promise<{ favorites: string[] }> {
     return asJson(await fetch("/api/account/favorites", { headers: { Authorization: `Bearer ${token}` } }));
   },
@@ -257,13 +266,31 @@ export const api = {
   },
 };
 
-export interface StoreOrder {
+export interface OrderItem {
+  code: string;
+  color?: string;
+  size?: string;
+  qty: number;
+  count?: number;
+  unit?: string;
+  price?: string;
+  photo?: string;
+}
+
+export interface Order {
   id: string;
-  createdAt: string;
+  number: string;
   status: string;
-  customer: { name: string; phone: string; address?: string; comment?: string };
-  items: { id: string; code: string; color: string; size: string; price: string; qty: number }[];
-  total?: number;
+  total: number;
+  currency: string;
+  items: OrderItem[];
+  destination: Destination | null;
+  comment: string;
+  createdAt: string;
+}
+
+export interface StoreOrder extends Order {
+  customer: { name: string; phone: string };
 }
 
 export interface StoreVariation {

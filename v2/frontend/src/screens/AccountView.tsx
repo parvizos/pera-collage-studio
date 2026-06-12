@@ -158,15 +158,63 @@ function Dashboard({ account, token, onLogout, onUpdate, onClose, onFavorites, t
             </div>
           )}
           {tab === "addresses" && <DestinationsTab token={token} t={t} />}
-          {tab === "orders" && (
-            <div className="card grid min-h-[220px] place-items-center gap-2 p-5 text-center text-ink/50">
-              <div className="text-4xl">📦</div>
-              <div>{t("acc.soon")}</div>
-            </div>
-          )}
+          {tab === "orders" && <OrdersTab token={token} t={t} />}
         </div>
       </div>
     </main>
+  );
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  new: "bg-blue-100 text-blue-700",
+  confirmed: "bg-amber-100 text-amber-700",
+  shipped: "bg-violet-100 text-violet-700",
+  done: "bg-green-100 text-green-700",
+  cancelled: "bg-red-100 text-red-600",
+};
+
+function OrdersTab({ token, t }: { token: string; t: (k: string, v?: Record<string, string | number>) => string }) {
+  const [orders, setOrders] = useState<import("../api/client").Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.accountOrders(token).then((r) => setOrders(r.orders)).catch(() => {}).finally(() => setLoading(false));
+  }, [token]);
+
+  if (loading) return <div className="card grid min-h-[160px] place-items-center p-5"><div className="h-7 w-7 animate-spin rounded-full border-2 border-line border-t-clay" /></div>;
+  if (orders.length === 0) {
+    return (
+      <div className="card grid min-h-[200px] place-items-center gap-2 p-5 text-center text-ink/50">
+        <div className="text-4xl">📦</div>
+        <div>{t("acc.no_orders")}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {orders.map((o) => (
+        <div key={o.id} className="card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="font-semibold">№ {o.number}</div>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[o.status] || "bg-sand text-ink/60"}`}>{t(`acc.status_${o.status}`)}</span>
+          </div>
+          <div className="mt-0.5 text-xs text-ink/45">{new Date(o.createdAt + "Z").toLocaleString()}</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {o.items.slice(0, 8).map((it, i) => (
+              <div key={i} className="h-16 w-14 overflow-hidden rounded-lg bg-sand" title={`${it.code} ×${it.qty}`}>
+                {it.photo && <img src={it.photo} alt={it.code} className="h-full w-full object-cover" />}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-line pt-2 text-sm">
+            <span className="text-ink/55">{t("acc.items_n", { n: o.items.reduce((s, it) => s + (it.qty || 1), 0) })}</span>
+            <span className="font-serif text-lg">{o.total} {o.currency}</span>
+          </div>
+          {o.destination && (
+            <div className="mt-1 text-xs text-ink/50">🚚 {o.destination.kind === "pickup" ? (o.destination.recipient || "") : o.destination.cargo}{o.destination.code ? ` · ${o.destination.code}` : ""}</div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

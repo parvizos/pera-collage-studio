@@ -9,6 +9,7 @@ import { FieldsSection } from "./admin/FieldsSection";
 import { HistorySection } from "./admin/HistorySection";
 import { SceneEditor } from "./admin/SceneEditor";
 import { StorePageSection } from "./admin/StorePageSection";
+import { OrdersSection } from "./admin/OrdersSection";
 import { useI18n } from "../i18n";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
@@ -21,11 +22,12 @@ interface Props {
   onLogout: () => void;
 }
 
-type SectionId = "overview" | "storepage" | "users" | "brands" | "fields" | "history" | "templates";
+type SectionId = "overview" | "storepage" | "orders" | "users" | "brands" | "fields" | "history" | "templates";
 
 const NAV: { id: SectionId; key: string }[] = [
   { id: "overview", key: "adm.nav_overview" },
   { id: "storepage", key: "adm.nav_page" },
+  { id: "orders", key: "adm.nav_orders" },
   { id: "users", key: "adm.nav_users" },
   { id: "brands", key: "adm.nav_brands" },
   { id: "fields", key: "adm.nav_fields" },
@@ -91,6 +93,7 @@ export function AdminApp({
           {section === "storepage" && (
             <StorePageSection template={template} adminPin={adminPin} onTemplateChange={onTemplateChange} onClose={() => setSection("overview")} />
           )}
+          {section === "orders" && <OrdersSection adminPin={adminPin} />}
           {section === "users" && (
             <UsersSection
               template={template}

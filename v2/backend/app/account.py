@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import re
 import secrets
 import uuid
 
 from .db import get_db_connection
+
+ORDER_STATUSES = ("new", "confirmed", "shipped", "done", "cancelled")
 
 _PBKDF2_ITERS = 200_000
 
@@ -128,6 +131,73 @@ def update_profile(customer_id: str, name: str | None, email: str | None) -> dic
         conn.commit()
         row = conn.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
     return public_customer(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Orders
+# ---------------------------------------------------------------------------
+def _public_order(row) -> dict:
+    return {
+        "id": row["id"],
+        "number": row["number"],
+        "status": row["status"],
+        "total": row["total"],
+        "currency": row["currency"] or "",
+        "items": json.loads(row["items_json"] or "[]"),
+        "destination": json.loads(row["address_json"]) if row["address_json"] else None,
+        "comment": row["comment"] or "",
+        "createdAt": row["created_at"],
+    }
+
+
+def create_order(customer_id: str, data: dict) -> dict:
+    items = data.get("items") or []
+    total = float(data.get("total") or 0)
+    currency = str(data.get("currency") or "")
+    destination = data.get("destination")
+    comment = str(data.get("comment") or "")
+    oid = uuid.uuid4().hex
+    with get_db_connection() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+        number = str(1001 + n)
+        conn.execute(
+            "INSERT INTO orders (id, customer_id, number, status, total, currency, items_json, address_json, comment) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (oid, customer_id, number, "new", total, currency,
+             json.dumps(items, ensure_ascii=False),
+             json.dumps(destination, ensure_ascii=False) if destination else None, comment),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM orders WHERE id = ?", (oid,)).fetchone()
+    return _public_order(row)
+
+
+def list_orders(customer_id: str) -> list[dict]:
+    with get_db_connection() as conn:
+        rows = conn.execute("SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC", (customer_id,)).fetchall()
+    return [_public_order(r) for r in rows]
+
+
+def admin_list_orders() -> list[dict]:
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT o.*, c.phone AS cust_phone, c.name AS cust_name "
+            "FROM orders o LEFT JOIN customers c ON c.id = o.customer_id ORDER BY o.created_at DESC"
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = _public_order(r)
+        d["customer"] = {"name": r["cust_name"] or "", "phone": r["cust_phone"] or ""}
+        out.append(d)
+    return out
+
+
+def admin_set_status(order_id: str, status: str) -> bool:
+    status = status if status in ORDER_STATUSES else "new"
+    with get_db_connection() as conn:
+        cur = conn.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
+        conn.commit()
+    return cur.rowcount > 0
 
 
 # ---------------------------------------------------------------------------

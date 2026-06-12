@@ -6,11 +6,19 @@ interface Props {
 }
 
 const STATUSES: { id: string; label: string; cls: string }[] = [
-  { id: "new", label: "Новый", cls: "bg-clay/10 text-clay" },
-  { id: "processing", label: "В работе", cls: "bg-blue-50 text-blue-700" },
+  { id: "new", label: "Новый", cls: "bg-blue-50 text-blue-700" },
+  { id: "confirmed", label: "Подтверждён", cls: "bg-amber-50 text-amber-700" },
+  { id: "shipped", label: "Отправлен", cls: "bg-violet-50 text-violet-700" },
   { id: "done", label: "Выполнен", cls: "bg-green-50 text-green-700" },
   { id: "cancelled", label: "Отменён", cls: "bg-red-50 text-red-600" },
 ];
+
+function destLine(d: StoreOrder["destination"]): string {
+  if (!d) return "";
+  if (d.kind === "cargo") return `Карго: ${d.cargo}${d.code ? `, код ${d.code}` : ""}${d.country || d.city ? `, ${[d.country, d.city].filter(Boolean).join(" ")}` : ""}${d.recipient ? `, ${d.recipient}` : ""}${d.phone ? `, ${d.phone}` : ""}`;
+  if (d.kind === "bayer") return `Байер: ${d.cargo}${d.code ? `, № ${d.code}` : ""}${d.phone ? `, ${d.phone}` : ""}`;
+  return `Самовывоз: ${d.recipient || ""}${d.phone ? `, ${d.phone}` : ""}`;
+}
 
 function statusInfo(id: string) {
   return STATUSES.find((s) => s.id === id) ?? STATUSES[0];
@@ -107,14 +115,15 @@ export function OrdersSection({ adminPin }: Props) {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-serif text-lg">{order.customer.name}</span>
+                      <span className="font-serif text-lg">№ {order.number}</span>
+                      <span className="text-sm text-ink/60">{order.customer.name}</span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${info.cls}`}>{info.label}</span>
                     </div>
                     <a href={phoneLink(order.customer.phone)} target="_blank" rel="noreferrer" className="text-sm text-ink/60 hover:text-ink">
                       📞 {order.customer.phone}
                     </a>
-                    {order.customer.address && <div className="text-sm text-ink/50">📍 {order.customer.address}</div>}
-                    {order.customer.comment && <div className="mt-1 text-sm italic text-ink/50">«{order.customer.comment}»</div>}
+                    {order.destination && <div className="text-sm text-ink/50">🚚 {destLine(order.destination)}</div>}
+                    {order.comment && <div className="mt-1 text-sm italic text-ink/50">«{order.comment}»</div>}
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-ink/40">{formatDate(order.createdAt)}</div>
@@ -132,10 +141,13 @@ export function OrdersSection({ adminPin }: Props) {
                   </div>
                 </div>
 
-                <div className="mt-4 divide-y divide-line border-t border-line">
+                <div className="mt-4 space-y-2 border-t border-line pt-3">
                   {order.items.map((it, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 text-sm">
-                      <span>
+                    <div key={i} className="flex items-center gap-3 text-sm">
+                      <a href={it.photo || undefined} target="_blank" rel="noreferrer" className="h-14 w-12 shrink-0 overflow-hidden rounded-lg bg-sand">
+                        {it.photo && <img src={it.photo} alt={it.code} className="h-full w-full object-cover" />}
+                      </a>
+                      <span className="flex-1">
                         <b>{it.code}</b>
                         {[it.color, it.size].filter(Boolean).length > 0 && (
                           <span className="text-ink/50"> · {[it.color, it.size].filter(Boolean).join(" · ")}</span>
@@ -150,7 +162,7 @@ export function OrdersSection({ adminPin }: Props) {
                 {order.total != null && (
                   <div className="mt-2 flex justify-between border-t border-line pt-2 font-semibold">
                     <span>Итого</span>
-                    <span>{Number(order.total).toLocaleString("ru-RU")}</span>
+                    <span>{Number(order.total).toLocaleString("ru-RU")} {order.currency}</span>
                   </div>
                 )}
               </div>

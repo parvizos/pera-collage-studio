@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Template } from "../api/types";
-import { api, type StoreProduct, type StoreVariation, type Customer } from "../api/client";
+import { api, type StoreProduct, type StoreVariation, type Customer, type Destination } from "../api/client";
 import { Thumb } from "../components/Thumb";
 import { useI18n } from "../i18n";
 import { translateTerm } from "../i18n/glossary";
@@ -537,6 +537,64 @@ export function Store({ template }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, accToken]);
 
+  // Saved shipping destinations (for checkout).
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destId, setDestId] = useState("");
+  const [orderComment, setOrderComment] = useState("");
+  const [ordering, setOrdering] = useState(false);
+  useEffect(() => {
+    if (!account || !accToken) { setDestinations([]); return; }
+    let alive = true;
+    api.accountDestinations(accToken).then((r) => {
+      if (!alive) return;
+      setDestinations(r.destinations);
+      const def = r.destinations.find((d) => d.isDefault) || r.destinations[0];
+      if (def) setDestId(def.id);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [account, accToken]);
+
+  function formatDest(d: Destination): string {
+    if (d.kind === "cargo") return `${t("acc.kind_cargo")}: ${d.cargo}${d.code ? `, ${t("acc.code_short")} ${d.code}` : ""}${d.country || d.city ? `, ${[d.country, d.city].filter(Boolean).join(" ")}` : ""}${d.recipient ? `, ${d.recipient}` : ""}${d.phone ? `, ${d.phone}` : ""}`;
+    if (d.kind === "bayer") return `${t("acc.kind_bayer")}: ${d.cargo}${d.code ? `, № ${d.code}` : ""}${d.phone ? `, ${d.phone}` : ""}`;
+    return `${t("acc.kind_pickup")}: ${d.recipient || ""}${d.phone ? `, ${d.phone}` : ""}`;
+  }
+
+  async function placeOrder() {
+    if (!account || !accToken || cart.length === 0) return;
+    setOrdering(true);
+    try {
+      const dest = destinations.find((d) => d.id === destId) || null;
+      const origin = window.location.origin;
+      const items = cart.map((i) => ({
+        code: i.code, color: i.color, size: i.size, qty: i.qty, count: i.count, unit: i.unit, price: i.price,
+        photo: i.photo ? (i.photo.startsWith("http") ? i.photo : origin + i.photo) : "",
+      }));
+      const r = await api.accountOrderCreate(accToken, { items, total: cartTotal, currency, destination: dest, comment: orderComment });
+      // WhatsApp message with photos + cargo
+      const lines = items.map((i, n) => {
+        const head = `${n + 1}) ${i.code}${i.color ? `, ${i.color}` : ""}${i.size ? `, ${i.size}` : ""} ×${i.qty}${i.price ? ` — ${i.price}` : ""}`;
+        return i.photo ? `${head}\n${i.photo}` : head;
+      });
+      const parts = [
+        `${t("wa.greeting")}`,
+        `${t("cart.order_no")} ${r.order.number}`,
+        "",
+        lines.join("\n"),
+        "",
+        `${t("wa.total")} ${money(cartTotal)}`,
+      ];
+      if (dest) parts.push("", `📦 ${formatDest(dest)}`);
+      if (orderComment.trim()) parts.push("", `📝 ${orderComment.trim()}`);
+      window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(parts.join("\n"))}`, "_blank");
+      setCart([]);
+      setOrderComment("");
+      goAccount();
+    } catch { /* ignore */ } finally {
+      setOrdering(false);
+    }
+  }
+
   const isFav = (key: string) => favs.includes(key);
   function toggleFav(key: string) {
     const has = favs.includes(key);
@@ -837,18 +895,6 @@ export function Store({ template }: Props) {
 
   function goHome() {
     backToCatalog();
-  }
-
-  function cartWhatsappLink(): string {
-    const lines = cart.map((i, n) => {
-      const series = i.count > 1 ? ` (${t("wa.series", { n: i.count })})` : "";
-      return `${n + 1}) ${i.code}${i.color ? `, ${i.color}` : ""}${i.size ? `, ${i.size}` : ""}${series} ×${i.qty}${
-        i.price ? ` — ${i.price}` : ""
-      }`;
-    });
-    const total = cartTotal > 0 ? `\n\n${t("wa.total")} ${money(cartTotal)}` : "";
-    const text = `${t("wa.greeting")}\n${lines.join("\n")}${total}`;
-    return `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   }
 
   function whatsappLink(p: StoreProduct, v: StoreVariation, qty = 1): string {
@@ -1694,22 +1740,47 @@ export function Store({ template }: Props) {
                 ))}
               </div>
 
-              <div className="mt-5 rounded-xl border border-line bg-white p-4">
-                <div className="mb-3 flex items-center justify-between text-lg font-semibold">
+              <div className="mt-5 space-y-3 rounded-xl border border-line bg-white p-4">
+                <div className="flex items-center justify-between text-lg font-semibold">
                   <span>{t("common.total")}</span>
                   <span>{cartTotal > 0 ? money(cartTotal) : "—"}</span>
                 </div>
-                <a
-                  href={cartWhatsappLink()}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-center font-semibold text-white"
-                >
-                  {t("cart.checkout_wa")}
-                </a>
-                <p className="mt-3 text-center text-xs text-ink/45">
-                  {t("cart.stock_note")}
-                </p>
+
+                {!account ? (
+                  <div className="space-y-2 rounded-xl bg-sand/60 p-3 text-center">
+                    <p className="text-sm text-ink/60">{t("cart.login_required")}</p>
+                    <button className="btn-primary w-full" onClick={() => goAccount()}>{t("acc.login")}</button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="field-label">{t("cart.ship_to")}</label>
+                      {destinations.length === 0 ? (
+                        <button onClick={() => goAccount()} className="w-full rounded-xl border border-dashed border-line py-2.5 text-sm font-medium text-clay hover:border-clay">
+                          + {t("acc.add_dest")}
+                        </button>
+                      ) : (
+                        <select className="input" value={destId} onChange={(e) => setDestId(e.target.value)}>
+                          {destinations.map((d) => (
+                            <option key={d.id} value={d.id}>{formatDest(d)}{d.isDefault ? ` ★` : ""}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                    <div>
+                      <label className="field-label">{t("cart.comment")}</label>
+                      <input className="input" value={orderComment} onChange={(e) => setOrderComment(e.target.value)} placeholder={t("cart.comment_ph")} />
+                    </div>
+                    <button
+                      onClick={placeOrder}
+                      disabled={ordering || destinations.length === 0}
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-center font-semibold text-white disabled:opacity-50"
+                    >
+                      {ordering ? "…" : t("cart.place_order")}
+                    </button>
+                  </>
+                )}
+                <p className="text-center text-xs text-ink/45">{t("cart.stock_note")}</p>
               </div>
             </>
           )}

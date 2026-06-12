@@ -182,6 +182,29 @@ async def account_profile(request: Request):
     return json_response({"customer": updated})
 
 
+@app.post("/api/account/orders")
+async def account_orders_create(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    try:
+        p = json.loads(await request.body())
+    except json.JSONDecodeError:
+        return json_response({"error": "invalid_json"}, 400)
+    if not (p.get("items") or []):
+        return json_response({"error": "empty_cart"}, 400)
+    order = account.create_order(cust["id"], p)
+    return json_response({"order": order})
+
+
+@app.get("/api/account/orders")
+def account_orders_list(request: Request):
+    cust = account.customer_by_token(_bearer(request))
+    if not cust:
+        return json_response({"error": "unauthorized"}, 401)
+    return json_response({"orders": account.list_orders(cust["id"])})
+
+
 @app.get("/api/account/favorites")
 def account_favorites_get(request: Request):
     cust = account.customer_by_token(_bearer(request))
@@ -491,7 +514,7 @@ async def store_order(request: Request):
 def store_orders(x_admin_pin: str | None = Header(default=None)):
     if x_admin_pin != store.load_shell_admin_pin():
         return json_response({"error": "unauthorized"}, 401)
-    return json_response({"orders": store.load_orders()})
+    return json_response({"orders": account.admin_list_orders()})
 
 
 @app.post("/api/store/order/status")
@@ -502,7 +525,7 @@ async def store_order_status(request: Request, x_admin_pin: str | None = Header(
         payload = json.loads(await request.body())
     except json.JSONDecodeError:
         return json_response({"error": "invalid_json"}, 400)
-    ok = await run_in_threadpool(store.set_order_status, payload.get("id"), payload.get("status"))
+    ok = await run_in_threadpool(account.admin_set_status, str(payload.get("id") or ""), str(payload.get("status") or ""))
     return json_response({"ok": ok})
 
 
